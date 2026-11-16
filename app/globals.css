@@ -82,12 +82,20 @@ a:hover {
   text-decoration: none;
 }
 
-.logo b {
+.logo img {
+  display: block;
+  height: 40px;
+  width: auto;
+}
+
+.logo b,
+.page-title b {
   color: var(--cyan);
   text-shadow: 0 0 12px rgba(0, 240, 255, 0.8);
 }
 
-.logo span {
+.logo span,
+.page-title span {
   color: var(--pink);
 }
 
