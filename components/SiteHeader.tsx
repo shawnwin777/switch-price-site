@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
@@ -32,8 +33,14 @@ export default function SiteHeader() {
   return (
     <header className="site-header">
       <div className="site-header-inner">
-        <Link href="/" className="logo">
-          <b>Switch</b> 遊戲<span>比價</span>
+        <Link href="/" className="logo" aria-label="SHAWN GAME STUDIO 首頁">
+          <Image
+            src="/sgs-logo.png"
+            alt="SHAWN GAME STUDIO"
+            width={1252}
+            height={976}
+            priority
+          />
         </Link>
         <nav className="nav">
           <Link href="/">首頁</Link>
