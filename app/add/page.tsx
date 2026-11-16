@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
+import { ADMIN_EMAIL, isAdminEmail } from "@/lib/admin";
 
 // 手動新增遊戲。封面用手把圖示佔位 /covers/placeholder.svg，
 // 目前填的價格就是歷史低價（historical_low_twd = 價格，價格列 is_historical_low = true）。
@@ -31,6 +32,19 @@ export default function AddGamePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [doneSlug, setDoneSlug] = useState("");
+  // null = 還在確認權限；只有管理員帳號能看到表單。
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const db = createSupabaseBrowserClient();
+    db.auth.getUser().then(({ data: { user } }) => {
+      if (!user) {
+        router.push("/login?next=/add");
+        return;
+      }
+      setIsAdmin(isAdminEmail(user.email));
+    });
+  }, [router]);
 
   async function submitGame(e: React.FormEvent) {
     e.preventDefault();
@@ -53,6 +67,10 @@ export default function AddGamePage() {
       } = await db.auth.getUser();
       if (!user) {
         router.push("/login?next=/add");
+        return;
+      }
+      if (!isAdminEmail(user.email)) {
+        setError("只有網站管理員可以新增遊戲。");
         return;
       }
       let slug = slugify(titleEn.trim() || titleZh.trim());
@@ -106,6 +124,29 @@ export default function AddGamePage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (isAdmin === null) {
+    return (
+      <div className="narrow">
+        <h1>➕ 新增遊戲</h1>
+        <p className="muted">確認權限中…</p>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="narrow">
+        <h1>➕ 新增遊戲</h1>
+        <div className="form-error">
+          只有網站管理員（{ADMIN_EMAIL}）可以新增遊戲。
+        </div>
+        <p>
+          <Link href="/">回首頁 →</Link>
+        </p>
+      </div>
+    );
   }
 
   return (

@@ -29,6 +29,7 @@ export default function HomeClient({
   filters,
   productTypes,
   loggedInUserId,
+  isAdmin,
 }: {
   games: GameWithPrices[];
   total: number;
@@ -37,6 +38,7 @@ export default function HomeClient({
   filters: HomeFilters;
   productTypes: string[];
   loggedInUserId: string | null;
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -259,7 +261,12 @@ export default function HomeClient({
         <div className="empty">
           <p>沒有符合條件的遊戲。</p>
           <p>
-            試試清除搜尋或篩選；或到 <Link href="/add">新增遊戲</Link> 手動加入。
+            試試清除搜尋或篩選。
+            {isAdmin && (
+              <>
+                或到 <Link href="/add">新增遊戲</Link> 手動加入。
+              </>
+            )}
           </p>
         </div>
       ) : (

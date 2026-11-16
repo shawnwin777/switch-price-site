@@ -150,7 +150,9 @@ create table if not exists public.user_settings (
 --   收藏 / 讚 / 留言：只有登入使用者能寫，且只能改自己的資料
 --   user_settings：只有本人能讀寫
 --   games / prices / fx_rates：不開放一般使用者的寫入 policy，
---   寫入一律走 Service Role Key（繞過 RLS），見 scripts/seed.mjs。
+--   寫入一律走 Service Role Key（繞過 RLS），見 scripts/seed.mjs；
+--   例外：管理員帳號（shawnwin777@gmail.com）可在站上新增遊戲，
+--   見 games_insert_admin / prices_insert_admin。
 -- ============================================================================
 alter table public.games enable row level security;
 alter table public.prices enable row level security;
@@ -170,6 +172,18 @@ create policy "games_select_public" on public.games
 drop policy if exists "prices_select_public" on public.prices;
 create policy "prices_select_public" on public.prices
   for select to anon, authenticated using (true);
+
+-- 新增遊戲：只有管理員帳號能從瀏覽器端寫入（/add 頁面用）。
+-- 其他登入使用者沒有 INSERT 政策，會被 RLS 擋下。
+drop policy if exists "games_insert_admin" on public.games;
+create policy "games_insert_admin" on public.games
+  for insert to authenticated
+  with check ((auth.jwt() ->> 'email') = 'shawnwin777@gmail.com');
+
+drop policy if exists "prices_insert_admin" on public.prices;
+create policy "prices_insert_admin" on public.prices
+  for insert to authenticated
+  with check ((auth.jwt() ->> 'email') = 'shawnwin777@gmail.com');
 
 -- fx_rates：所有人可讀
 drop policy if exists "fx_rates_select_public" on public.fx_rates;

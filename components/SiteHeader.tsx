@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
+import { isAdminEmail } from "@/lib/admin";
 
 export default function SiteHeader() {
   const [email, setEmail] = useState<string | null>(null);
@@ -45,7 +46,7 @@ export default function SiteHeader() {
         <nav className="nav">
           <Link href="/">首頁</Link>
           <Link href="/ranking">收藏排行</Link>
-          <Link href="/add">新增遊戲</Link>
+          {email && isAdminEmail(email) && <Link href="/add">新增遊戲</Link>}
           {email ? (
             <>
               <span className="user-chip">{email}</span>

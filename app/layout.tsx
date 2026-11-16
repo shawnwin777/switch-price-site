@@ -31,7 +31,7 @@ export default function RootLayout({
             </p>
             <p className="footer-sub">
               <Link href="/">首頁</Link> · <Link href="/ranking">收藏排行</Link> ·{" "}
-              <Link href="/add">新增遊戲</Link> · <Link href="/login">登入</Link>
+              <Link href="/login">登入</Link>
             </p>
           </div>
         </footer>

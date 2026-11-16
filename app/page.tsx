@@ -8,6 +8,7 @@ import {
   type HomeSortKey,
 } from "@/lib/data";
 import { formatTaipei } from "@/lib/format";
+import { isAdminEmail } from "@/lib/admin";
 import HomeClient from "@/components/HomeClient";
 
 // 資料頁面用 force-dynamic：建置時不呼叫 Supabase，
@@ -129,6 +130,7 @@ export default async function HomePage({
         filters={params}
         productTypes={productTypes}
         loggedInUserId={user?.id ?? null}
+        isAdmin={isAdminEmail(user?.email)}
       />
     </>
   );
