@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 import { cheapestPrice, getUserCollectionGameIds, isOnSale } from "@/lib/data";
-import { COUNTRIES } from "@/lib/countries";
+import { COUNTRIES, DEFAULT_BLOCKED_CODES } from "@/lib/countries";
 import type { GameWithPrices } from "@/lib/types";
 import GameCard from "./GameCard";
 import CountrySettings from "./CountrySettings";
@@ -28,7 +28,7 @@ export default function HomeClient({
   const [sort, setSort] = useState<SortKey>("cheap-asc");
   const [onlySale, setOnlySale] = useState(false);
   const [onlyMine, setOnlyMine] = useState(false);
-  const [blocked, setBlocked] = useState<string[]>([]);
+  const [blocked, setBlocked] = useState<string[]>(DEFAULT_BLOCKED_CODES);
   const [blockedLoaded, setBlockedLoaded] = useState(false);
   const [myCollection, setMyCollection] = useState<Set<string> | null>(null);
   const [userId, setUserId] = useState<string | null>(loggedInUserId);
@@ -42,7 +42,7 @@ export default function HomeClient({
         if (Array.isArray(list)) setBlocked(list.filter((c) => typeof c === "string"));
       }
     } catch {
-      // 讀不到就用空清單。
+      // 讀不到就用預設（只留台港）。
     }
     setBlockedLoaded(true);
   }, []);
