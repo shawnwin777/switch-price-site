@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 import { cheapestPrice, isOnSale, saleEndOf } from "@/lib/data";
-import { COUNTRIES, demoLabel, eshopUrl, productTypeLabel } from "@/lib/countries";
+import { COUNTRIES, DEFAULT_BLOCKED_CODES, demoLabel, eshopUrl, productTypeLabel } from "@/lib/countries";
 import { formatRaw, formatTwd, saleEndLabel } from "@/lib/format";
 import type { CommentItem, GameWithPrices } from "@/lib/types";
 import CollectionButton from "./CollectionButton";
@@ -23,7 +23,7 @@ export default function GameDetailClient({
   initialComments: CommentItem[];
   collectedByMe: boolean;
 }) {
-  const [blocked, setBlocked] = useState<string[]>([]);
+  const [blocked, setBlocked] = useState<string[]>(DEFAULT_BLOCKED_CODES);
   const [blockedLoaded, setBlockedLoaded] = useState(false);
   const [isCollected, setIsCollected] = useState(collectedByMe);
 
