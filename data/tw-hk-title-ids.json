@@ -1,0 +1,1574 @@
+{
+  "generated_at": "2026-11-16T13:23:34.356Z",
+  "sources": [
+    {
+      "name": "tw-list",
+      "url": "https://www.nintendo.com/tw/software/switch/",
+      "status": 200,
+      "entries": 166,
+      "note": "台灣官方遊戲清單（Next.js 頁面，RSC payload 的 Contentful 項目含 title + nsuid；?spage=N 分頁）；166 款，只含任天堂發行＋部分第三方，非 eShop 全部目錄"
+    },
+    {
+      "name": "hk-list",
+      "url": "https://www.nintendo.com/hk/software/switch/",
+      "status": 200,
+      "entries": 176,
+      "note": "香港官方遊戲清單（同結構）；176 款。台港多數遊戲共用同一 nsuid，但 2017-2019 舊遊戲台灣用 2025-09 新登記的 70010000102xxx 編號，香港用舊編號，須分開查"
+    },
+    {
+      "name": "tw-json",
+      "url": "https://www.nintendo.com/zh-hant-tw/data/json/switch_software.json",
+      "status": 404,
+      "entries": 0,
+      "note": "仿香港路徑的台灣 JSON 清單不存在（404）；台灣沒有 data/json 清單端點"
+    },
+    {
+      "name": "hk-json",
+      "url": "https://www.nintendo.com.hk/data/json/switch_software.json",
+      "status": 200,
+      "entries": 544,
+      "note": "僅作存在性輔助：內容約停在 2022-06；thumb_img / link 裡的數字不是 title ID，不採用"
+    },
+    {
+      "name": "jp-xml",
+      "url": "https://www.nintendo.co.jp/data/software/xml/switch.xml",
+      "status": 200,
+      "entries": 10045,
+      "note": "日本官網清單，僅用來提供 title_id（日本／全球編號）對照；台港編號與日本不同，不能直接套用"
+    },
+    {
+      "name": "hk-weekly-articles",
+      "url": "https://www.nintendo.com/hk/topics/?p=",
+      "status": 200,
+      "entries": 107,
+      "note": "港台每週「Nintendo eShop 新作軟體資訊」文章共 107 篇（香港 2025-07～2026-11、台灣 2026-01～2026-11），內文 Contentful 項目自帶 title + nsuid；黑帝斯 II、小丑牌、歧路旅人 II、雙人成行的台港編號出自此處"
+    },
+    {
+      "name": "price-api",
+      "url": "https://api.ec.nintendo.com/v1/price?country={TW,HK}&ids={ids}&lang=zh",
+      "status": 200,
+      "note": "官方價格 API；lang 對 TW/HK 用 zh；一次最多 50 個 ID；失敗重試、缺價不中斷"
+    },
+    {
+      "name": "checkgreenpipe",
+      "url": "https://checkgreenpipe.com/game/dave-the-diver",
+      "status": 200,
+      "note": "第三方比價站交叉核對：DAVE 台灣 $10.63 ≒ 350 台幣、香港 $17.84 ≒ 140 港幣，與價格 API 一致；同站亦證實星露谷／黑帝斯／空洞騎士／蔚藍／Undertale／女神異聞錄5 皇家版／絲之歌沒有台港價，死亡細胞只有香港價（HKD 188）"
+    }
+  ],
+  "mapped": {
+    "botw": {
+      "title_id": "70010000000026",
+      "tw_title_id": "70010000102734",
+      "hk_title_id": "70010000009367",
+      "title_zh": "薩爾達傳說 曠野之息",
+      "title_en": "Breath of the Wild",
+      "source": "tw-list",
+      "tw_price": {
+        "regularRaw": 1599,
+        "effectiveRaw": 1599,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 399,
+        "effectiveRaw": 399,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true
+    },
+    "totk": {
+      "title_id": "70010000063713",
+      "tw_title_id": "70010000063717",
+      "hk_title_id": "70010000063717",
+      "title_zh": "薩爾達傳說 王國之淚",
+      "title_en": "Tears of the Kingdom",
+      "source": "tw-list",
+      "tw_price": {
+        "regularRaw": 1599,
+        "effectiveRaw": 1599,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 399,
+        "effectiveRaw": 399,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true
+    },
+    "mk8dx": {
+      "title_id": "70010000000186",
+      "tw_title_id": "70010000102140",
+      "hk_title_id": "70010000009373",
+      "title_zh": "瑪利歐賽車8 豪華版",
+      "title_en": "Mario Kart 8 Deluxe",
+      "source": "tw-list",
+      "tw_price": {
+        "regularRaw": 1339,
+        "effectiveRaw": 1339,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 329,
+        "effectiveRaw": 329,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true
+    },
+    "smash": {
+      "title_id": "70010000012085",
+      "tw_title_id": "70010000102204",
+      "hk_title_id": "70010000012908",
+      "title_zh": "任天堂明星大亂鬥 特別版",
+      "title_en": "Super Smash Bros. Ultimate",
+      "source": "tw-list",
+      "tw_price": {
+        "regularRaw": 1339,
+        "effectiveRaw": 1339,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 329,
+        "effectiveRaw": 329,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true
+    },
+    "acnh": {
+      "title_id": "70010000027618",
+      "tw_title_id": "70010000027622",
+      "hk_title_id": "70010000027622",
+      "title_zh": "集合啦！動物森友會",
+      "title_en": "Animal Crossing: New Horizons",
+      "source": "tw-list",
+      "tw_price": {
+        "regularRaw": 1339,
+        "effectiveRaw": 1339,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 329,
+        "effectiveRaw": 329,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true
+    },
+    "splatoon3": {
+      "title_id": "70010000046394",
+      "tw_title_id": "70010000046398",
+      "hk_title_id": "70010000046398",
+      "title_zh": "斯普拉遁 3",
+      "title_en": "Splatoon 3",
+      "source": "tw-list",
+      "tw_price": {
+        "regularRaw": 1339,
+        "effectiveRaw": 1339,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 329,
+        "effectiveRaw": 329,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true
+    },
+    "pokemon-sv": {
+      "title_id": "70010000053970",
+      "tw_title_id": "70010000053974",
+      "hk_title_id": "70010000053974",
+      "title_zh": "寶可夢 朱／紫",
+      "title_en": "Pokémon Violet",
+      "source": "price-api-plus4",
+      "tw_price": {
+        "regularRaw": 1339,
+        "effectiveRaw": 1339,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 329,
+        "effectiveRaw": 329,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true,
+      "note": "種子檔只收 Violet 一版；台灣清單另有朱 70010000053969（見 related_ids）",
+      "related_ids": {
+        "scarlet_tw": "70010000053969"
+      }
+    },
+    "kirby-fl": {
+      "title_id": "70010000046404",
+      "tw_title_id": "70010000046408",
+      "hk_title_id": "70010000046408",
+      "title_zh": "星之卡比 探索發現",
+      "title_en": "Kirby and the Forgotten Land",
+      "source": "tw-list",
+      "tw_price": {
+        "regularRaw": 1339,
+        "effectiveRaw": 1339,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 329,
+        "effectiveRaw": 329,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true
+    },
+    "mario-odyssey": {
+      "title_id": "70010000000828",
+      "tw_title_id": "70010000102434",
+      "hk_title_id": "70010000009372",
+      "title_zh": "超級瑪利歐 奧德賽",
+      "title_en": "Super Mario Odyssey",
+      "source": "tw-list",
+      "tw_price": {
+        "regularRaw": 1339,
+        "effectiveRaw": 1339,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 329,
+        "effectiveRaw": 329,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true
+    },
+    "mario-wonder": {
+      "title_id": "70010000068687",
+      "tw_title_id": "70010000068691",
+      "hk_title_id": "70010000068691",
+      "title_zh": "超級瑪利歐兄弟 驚奇",
+      "title_en": "Super Mario Bros. Wonder",
+      "source": "tw-list",
+      "tw_price": {
+        "regularRaw": 1339,
+        "effectiveRaw": 1339,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 329,
+        "effectiveRaw": 329,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true
+    },
+    "luigi3": {
+      "title_id": "70010000001621",
+      "tw_title_id": "70010000024566",
+      "hk_title_id": "70010000024566",
+      "title_zh": "路易吉洋樓3",
+      "title_en": "Luigi's Mansion 3",
+      "source": "tw-list",
+      "tw_price": {
+        "regularRaw": 1339,
+        "effectiveRaw": 1339,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 329,
+        "effectiveRaw": 329,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true
+    },
+    "fire-emblem-3h": {
+      "title_id": "70010000007607",
+      "tw_title_id": "70010000102684",
+      "hk_title_id": "70010000021361",
+      "title_zh": "Fire Emblem 風花雪月",
+      "title_en": "Fire Emblem: Three Houses",
+      "source": "tw-list",
+      "tw_price": {
+        "regularRaw": 1339,
+        "effectiveRaw": 1339,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 329,
+        "effectiveRaw": 329,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true
+    },
+    "xenoblade3": {
+      "title_id": "70010000053335",
+      "tw_title_id": "70010000053339",
+      "hk_title_id": "70010000053339",
+      "title_zh": "異度神劍3",
+      "title_en": "Xenoblade Chronicles 3",
+      "source": "tw-list",
+      "tw_price": {
+        "regularRaw": 1339,
+        "effectiveRaw": 1339,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 329,
+        "effectiveRaw": 329,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true
+    },
+    "balatro": {
+      "title_id": "70010000072053",
+      "tw_title_id": "70010000119174",
+      "hk_title_id": "70010000119174",
+      "title_zh": "小丑牌 Balatro",
+      "title_en": "Balatro",
+      "source": "hk-weekly-article",
+      "tw_price": {
+        "regularRaw": 258,
+        "effectiveRaw": 258,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 95,
+        "effectiveRaw": 95,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true,
+      "note": "香港 2026-03-06 新作軟體資訊文章"
+    },
+    "dave-diver": {
+      "title_id": "70010000060371",
+      "tw_title_id": "70010000060370",
+      "hk_title_id": "70010000060370",
+      "title_zh": "潛水員戴夫",
+      "title_en": "DAVE THE DIVER",
+      "source": "price-api-scan+checkgreenpipe",
+      "tw_price": {
+        "regularRaw": 350,
+        "effectiveRaw": 350,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 140,
+        "effectiveRaw": 140,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true,
+      "note": "另有 Switch 2 Edition 70010000111456（台港同價 350/140）",
+      "related_ids": {
+        "switch2_edition_tw": "70010000111456"
+      }
+    },
+    "ring-fit": {
+      "title_id": null,
+      "tw_title_id": "70010000027272",
+      "hk_title_id": "70010000027272",
+      "title_zh": "健身環大冒險",
+      "title_en": "Ring Fit Adventure",
+      "source": "tw-list",
+      "tw_price": null,
+      "hk_price": null,
+      "price_verified": false,
+      "price_note": "編號來自台灣官方清單，但價格 API 回 TW not_found / HK sales_termination：下載版已停售（健身環以盒裝＋環同捆為主），故無台港價"
+    },
+    "mario-party-j": {
+      "title_id": "70010000084607",
+      "tw_title_id": "70010000084611",
+      "hk_title_id": "70010000084611",
+      "title_zh": "超級瑪利歐派對 空前盛會",
+      "title_en": "Super Mario Party Jamboree",
+      "source": "tw-list",
+      "tw_price": {
+        "regularRaw": 1449,
+        "effectiveRaw": 1449,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 329,
+        "effectiveRaw": 329,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true
+    },
+    "zelda-eow": {
+      "title_id": "70010000084617",
+      "tw_title_id": "70010000084621",
+      "hk_title_id": "70010000084621",
+      "title_zh": "薩爾達傳說 智慧的再現",
+      "title_en": "Echoes of Wisdom",
+      "source": "tw-list",
+      "tw_price": {
+        "regularRaw": 1539,
+        "effectiveRaw": 1539,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 329,
+        "effectiveRaw": 329,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true
+    },
+    "dk-bananza": {
+      "title_id": "70010000096812",
+      "tw_title_id": "70010000096812",
+      "hk_title_id": "70010000096812",
+      "title_zh": "咚奇剛 蕉力全開",
+      "title_en": "Donkey Kong Bananza",
+      "source": "eshop-title-page",
+      "tw_price": {
+        "regularRaw": 1880,
+        "effectiveRaw": 1880,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 449,
+        "effectiveRaw": 449,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true,
+      "note": "https://ec.nintendo.com/HK/zh/titles/70010000096812"
+    },
+    "mk-world": {
+      "title_id": "70010000096808",
+      "tw_title_id": "70010000096808",
+      "hk_title_id": "70010000096808",
+      "title_zh": "瑪利歐賽車世界",
+      "title_en": "Mario Kart World",
+      "source": "eshop-title-page",
+      "tw_price": {
+        "regularRaw": 2080,
+        "effectiveRaw": 2080,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 499,
+        "effectiveRaw": 499,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true,
+      "note": "https://ec.nintendo.com/HK/zh/titles/70010000096808"
+    },
+    "pokemon-za": {
+      "title_id": null,
+      "tw_title_id": "70010000094237",
+      "hk_title_id": "70010000094237",
+      "title_zh": "寶可夢傳說 Z-A",
+      "title_en": "Pokémon Legends: Z-A",
+      "source": "tw-list",
+      "tw_price": {
+        "regularRaw": 1449,
+        "effectiveRaw": 1449,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 359,
+        "effectiveRaw": 359,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true
+    },
+    "hades2": {
+      "title_id": null,
+      "tw_title_id": "70010000103276",
+      "hk_title_id": "70010000103276",
+      "title_zh": "黑帝斯 II",
+      "title_en": "Hades II",
+      "source": "hk-weekly-article",
+      "tw_price": {
+        "regularRaw": 748,
+        "effectiveRaw": 748,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 199,
+        "effectiveRaw": 199,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true,
+      "note": "香港 2025-09-26 新作軟體資訊文章；另有 S2E 70010000105996（台港同價）",
+      "related_ids": {
+        "switch2_edition_tw": "70010000105996"
+      }
+    },
+    "octopath2": {
+      "title_id": "70010000058127",
+      "tw_title_id": "70010000108551",
+      "hk_title_id": "70010000108551",
+      "title_zh": "歧路旅人 II",
+      "title_en": "Octopath Traveler II",
+      "source": "hk-weekly-article",
+      "tw_price": {
+        "regularRaw": 1190,
+        "effectiveRaw": 1190,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 298,
+        "effectiveRaw": 298,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true,
+      "note": "香港 2026-10-02 新作軟體資訊文章"
+    },
+    "it-takes-two": {
+      "title_id": "70010000049280",
+      "tw_title_id": "70010000121109",
+      "hk_title_id": "70010000121109",
+      "title_zh": "雙人成行",
+      "title_en": "It Takes Two",
+      "source": "hk-weekly-article",
+      "tw_price": {
+        "regularRaw": 1199,
+        "effectiveRaw": 1199,
+        "currency": "TWD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "hk_price": {
+        "regularRaw": 319,
+        "effectiveRaw": 319,
+        "currency": "HKD",
+        "discountPct": null,
+        "saleEnd": null
+      },
+      "price_verified": true,
+      "note": "香港 2026-10-16 新作軟體資訊文章"
+    }
+  },
+  "unmapped": [
+    {
+      "slug": "hades",
+      "title_zh": "黑帝斯 Hades",
+      "title_en": "Hades",
+      "reason": "台灣 eShop 沒有；香港也沒有。香港舊 JSON（2022-06）與 107 篇港台每週新作文章皆無；checkgreenpipe 無台港價"
+    },
+    {
+      "slug": "hollow-knight",
+      "title_zh": "空洞騎士",
+      "title_en": "Hollow Knight",
+      "reason": "台灣 eShop 沒有；香港也沒有。PTT 2025-08 討論亦指港區沒有；checkgreenpipe 無台港價"
+    },
+    {
+      "slug": "stardew",
+      "title_zh": "星露谷物語",
+      "title_en": "Stardew Valley",
+      "reason": "台灣 eShop 沒有下載版（任務背景「台灣 eShop 有賣」經實測不成立：官方清單無、每週新作文章無、價格 API 掃不到、checkgreenpipe 無台港價）；台灣只有實體卡約 980-1090 元"
+    },
+    {
+      "slug": "celeste",
+      "title_zh": "蔚藍 Celeste",
+      "title_en": "Celeste",
+      "reason": "台灣 eShop 沒有；香港也沒有。checkgreenpipe 無台港價；價格 API 附近掃到的 70010000010825/10828 是其他遊戲（HKD 457/90，與蔚藍定價不符）"
+    },
+    {
+      "slug": "undertale",
+      "title_zh": "Undertale 傳說之下",
+      "title_en": "UNDERTALE",
+      "reason": "台灣 eShop 沒有；香港也沒有。checkgreenpipe 無台港價"
+    },
+    {
+      "slug": "dead-cells",
+      "title_zh": "死亡細胞",
+      "title_en": "Dead Cells",
+      "reason": "台灣 eShop 沒有；香港有（HKD 188，現 50% off 到 94），但香港編號未找到"
+    },
+    {
+      "slug": "silksong",
+      "title_zh": "空洞騎士：絲之歌",
+      "title_en": "Hollow Knight: Silksong",
+      "reason": "台灣 eShop 沒有；香港也沒有。發售當週（2025-09-05）香港新作文章無此遊戲；checkgreenpipe 無台港價；台灣媒體亦稱開店初期尚未上架"
+    },
+    {
+      "slug": "persona5r",
+      "title_zh": "女神異聞錄5 皇家版",
+      "title_en": "Persona 5 Royal",
+      "reason": "台灣 eShop 沒有；香港也沒有。checkgreenpipe 無台港價；曾懷疑的 70010000042364（台港 600/170）與該遊戲定價不符，已排除"
+    }
+  ],
+  "tw_only_games": [
+    {
+      "slug": "tw-70010000095685",
+      "title_zh": "密特羅德 究極4 穿越未知",
+      "tw_title_id": "70010000095685",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000104190",
+      "title_zh": "超級瑪利歐銀河",
+      "tw_title_id": "70010000104190",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70070000030643",
+      "title_zh": "超級瑪利歐銀河 ＋ 超級瑪利歐銀河 ２",
+      "tw_title_id": "70070000030643",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000104195",
+      "title_zh": "超級瑪利歐銀河 ２",
+      "tw_title_id": "70010000104195",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000088835",
+      "title_zh": "異度神劍X 終極版",
+      "tw_title_id": "70010000088835",
+      "source": "tw-list"
+    },
+    {
+      "slug": "hd",
+      "title_zh": "咚奇剛 歸來 HD",
+      "tw_title_id": "70010000084606",
+      "source": "tw-list"
+    },
+    {
+      "slug": "fitness-boxing-3-your-personal-trainer",
+      "title_zh": "Fitness Boxing 3: Your Personal Trainer",
+      "tw_title_id": "70010000089517",
+      "source": "tw-list"
+    },
+    {
+      "slug": "rpg",
+      "title_zh": "瑪利歐＆路易吉RPG 兄弟齊航！",
+      "tw_title_id": "70010000084616",
+      "source": "tw-list"
+    },
+    {
+      "slug": "famicom-emio",
+      "title_zh": "Famicom偵探俱樂部 笑臉男ＥＭＩＯ",
+      "tw_title_id": "70010000084626",
+      "source": "tw-list"
+    },
+    {
+      "slug": "nintendo-world-championships-famicom",
+      "title_zh": "Nintendo World Championships Famicom世界大會",
+      "tw_title_id": "70010000080667",
+      "source": "tw-list"
+    },
+    {
+      "slug": "2-hd",
+      "title_zh": "路易吉洋樓２ HD",
+      "tw_title_id": "70010000077703",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000079170",
+      "title_zh": "紙片瑪利歐RPG",
+      "tw_title_id": "70010000079170",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000077708",
+      "title_zh": "永恆蔚藍 流光",
+      "tw_title_id": "70010000077708",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000072184",
+      "title_zh": "碧姬公主 表演時刻！",
+      "tw_title_id": "70010000072184",
+      "source": "tw-list"
+    },
+    {
+      "slug": "vs",
+      "title_zh": "瑪利歐vs.咚奇剛",
+      "tw_title_id": "70010000072194",
+      "source": "tw-list"
+    },
+    {
+      "slug": "another-code",
+      "title_zh": "Another Code 回憶錄：兩種記憶／記憶之門",
+      "tw_title_id": "70010000072199",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000068686",
+      "title_zh": "超級瑪利歐RPG",
+      "tw_title_id": "70010000068686",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000068681",
+      "title_zh": "超級舞動 瓦利歐製造",
+      "tw_title_id": "70010000068681",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000068696",
+      "title_zh": "名偵探皮卡丘 閃電回歸",
+      "tw_title_id": "70010000068696",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000058466",
+      "title_zh": "迪士尼奇幻島：米奇與好朋友大冒險",
+      "tw_title_id": "70010000058466",
+      "source": "tw-list"
+    },
+    {
+      "slug": "spirit-crossing",
+      "title_zh": "Spirit Crossing - 靈渡之境",
+      "tw_title_id": "70010000140060",
+      "source": "tw-list"
+    },
+    {
+      "slug": "unicorn-academy",
+      "title_zh": "獨角獸學院 (Unicorn Academy): 魔法之島",
+      "tw_title_id": "70010000119552",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000140098",
+      "title_zh": "小貓躲貓貓：二次元老婆",
+      "tw_title_id": "70010000140098",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000140640",
+      "title_zh": "細思極恐漫畫：隱藏的真相",
+      "tw_title_id": "70010000140640",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000138015",
+      "title_zh": "辣妹南國假期 常夏回憶",
+      "tw_title_id": "70010000138015",
+      "source": "tw-list"
+    },
+    {
+      "slug": "relic-looter",
+      "title_zh": "Relic Looter",
+      "tw_title_id": "70010000141905",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000140239",
+      "title_zh": "轉轉女友！ ～水上樂園的秘密約會～",
+      "tw_title_id": "70010000140239",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000136382",
+      "title_zh": "動動腦！長知識！小學基礎知識問答對戰",
+      "tw_title_id": "70010000136382",
+      "source": "tw-list"
+    },
+    {
+      "slug": "bl-rainbow-romance-college-boys-in-love",
+      "title_zh": "彩虹戀曲：男大生BL之戀 (Rainbow Romance: College Boys in Love)",
+      "tw_title_id": "70010000137607",
+      "source": "tw-list"
+    },
+    {
+      "slug": "charoite-into-the-deep",
+      "title_zh": "Charoite into the Deep",
+      "tw_title_id": "70010000140857",
+      "source": "tw-list"
+    },
+    {
+      "slug": "my-pet-seduced-me-save-animal-boys-from-the-monster",
+      "title_zh": "我的寵物在撩我：拯救獸耳男孩 (My Pet Seduced Me: Save Animal Boys from the Monster)",
+      "tw_title_id": "70010000123148",
+      "source": "tw-list"
+    },
+    {
+      "slug": "vs-cats-vs-internet-rise-of-the-meme-boys",
+      "title_zh": "貓咪 vs 網路：迷因男孩的反擊 (Cats vs Internet: Rise of the Meme Boys)",
+      "tw_title_id": "70010000120044",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000139490",
+      "title_zh": "城市道路拼圖：連接街道的腦力訓練",
+      "tw_title_id": "70010000139490",
+      "source": "tw-list"
+    },
+    {
+      "slug": "ritebound",
+      "title_zh": "Ritebound",
+      "tw_title_id": "70010000138636",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000138022",
+      "title_zh": "黑髮美女的夏日假期 找不同",
+      "tw_title_id": "70010000138022",
+      "source": "tw-list"
+    },
+    {
+      "slug": "cross-channel-for-all-people",
+      "title_zh": "CROSS†CHANNEL 交錯頻道 ～For all people～",
+      "tw_title_id": "70010000122379",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000111043",
+      "title_zh": "月下夢景",
+      "tw_title_id": "70010000111043",
+      "source": "tw-list"
+    },
+    {
+      "slug": "umami",
+      "title_zh": "UMAMI",
+      "tw_title_id": "70010000121725",
+      "source": "tw-list"
+    },
+    {
+      "slug": "steel-vanguard-project-ares",
+      "title_zh": "STEEL VANGUARD:Project ARES",
+      "tw_title_id": "70010000140755",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000139048",
+      "title_zh": "尋找香蕉！：美少女腦力訓練",
+      "tw_title_id": "70010000139048",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000141297",
+      "title_zh": "輕鬆解謎：1分鐘偵探 推理",
+      "tw_title_id": "70010000141297",
+      "source": "tw-list"
+    },
+    {
+      "slug": "kids-minesweeper",
+      "title_zh": "Kids Minesweeper",
+      "tw_title_id": "70010000140405",
+      "source": "tw-list"
+    },
+    {
+      "slug": "beyond-the-mist",
+      "title_zh": "Beyond the Mist",
+      "tw_title_id": "70010000139350",
+      "source": "tw-list"
+    },
+    {
+      "slug": "rainbow-romance-college-girls-in-love",
+      "title_zh": "彩虹戀曲：女大生百合之戀 (Rainbow Romance: College Girls in Love)",
+      "tw_title_id": "70010000137601",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000138028",
+      "title_zh": "美女穿搭檢查！ 今天這身穿對了嗎？",
+      "tw_title_id": "70010000138028",
+      "source": "tw-list"
+    },
+    {
+      "slug": "my-pet-seduced-me-save-animal-girls-from-the-monster",
+      "title_zh": "我被寵物撩了：從怪物手中守護動物娘 (My Pet Seduced Me: Save Animal Girls from the Monster)",
+      "tw_title_id": "70010000123142",
+      "source": "tw-list"
+    },
+    {
+      "slug": "pack-the-cats",
+      "title_zh": "Pack The Cats",
+      "tw_title_id": "70010000140317",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000140269",
+      "title_zh": "試管倒水排序測驗〜最少幾步能把顏色排好？〜",
+      "tw_title_id": "70010000140269",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000138068",
+      "title_zh": "邊玩邊學 第一次學 英語",
+      "tw_title_id": "70010000138068",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tile-tales-pirate",
+      "title_zh": "Tile Tales: Pirate",
+      "tw_title_id": "70010000094524",
+      "source": "tw-list"
+    },
+    {
+      "slug": "suicide-guy-deluxe-plus",
+      "title_zh": "Suicide Guy Deluxe Plus",
+      "tw_title_id": "70010000138334",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000140233",
+      "title_zh": "神魂顛倒！奇幻世界蒙太奇拼圖 ～從聖女到魔物娘～",
+      "tw_title_id": "70010000140233",
+      "source": "tw-list"
+    },
+    {
+      "slug": "jaden-industries-cozy-automation-puzzler",
+      "title_zh": "傑登工業: 療癒系自動化解謎遊戲 (JADEN INDUSTRIES: Cozy Automation Puzzler)",
+      "tw_title_id": "70010000139618",
+      "source": "tw-list"
+    },
+    {
+      "slug": "gravity-switch",
+      "title_zh": "Gravity Switch",
+      "tw_title_id": "70010000142134",
+      "source": "tw-list"
+    },
+    {
+      "slug": "grime-ii",
+      "title_zh": "GRIME II",
+      "tw_title_id": "70010000132283",
+      "source": "tw-list"
+    },
+    {
+      "slug": "cheerleaders-boys-naughty-school-spirit",
+      "title_zh": "淘氣青春：啦啦隊少年 (Cheerleaders Boys: Naughty School Spirit)",
+      "tw_title_id": "70010000137926",
+      "source": "tw-list"
+    },
+    {
+      "slug": "yandere-temptation-crazy-anime-girls-obsession",
+      "title_zh": "病嬌誘惑：瘋狂動漫女孩的執念 (Yandere Temptation: Crazy Anime Girls Obsession)",
+      "tw_title_id": "70010000125739",
+      "source": "tw-list"
+    },
+    {
+      "slug": "cheerleaders-girls-naughty-school-spirit",
+      "title_zh": "淘氣青春：啦啦隊少女 (Cheerleaders Girls: Naughty School Spirit)",
+      "tw_title_id": "70010000137920",
+      "source": "tw-list"
+    },
+    {
+      "slug": "astralis-dawnblades",
+      "title_zh": "Astralis: Dawnblades",
+      "tw_title_id": "70010000140924",
+      "source": "tw-list"
+    },
+    {
+      "slug": "yandere-temptation-crazy-anime-boys-obsession",
+      "title_zh": "病嬌誘惑：為你瘋狂的動漫男孩 (Yandere Temptation: Crazy Anime Boys Obsession)",
+      "tw_title_id": "70010000125797",
+      "source": "tw-list"
+    },
+    {
+      "slug": "one-room-zombie",
+      "title_zh": "ONE-ROOM ZOMBIE",
+      "tw_title_id": "70010000139391",
+      "source": "tw-list"
+    },
+    {
+      "slug": "r00m-12",
+      "title_zh": "逃脫遊戲 R00M 12",
+      "tw_title_id": "70010000119413",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000138331",
+      "title_zh": "連鎖秘術",
+      "tw_title_id": "70010000138331",
+      "source": "tw-list"
+    },
+    {
+      "slug": "alice-alice-bad-medicine-2in1-pack-for-nintendo-switch",
+      "title_zh": "ALICE＝ALICE ＆ BAD MEDICINE 危險老師的特別授課 2in1 PACK for Nintendo Switch",
+      "tw_title_id": "70010000133868",
+      "source": "tw-list"
+    },
+    {
+      "slug": "hazard-pay",
+      "title_zh": "Hazard Pay",
+      "tw_title_id": "70010000138348",
+      "source": "tw-list"
+    },
+    {
+      "slug": "smartopus-iq-quest",
+      "title_zh": "Smartopus: IQ Quest",
+      "tw_title_id": "70010000140411",
+      "source": "tw-list"
+    },
+    {
+      "slug": "no-umbrellas-allowed",
+      "title_zh": "No Umbrellas Allowed",
+      "tw_title_id": "70010000068313",
+      "source": "tw-list"
+    },
+    {
+      "slug": "plus",
+      "title_zh": "像素英雄大混戰 Plus",
+      "tw_title_id": "70010000107173",
+      "source": "tw-list"
+    },
+    {
+      "slug": "larsgadiel",
+      "title_zh": "LarsGadiel",
+      "tw_title_id": "70010000141167",
+      "source": "tw-list"
+    },
+    {
+      "slug": "fall-up",
+      "title_zh": "電兔拉比！(Fall Up)",
+      "tw_title_id": "70010000098137",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000092412",
+      "title_zh": "勇者鬥惡龍怪物仙境4 枯木國的碧安卡與芙蘿拉",
+      "tw_title_id": "70010000092412",
+      "source": "tw-list"
+    },
+    {
+      "slug": "bloodrush-undying-wish",
+      "title_zh": "血湧不息（BloodRush: Undying Wish)",
+      "tw_title_id": "70010000136609",
+      "source": "tw-list"
+    },
+    {
+      "slug": "astro-chef-cosmic-kitchen",
+      "title_zh": "Astro Chef: Cosmic Kitchen",
+      "tw_title_id": "70010000142805",
+      "source": "tw-list"
+    },
+    {
+      "slug": "backrooms-splatter",
+      "title_zh": "Backrooms Splatter",
+      "tw_title_id": "70010000139660",
+      "source": "tw-list"
+    },
+    {
+      "slug": "million-depth",
+      "title_zh": "Million Depth",
+      "tw_title_id": "70010000131413",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000080764",
+      "title_zh": "亞路塔：狐狸狐途的麵包冒險",
+      "tw_title_id": "70010000080764",
+      "source": "tw-list"
+    },
+    {
+      "slug": "we-are-eva",
+      "title_zh": "We are Eva",
+      "tw_title_id": "70010000117888",
+      "source": "tw-list"
+    },
+    {
+      "slug": "cat-me-if-you-can",
+      "title_zh": "Cat Me If You Can",
+      "tw_title_id": "70010000133192",
+      "source": "tw-list"
+    },
+    {
+      "slug": "yamigatari-for3st",
+      "title_zh": "YAMIGATARI: FOR3ST",
+      "tw_title_id": "70010000130378",
+      "source": "tw-list"
+    },
+    {
+      "slug": "blue-pieta-shikhondo-blue-pieta",
+      "title_zh": "食魂徒：Blue Pieta(Shikhondo: Blue Pieta)",
+      "tw_title_id": "70010000135965",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000138194",
+      "title_zh": "火星點擊器",
+      "tw_title_id": "70010000138194",
+      "source": "tw-list"
+    },
+    {
+      "slug": "breaking-gates",
+      "title_zh": "破門 (Breaking Gates)",
+      "tw_title_id": "70010000115597",
+      "source": "tw-list"
+    },
+    {
+      "slug": "2-2",
+      "title_zh": "超級槍彈辯駁２×２",
+      "tw_title_id": "70010000099562",
+      "source": "tw-list"
+    },
+    {
+      "slug": "mirth-island",
+      "title_zh": "Mirth Island",
+      "tw_title_id": "70010000123030",
+      "source": "tw-list"
+    },
+    {
+      "slug": "witchbrook",
+      "title_zh": "巫奇魔法學院 Witchbrook",
+      "tw_title_id": "70010000136270",
+      "source": "tw-list"
+    },
+    {
+      "slug": "voivod-the-nuclear-warrior",
+      "title_zh": "Voivod: The Nuclear Warrior",
+      "tw_title_id": "70010000138848",
+      "source": "tw-list"
+    },
+    {
+      "slug": "code-bunny",
+      "title_zh": "CODE Bunny",
+      "tw_title_id": "70010000104362",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000137826",
+      "title_zh": "推彈小子",
+      "tw_title_id": "70010000137826",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000134767",
+      "title_zh": "《特務蜘蛛：8號情報員》",
+      "tw_title_id": "70010000134767",
+      "source": "tw-list"
+    },
+    {
+      "slug": "yu-gi-oh-tag-force-gx",
+      "title_zh": "Yu-Gi-Oh! TAG FORCE GX",
+      "tw_title_id": "70010000120384",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000115408",
+      "title_zh": "復活邪神3 錯綜宿命",
+      "tw_title_id": "70010000115408",
+      "source": "tw-list"
+    },
+    {
+      "slug": "haunted-paws",
+      "title_zh": "鬧鬼爪子 (Haunted Paws)",
+      "tw_title_id": "70010000134111",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000063719",
+      "title_zh": "皮克敏4",
+      "tw_title_id": "70010000063719",
+      "source": "tw-list"
+    },
+    {
+      "slug": "everybody-1-2-switch",
+      "title_zh": "Everybody 1-2-Switch!",
+      "tw_title_id": "70010000068162",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000061851",
+      "title_zh": "蓓優妮塔 起源︰瑟蕾莎與迷失的惡魔",
+      "tw_title_id": "70010000061851",
+      "source": "tw-list"
+    },
+    {
+      "slug": "wii",
+      "title_zh": "星之卡比 Wii 豪華版",
+      "tw_title_id": "70010000058800",
+      "source": "tw-list"
+    },
+    {
+      "slug": "fire-emblemtm-engage",
+      "title_zh": "Fire Emblem™ Engage",
+      "tw_title_id": "70010000058805",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000053974",
+      "title_zh": "寶可夢 紫",
+      "tw_title_id": "70010000053974",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000046403",
+      "title_zh": "蓓優妮塔3",
+      "tw_title_id": "70010000046403",
+      "source": "tw-list"
+    },
+    {
+      "slug": "fire-emblem",
+      "title_zh": "FIRE EMBLEM 無雙 風花雪月",
+      "tw_title_id": "70010000050752",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000049939",
+      "title_zh": "瑪利歐激戰前鋒 戰鬥聯賽",
+      "tw_title_id": "70010000049939",
+      "source": "tw-list"
+    },
+    {
+      "slug": "nintendo-switch",
+      "title_zh": "Nintendo Switch 運動",
+      "tw_title_id": "70010000049934",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000039948",
+      "title_zh": "寶可夢傳說 阿爾宙斯",
+      "tw_title_id": "70010000039948",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000044954",
+      "title_zh": "靈活腦學校 一起伸展大腦",
+      "tw_title_id": "70010000044954",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000039953",
+      "title_zh": "寶可夢 晶燦鑽石",
+      "tw_title_id": "70010000039953",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000039958",
+      "title_zh": "寶可夢 明亮珍珠",
+      "tw_title_id": "70010000039958",
+      "source": "tw-list"
+    },
+    {
+      "slug": "mario-partytm-superstars",
+      "title_zh": "Mario Party™ Superstars（瑪利歐派對 超級巨星）",
+      "tw_title_id": "70010000042937",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000042927",
+      "title_zh": "密特羅德 生存恐懼",
+      "tw_title_id": "70010000042927",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000042932",
+      "title_zh": "分享同樂！瓦利歐製造",
+      "tw_title_id": "70010000042932",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000043258",
+      "title_zh": "搭檔任務 秘密搜查組",
+      "tw_title_id": "70010000043258",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000036245",
+      "title_zh": "哆啦Ａ夢　樂學遊戲合輯",
+      "tw_title_id": "70010000036245",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000038625",
+      "title_zh": "瑪利歐高爾夫 超級衝衝衝",
+      "tw_title_id": "70010000038625",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000041270",
+      "title_zh": "附帶導航！一做就上手 第一次的遊戲程式設計",
+      "tw_title_id": "70010000041270",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000038620",
+      "title_zh": "迷托邦",
+      "tw_title_id": "70010000038620",
+      "source": "tw-list"
+    },
+    {
+      "slug": "new",
+      "title_zh": "New 寶可夢隨樂拍",
+      "tw_title_id": "70010000037992",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000030778",
+      "title_zh": "A列車：開始吧 觀光開發計畫",
+      "tw_title_id": "70010000030778",
+      "source": "tw-list"
+    },
+    {
+      "slug": "3d",
+      "title_zh": "超級瑪利歐 ３Ｄ世界 ＋ 狂怒世界",
+      "tw_title_id": "70010000034442",
+      "source": "tw-list"
+    },
+    {
+      "slug": "fitness-boxing-2-rhythm-exercise",
+      "title_zh": "Fitness Boxing 2: Rhythm & Exercise",
+      "tw_title_id": "70010000035240",
+      "source": "tw-list"
+    },
+    {
+      "slug": "zelda",
+      "title_zh": "ZELDA無雙 災厄啟示錄",
+      "tw_title_id": "70010000034768",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tm3",
+      "title_zh": "皮克敏™３ 豪華版",
+      "tw_title_id": "70010000034017",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000029729",
+      "title_zh": "紙片瑪利歐：摺紙國王",
+      "tw_title_id": "70010000029729",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000031077",
+      "title_zh": "腦科學專家 川島隆太博士監修 大人的Nintendo Switch腦部鍛鍊",
+      "tw_title_id": "70010000031077",
+      "source": "tw-list"
+    },
+    {
+      "slug": "51",
+      "title_zh": "世界遊戲大全51",
+      "tw_title_id": "70010000029719",
+      "source": "tw-list"
+    },
+    {
+      "slug": "origin-of-adventure",
+      "title_zh": "九龍妖魔學園紀 ORIGIN OF ADVENTURE",
+      "tw_title_id": "70010000026929",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000029714",
+      "title_zh": "異度神劍 終極版",
+      "tw_title_id": "70010000029714",
+      "source": "tw-list"
+    },
+    {
+      "slug": "dx",
+      "title_zh": "ポケモン不思議のダンジョン 救助隊DX",
+      "tw_title_id": "70010000102637",
+      "source": "tw-list"
+    },
+    {
+      "slug": "fe-encore",
+      "title_zh": "幻影異聞錄♯FE Encore",
+      "tw_title_id": "70010000027332",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000026111",
+      "title_zh": "寶可夢 盾",
+      "tw_title_id": "70010000026111",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000026110",
+      "title_zh": "寶可夢 劍",
+      "tw_title_id": "70010000026110",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000023514",
+      "title_zh": "薩爾達傳說 織夢島",
+      "tw_title_id": "70010000023514",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000102683",
+      "title_zh": "異界鎖鏈",
+      "tw_title_id": "70010000102683",
+      "source": "tw-list"
+    },
+    {
+      "slug": "marvel-ultimate-alliance-3-the-black-order",
+      "title_zh": "MARVEL ULTIMATE ALLIANCE 3: The Black Order",
+      "tw_title_id": "70010000102634",
+      "source": "tw-list"
+    },
+    {
+      "slug": "super-mario-maker-2-2",
+      "title_zh": "Super Mario Maker 2（超級瑪利歐創作家 2）",
+      "tw_title_id": "70010000102685",
+      "source": "tw-list"
+    },
+    {
+      "slug": "nintendo-labo-toy-con-04-vr",
+      "title_zh": "Nintendo Labo Toy-Con 04: VR套裝 輕量版（僅附火箭筒）",
+      "tw_title_id": "70010000027276",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000102626",
+      "title_zh": "耀西的手工世界",
+      "tw_title_id": "70010000102626",
+      "source": "tw-list"
+    },
+    {
+      "slug": "new-u",
+      "title_zh": "New 超級瑪利歐兄弟U 豪華版",
+      "tw_title_id": "70010000102625",
+      "source": "tw-list"
+    },
+    {
+      "slug": "let-s-go",
+      "title_zh": "精靈寶可夢 Let's Go！伊布",
+      "tw_title_id": "70010000102705",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000102696",
+      "title_zh": "精靈寶可夢 Let's Go！皮卡丘",
+      "tw_title_id": "70010000102696",
+      "source": "tw-list"
+    },
+    {
+      "slug": "the-world-ends-with-you-final-remix",
+      "title_zh": "The World Ends with You -Final Remix-",
+      "tw_title_id": "70010000102640",
+      "source": "tw-list"
+    },
+    {
+      "slug": "super-mario-party",
+      "title_zh": "Super Mario Party",
+      "tw_title_id": "70010000102624",
+      "source": "tw-list"
+    },
+    {
+      "slug": "nintendo-labo-toy-con-03",
+      "title_zh": "Nintendo Labo Toy-Con 03: 駕駛套裝",
+      "tw_title_id": "70010000027275",
+      "source": "tw-list"
+    },
+    {
+      "slug": "octopath-traveler",
+      "title_zh": "歧路旅人 OCTOPATH TRAVELER",
+      "tw_title_id": "70010000103653",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000102641",
+      "title_zh": "進め！キノピオ隊長",
+      "tw_title_id": "70010000102641",
+      "source": "tw-list"
+    },
+    {
+      "slug": "mario-tennis-ace",
+      "title_zh": "Mario Tennis Ace",
+      "tw_title_id": "70010000102636",
+      "source": "tw-list"
+    },
+    {
+      "slug": "nintendo-labo-toy-con-01",
+      "title_zh": "Nintendo Labo Toy-Con 01: 組合套裝",
+      "tw_title_id": "70010000027273",
+      "source": "tw-list"
+    },
+    {
+      "slug": "nintendo-labo-toy-con-02",
+      "title_zh": "Nintendo Labo Toy-Con 02: 機器人套裝",
+      "tw_title_id": "70010000027274",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000102622",
+      "title_zh": "星之卡比 新星同盟",
+      "tw_title_id": "70010000102622",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000102621",
+      "title_zh": "異度神劍2",
+      "tw_title_id": "70010000102621",
+      "source": "tw-list"
+    },
+    {
+      "slug": "tw-70010000102437",
+      "title_zh": "你裁我剪！斯尼帕Plus",
+      "tw_title_id": "70010000102437",
+      "source": "tw-list"
+    }
+  ],
+  "summary": {
+    "total": 32,
+    "mapped_tw": 24,
+    "mapped_hk": 24,
+    "tw_priced": 23,
+    "hk_priced": 23,
+    "unmapped": 8,
+    "tw_only_games": 149
+  }
+}
