@@ -46,6 +46,7 @@ function parseParams(searchParams: SearchParams) {
       : "cheap-asc",
     onlySale: first(searchParams.sale) === "1",
     onlyMine: first(searchParams.mine) === "1",
+    onlyPurchased: first(searchParams.purchased) === "1",
     page,
   };
 }
@@ -62,6 +63,7 @@ function toSearchParams(params: HomePageParams): URLSearchParams {
   if (params.sort !== "cheap-asc") sp.set("sort", params.sort);
   if (params.onlySale) sp.set("sale", "1");
   if (params.onlyMine) sp.set("mine", "1");
+  if (params.onlyPurchased) sp.set("purchased", "1");
   if (params.page > 1) sp.set("page", String(params.page));
   return sp;
 }
@@ -93,7 +95,8 @@ export default async function HomePage({
     Boolean(params.productType) ||
     params.demo != null ||
     params.onlySale ||
-    params.onlyMine;
+    params.onlyMine ||
+    params.onlyPurchased;
 
   return (
     <>

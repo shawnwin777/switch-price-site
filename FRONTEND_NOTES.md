@@ -13,7 +13,7 @@
 | `app/globals.css` | 全站樣式（賽博龐克） |
 | `app/page.tsx` | 首頁（force-dynamic） |
 | `app/games/[slug]/page.tsx` | 遊戲詳細頁（force-dynamic） |
-| `app/ranking/page.tsx` | 收藏排行 TOP 50（force-dynamic，`?sale=all` 切全部） |
+| `app/ranking/page.tsx` | 收藏排行 TOP 10（force-dynamic，`?sale=all` 切全部） |
 | `app/add/page.tsx` | 手動新增遊戲表單 |
 | `app/login/page.tsx` + `components/LoginClient.tsx` | 登入頁（Suspense 包 useSearchParams） |
 | `lib/supabase-client.ts` / `lib/supabase-server.ts` / `lib/supabase-env.ts` | 瀏覽器／伺服器端 Supabase client（拆開是因為 `next/headers` 不能被 client component 間接 import） |
@@ -22,11 +22,13 @@
 | `lib/countries.ts` | 35 國清單、eShop 首頁連結、試玩／商品類型標籤 |
 | `lib/format.ts` | 台幣／當地幣別格式化、台北時間、剩餘天數 |
 | `components/SiteHeader.tsx` | 導覽列（登入狀態、登出） |
-| `components/HomeClient.tsx` | 首頁互動：搜尋、篩選、排序、國家設定、遊戲牆、分頁（篩選條件走 URL 參數，伺服器端分頁每頁 20 款） |
+| `components/HomeClient.tsx` | 首頁互動：搜尋、篩選、排序、國家設定、遊戲牆、分頁（篩選條件走 URL 參數，伺服器端分頁每頁 12 款）、只看我的收藏／只看已購買 |
 | `components/GameCard.tsx` | 遊戲卡片 |
 | `components/CountrySettings.tsx` | 35 國顯示／封鎖（localStorage） |
 | `components/SaleBanner.tsx` | 進站特價提醒（已收藏且特價中） |
-| `components/GameDetailClient.tsx` | 詳細頁互動：價格表、留言、讚、收藏、特價提醒 |
+| `components/GameDetailClient.tsx` | 詳細頁互動：價格表、留言、讚、收藏、已購買、特價提醒 |
+| `components/PurchaseButton.tsx` | 已購買切換（POST /api/purchases，與 CollectionButton 同模式） |
+| `app/api/purchases/route.ts` | 已購買切換 API（POST `{ gameId }` → `{ purchased }`，寫 `user_purchases`） |
 | `components/CommentsSection.tsx` | 留言區（讚數排序、預設 5 則＋顯示全部） |
 | `components/CollectionButton.tsx` | 愛心收藏（POST /api/collections） |
 | `components/LikeButton.tsx` | 遊戲讚（POST /api/likes） |
@@ -34,7 +36,7 @@
 | `public/covers/placeholder.svg` | 手把圖示佔位封面（手動新增遊戲用） |
 
 **沒有寫的（登入組的）**：`app/auth/callback`、`app/api/refresh`、`app/api/collections`、
-`app/api/likes`、`app/api/comments`、`middleware.ts`、`vercel.json`。
+`app/api/purchases`、`app/api/likes`、`app/api/comments`、`middleware.ts`、`vercel.json`。
 **沒有動的（資料組的）**：`supabase/`、`scripts/`、`public/covers/` 既有封面
 （只新增了 `public/covers/placeholder.svg` 這一個佔位檔，任務要求手動新增遊戲用它）。
 
@@ -70,20 +72,25 @@ npm start                    # 跑 production build
 
 - `/` 首頁：搜尋（中英文遊戲名，伺服器端 ilike）、篩選（Switch / Switch 2、商品類型、
   試玩類型：免費 Demo／免費試玩／NSO 限時試玩）、排序、只看特價、只看我的收藏
-  （需登入）、35 國切換與封鎖、遊戲卡片（封面、標題、最低價、歷史低價徽章、特價標記）、
-  進站上方「已收藏且特價中」提醒、匯率 08:00 註明＋價格最後更新時間。
+  （需登入）、只看已購買（需登入，`?purchased=1`）、35 國切換與封鎖、遊戲卡片
+  （封面、標題、最低價、歷史低價徽章、特價標記）、進站上方「已收藏且特價中」提醒、
+  匯率 08:00 註明＋價格最後更新時間。
   搜尋／篩選／排序都在伺服器端做（`lib/data.ts` 的 `getGamesPage`），
-  總數用 count exact，每頁 20 款（`?page=` 分頁）；價格／折扣排序與只看特價
+  總數用 count exact，每頁 12 款（`?page=` 分頁）；價格／折扣排序與只看特價
   依賴 `games_with_price_stats` 檢視（見 supabase/migrations/20261117_homepage_price_stats.sql），
   檢視未建立時自動退回名稱排序，首頁不會壞。
+  登入後，已購買的遊戲不顯示在遊戲牆／搜尋結果裡（伺服器端以
+  `user_purchases` 排除，見 `lib/data.ts`）；總數顯示維持全站總數。
+  只看我的收藏／只看已購買是使用者自己的清單，不排除已購買。
   注意：最低價排序用的是「全部國家」的最低價（封鎖清單只存在瀏覽器 localStorage，
   伺服器不知道），卡片顯示的最低價仍依可見國家計算。
 - `/games/[slug]` 詳細頁：價格表依台幣排序、最便宜高亮、比台版省多少、歷史低價徽章＋
   歷史低價金額、特價結束時間＋剩餘天數；留言區在價格上方（讚數排序、預設 5 則、
-  其餘收在「顯示全部」）；遊戲讚；點封面在新分頁開官方 YouTube 介紹影片
+  其餘收在「顯示全部」）；遊戲讚；已購買切換（收藏按鈕旁，`user_purchases`，
+  未登入導向登入頁；已購買的遊戲不顯示在首頁遊戲牆／搜尋結果裡）；點封面在新分頁開官方 YouTube 介紹影片
   （**沒有用 iframe 內嵌**，YouTube error 153 的教訓）；各區官方 eShop 首頁連結；
   已收藏且特價中時頁面有明顯提醒。
-- `/ranking` 收藏排行 TOP 50，預設只顯示特價中，`?sale=all` 切全部。
+- `/ranking` 收藏排行 TOP 10，預設只顯示特價中，`?sale=all` 切全部。
 - `/add` 新增遊戲：封面用 `/covers/placeholder.svg`，填的價格同時記為歷史低價。
 - `/login` 登入頁：Google / Discord 按鈕（`supabase.auth.signInWithOAuth`），
   頁面明寫「登入只用來做收藏，不收集任何 Gmail 或 Discord 資料、不存其他資料」。
@@ -93,6 +100,7 @@ npm start                    # 跑 production build
 | 前端呼叫 | 合約 | 用在哪裡 |
 |---|---|---|
 | `POST /api/collections` `{ gameId }` → `{ collected }` | 切換收藏 | `CollectionButton.tsx`（卡片、詳細頁） |
+| `POST /api/purchases` `{ gameId }` → `{ purchased }` | 切換已購買 | `PurchaseButton.tsx`（詳細頁，收藏按鈕旁） |
 | `POST /api/likes` `{ gameId }` → `{ liked, count }` | 遊戲按讚 | `LikeButton.tsx`（詳細頁） |
 | `POST /api/comments` `{ gameId, body }` → 留言物件 | 新增留言 | `CommentsSection.tsx` |
 | `POST /api/comments/[id]/like` → `{ liked, count }` | 留言按讚 | `CommentsSection.tsx` |
@@ -124,3 +132,15 @@ npm start                    # 跑 production build
 - 價格與匯率的每日 08:00 更新由資料組的 cron 負責，前端只顯示 `updated_at`／`as_of`。
 - 封面圖由資料組提供（`public/covers/`）；種子檔的 blob 路徑已做相容轉換，
   但若資料庫 `cover_url` 存的是其他格式，請對照 `resolveCoverUrl()` 調整。
+- `user_purchases` 表尚未建立時（migration 未跑），已購買查詢回空、
+  「已購買」按鈕寫入會失敗；跑完 `supabase/migrations/20261117_user_purchases.sql`
+  後才真正可用。
+
+## 未來規劃（目前不做，只記下來）
+
+- **首頁上方加入「準備上市遊戲」區塊**：把尚未發售、即將上市的遊戲集中顯示
+  在首頁上方（例如依發售日排序的橫向卡片列或獨立區塊），讓玩家一眼看到
+  近期要出的遊戲。目前不做——原因：目錄裡的發售日資料還不完整
+  （多數遊戲沒有可靠的 release_date 欄位），且「準備上市」的定義
+  （多久內算即將上市、要不要分 Switch／Switch 2）還沒定；等目錄資料
+  （對照表／各區編號）與發售日來源確定後再實作。

@@ -8,6 +8,7 @@ import { COUNTRIES, DEFAULT_BLOCKED_CODES, demoLabel, eshopUrl, productTypeLabel
 import { formatRaw, formatTwd, saleEndLabel } from "@/lib/format";
 import type { CommentItem, GameWithPrices } from "@/lib/types";
 import CollectionButton from "./CollectionButton";
+import PurchaseButton from "./PurchaseButton";
 import LikeButton from "./LikeButton";
 import CommentsSection from "./CommentsSection";
 import CountrySettings from "./CountrySettings";
@@ -18,14 +19,17 @@ export default function GameDetailClient({
   game,
   initialComments,
   collectedByMe,
+  purchasedByMe,
 }: {
   game: GameWithPrices;
   initialComments: CommentItem[];
   collectedByMe: boolean;
+  purchasedByMe: boolean;
 }) {
   const [blocked, setBlocked] = useState<string[]>(DEFAULT_BLOCKED_CODES);
   const [blockedLoaded, setBlockedLoaded] = useState(false);
   const [isCollected, setIsCollected] = useState(collectedByMe);
+  const [isPurchased, setIsPurchased] = useState(purchasedByMe);
 
   useEffect(() => {
     try {
@@ -61,6 +65,13 @@ export default function GameDetailClient({
         .eq("user_id", data.user.id)
         .maybeSingle();
       setIsCollected(Boolean(row));
+      const { data: purchaseRow } = await db
+        .from("user_purchases")
+        .select("id")
+        .eq("game_id", game.id)
+        .eq("user_id", data.user.id)
+        .maybeSingle();
+      setIsPurchased(Boolean(purchaseRow));
     });
   }, [game.id]);
 
@@ -191,6 +202,10 @@ export default function GameDetailClient({
             <CollectionButton
               gameId={game.id}
               initialCollected={isCollected}
+            />
+            <PurchaseButton
+              gameId={game.id}
+              initialPurchased={isPurchased}
             />
             <span className="muted">
               ♥ {game.collections_count} 人收藏

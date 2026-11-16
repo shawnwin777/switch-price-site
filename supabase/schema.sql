@@ -94,6 +94,24 @@ create index if not exists collections_game_id_idx on public.collections (game_i
 create index if not exists collections_user_id_idx on public.collections (user_id);
 
 -- ---------------------------------------------------------------------------
+-- user_purchases：使用者已購買（user_id + game_id 唯一）
+--   詳細頁「已購買」按鈕用；已購買的遊戲不顯示在首頁遊戲牆／搜尋結果裡
+--   （伺服器端排除，見 lib/data.ts getGamesPage），在首頁「只看已購買」
+--   篩選（?purchased=1）裡看得到自己的清單。
+--   注意：與 collections 不同，購買紀錄不公開——select 也只限本人，
+--   不做公開計數顯示。
+-- ---------------------------------------------------------------------------
+create table if not exists public.user_purchases (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  game_id uuid not null references public.games (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (user_id, game_id)
+);
+create index if not exists user_purchases_game_id_idx on public.user_purchases (game_id);
+create index if not exists user_purchases_user_id_idx on public.user_purchases (user_id);
+
+-- ---------------------------------------------------------------------------
 -- game_likes：遊戲讚（user_id + game_id 唯一）
 -- ---------------------------------------------------------------------------
 create table if not exists public.game_likes (
@@ -148,6 +166,7 @@ create table if not exists public.user_settings (
 --   collections / game_likes / comment_likes 的計數（讚數與收藏數要
 --   對未登入訪客顯示，見下方 SELECT 政策；寫入仍限本人）
 --   收藏 / 讚 / 留言：只有登入使用者能寫，且只能改自己的資料
+--   user_purchases（已購買）：只有本人能讀寫（購買紀錄不公開）
 --   user_settings：只有本人能讀寫
 --   games / prices / fx_rates：不開放一般使用者的寫入 policy，
 --   寫入一律走 Service Role Key（繞過 RLS），見 scripts/seed.mjs；
@@ -158,6 +177,7 @@ alter table public.games enable row level security;
 alter table public.prices enable row level security;
 alter table public.fx_rates enable row level security;
 alter table public.collections enable row level security;
+alter table public.user_purchases enable row level security;
 alter table public.game_likes enable row level security;
 alter table public.comments enable row level security;
 alter table public.comment_likes enable row level security;
@@ -213,6 +233,17 @@ create policy "collections_insert_own" on public.collections
   for insert to authenticated with check (auth.uid() = user_id);
 drop policy if exists "collections_delete_own" on public.collections;
 create policy "collections_delete_own" on public.collections
+  for delete to authenticated using (auth.uid() = user_id);
+
+-- user_purchases：只有本人能讀寫（select / insert / delete 皆限本人；購買紀錄不公開）
+drop policy if exists "user_purchases_select_own" on public.user_purchases;
+create policy "user_purchases_select_own" on public.user_purchases
+  for select to authenticated using (auth.uid() = user_id);
+drop policy if exists "user_purchases_insert_own" on public.user_purchases;
+create policy "user_purchases_insert_own" on public.user_purchases
+  for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists "user_purchases_delete_own" on public.user_purchases;
+create policy "user_purchases_delete_own" on public.user_purchases
   for delete to authenticated using (auth.uid() = user_id);
 
 -- game_likes：登入者可讀；只能新增／刪除自己的讚

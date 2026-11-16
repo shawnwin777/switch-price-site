@@ -24,6 +24,7 @@ export default async function GameDetailPage({
       game={game}
       initialComments={comments}
       collectedByMe={game.collected_by_me}
+      purchasedByMe={game.purchased_by_me}
     />
   );
 }

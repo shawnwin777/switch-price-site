@@ -1,5 +1,5 @@
 // 資料型別：欄位名稱與 Supabase 資料表合約一致（不要改名）。
-// games / prices / fx_rates / collections / game_likes / comments / comment_likes / user_settings
+// games / prices / fx_rates / collections / game_likes / comments / comment_likes / user_settings / user_purchases
 
 export interface Game {
   id: string;
@@ -61,6 +61,7 @@ export interface GameWithPrices extends Game {
   collections_count: number;
   liked_by_me: boolean;
   collected_by_me: boolean;
+  purchased_by_me: boolean;
 }
 
 export interface RankingEntry {

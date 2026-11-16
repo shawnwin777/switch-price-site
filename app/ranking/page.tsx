@@ -12,11 +12,11 @@ export default async function RankingPage({
 }) {
   const onlyOnSale = searchParams.sale !== "all";
   const db = createSupabaseServerClient();
-  const ranking = await getRanking(db, onlyOnSale, 50);
+  const ranking = await getRanking(db, onlyOnSale, 10);
 
   return (
     <>
-      <h1>🏆 收藏排行 TOP 50</h1>
+      <h1>🏆 收藏排行 TOP 10</h1>
       <p className="muted">
         最多玩家收藏的遊戲。預設只顯示特價中，方便直接撿便宜。
       </p>
