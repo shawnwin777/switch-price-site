@@ -156,8 +156,8 @@ export default function HomeClient({
             onChange={(e) => applyFilter({ sort: e.target.value as SortKey })}
             aria-label="排序"
           >
-            <option value="cheap-asc">最低價：低 → 高</option>
-            <option value="cheap-desc">最低價：高 → 低</option>
+            <option value="cheap-asc">價格：低 → 高</option>
+            <option value="cheap-desc">價格：高 → 低</option>
             <option value="discount">折扣：大 → 小</option>
             <option value="title">名稱：A → Z</option>
           </select>

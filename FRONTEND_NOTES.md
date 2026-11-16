@@ -73,7 +73,7 @@ npm start                    # 跑 production build
   （需登入）、35 國切換與封鎖、遊戲卡片（封面、標題、最低價、歷史低價徽章、特價標記）、
   進站上方「已收藏且特價中」提醒、匯率 08:00 註明＋價格最後更新時間。
   搜尋／篩選／排序都在伺服器端做（`lib/data.ts` 的 `getGamesPage`），
-  總數用 count exact，每頁 60 款（`?page=` 分頁）；最低價／折扣排序與只看特價
+  總數用 count exact，每頁 60 款（`?page=` 分頁）；價格／折扣排序與只看特價
   依賴 `games_with_price_stats` 檢視（見 supabase/migrations/20261117_homepage_price_stats.sql），
   檢視未建立時自動退回名稱排序，首頁不會壞。
   注意：最低價排序用的是「全部國家」的最低價（封鎖清單只存在瀏覽器 localStorage，
