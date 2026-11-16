@@ -1,0 +1,2570 @@
+{
+  "generated_at": "2026-11-16T14:20:16.490Z",
+  "sources": [
+    {
+      "name": "na-algolia",
+      "url": "https://U3B6GR4UA3-dsn.algolia.net/1/indexes/store_all_products_{en_us,en_ca,es_mx,pt_br}/query",
+      "note": "nintendo.com 官網 Algolia（公開 search key）；不加 productType filter（各地語言值不同），客戶端篩 nsuid＋標題"
+    },
+    {
+      "name": "eu-solr",
+      "url": "https://search.nintendo-europe.com/en/select?q={title}&fq=type:GAME&rows=10&wt=json&fl=title,nsuid_txt,product_code_txt,system_names_txt",
+      "note": "任天堂歐洲官網 Solr；20,217 筆 GAME 有 nsuid；product_code_txt 僅部分遊戲有（Switch 2 新作多無）"
+    },
+    {
+      "name": "au-algolia",
+      "url": "https://FMW57F6ERV-dsn.algolia.net/1/indexes/prod_games_and_products/query",
+      "note": "nintendo.com/au 官網 Algolia（公開 search key）；1,707 筆；編號與 EU 相同，獨立驗證"
+    },
+    {
+      "name": "jp-xml",
+      "url": "https://www.nintendo.co.jp/data/software/xml/switch.xml",
+      "note": "日本官網 XML，10,045 個 title ID；最新約 2025-05-01；<InitialCode> 即 product code"
+    },
+    {
+      "name": "jp-search-api",
+      "url": "https://search.nintendo.jp/nintendo_soft/search.json?q={q}&limit=5&page=1&opt_hard=1_HAC",
+      "note": "日本官網搜尋 API（nintendeals noj 曾用，已驗證仍通）；total 約 29,995 筆 Switch 軟體；回 nsuid＋icode（product code 核心 5 碼）＋ssitu＋價格"
+    },
+    {
+      "name": "tw-hk-lists",
+      "url": "https://www.nintendo.com/{tw,hk}/software/switch/",
+      "note": "台港官方清單（Next.js RSC payload，title＋nsuid）；沿用 data/tw-hk-title-ids.json 已驗證對照"
+    },
+    {
+      "name": "kr-list",
+      "url": "https://www.nintendo.com/kr/software/switch/",
+      "note": "韓國官方清單頁（單頁精選＋新作，僅 13-17 個 nsuid 項目，非完整目錄）；另 2 款以價格 API 驗證編號補上（見報告）"
+    },
+    {
+      "name": "price-api",
+      "url": "https://api.ec.nintendo.com/v1/price?country={cc}&ids={ids}&lang={lang}",
+      "note": "官方價格 API；一次最多 50 個 ID；lang：JP=ja、TW/HK=zh、其餘 en"
+    }
+  ],
+  "sharingGroups": {
+    "NA": [
+      "US",
+      "CA",
+      "MX",
+      "BR",
+      "CL",
+      "CO",
+      "AR",
+      "PE"
+    ],
+    "EU": [
+      "GB",
+      "IE",
+      "DE",
+      "FR",
+      "ES",
+      "IT",
+      "NL",
+      "BE",
+      "AT",
+      "CH",
+      "PT",
+      "PL",
+      "CZ",
+      "DK",
+      "FI",
+      "SE",
+      "NO",
+      "AU",
+      "NZ",
+      "ZA"
+    ],
+    "JP": [
+      "JP"
+    ],
+    "TW": [
+      "TW"
+    ],
+    "HK": [
+      "HK"
+    ],
+    "KR": [
+      "KR"
+    ],
+    "evidence": "2026-11-16 價格 API 矩陣：12 個探測編號（NA/EU/JP/TW/HK/KR 各 2-3 個）× 35 國；SG/MY/TH 全部 not_found",
+    "note": "每款遊戲最多只需 6 組編號（NA／EU／JP／TW／HK／KR），不必 35 個；TW 與 HK 多數共用，KR 部分舊遊戲與 HK 共用"
+  },
+  "games": {
+    "70010000000026": {
+      "titleZh": "薩爾達傳說 曠野之息",
+      "titleEn": "Breath of the Wild",
+      "slug": "botw",
+      "jpTitleId": "70010000000026",
+      "regionIds": {
+        "TW": "70010000102734",
+        "HK": "70010000009367",
+        "KR": "70010000009367",
+        "US": "70010000000025",
+        "CA": "70010000000025",
+        "MX": "70010000000025",
+        "BR": "70010000000025",
+        "GB": "70010000000023",
+        "DE": "70010000000023",
+        "FR": "70010000000023",
+        "AU": "70010000000023"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ],
+        "KR": [
+          "KR"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPAAAAA"
+      },
+      "priceVerified": {
+        "US": "onsale $59.99 USD",
+        "CA": "onsale $84.99 CAD",
+        "MX": "onsale MX$1,229.00 MXN",
+        "BR": "onsale R$ 329,90 BRL",
+        "GB": "onsale £59.99 GBP",
+        "DE": "onsale 69,99 € EUR",
+        "FR": "onsale 69,99 € EUR",
+        "AU": "onsale $89.95 AUD",
+        "JP": "onsale 7,678円 JPY",
+        "TW": "onsale TWD 1,599 TWD",
+        "HK": "onsale HKD 399 HKD",
+        "KR": "onsale 74,800원 KRW",
+        "ES": "onsale 69,99 € EUR",
+        "IT": "onsale 69,99 € EUR",
+        "NL": "onsale € 69,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000063713": {
+      "titleZh": "薩爾達傳說 王國之淚",
+      "titleEn": "Tears of the Kingdom",
+      "slug": "totk",
+      "jpTitleId": "70010000063713",
+      "regionIds": {
+        "TW": "70010000063717",
+        "HK": "70010000063717",
+        "KR": "70010000063716",
+        "US": "70010000063714",
+        "CA": "70010000063714",
+        "MX": "70010000063714",
+        "BR": "70010000063714",
+        "GB": "70010000063715",
+        "DE": "70010000063715",
+        "FR": "70010000063715",
+        "AU": "70010000063715"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ],
+        "KR": [
+          "KR"
+        ]
+      },
+      "productCodes": {},
+      "priceVerified": {
+        "US": "onsale $69.99 USD",
+        "CA": "onsale $99.99 CAD",
+        "MX": "onsale MX$1,449.00 MXN",
+        "BR": "onsale R$ 389,90 BRL",
+        "GB": "onsale £59.99 GBP",
+        "DE": "onsale 69,99 € EUR",
+        "FR": "onsale 69,99 € EUR",
+        "AU": "onsale $89.95 AUD",
+        "JP": "onsale 7,900円 JPY",
+        "TW": "onsale TWD 1,599 TWD",
+        "HK": "onsale HKD 399 HKD",
+        "KR": "onsale 74,800원 KRW",
+        "ES": "onsale 69,99 € EUR",
+        "IT": "onsale 69,99 € EUR",
+        "NL": "onsale € 69,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000000186": {
+      "titleZh": "瑪利歐賽車8 豪華版",
+      "titleEn": "Mario Kart 8 Deluxe",
+      "slug": "mk8dx",
+      "jpTitleId": "70010000000186",
+      "regionIds": {
+        "TW": "70010000102140",
+        "HK": "70010000009373",
+        "US": "70010000000153",
+        "CA": "70010000000153",
+        "MX": "70010000000153",
+        "BR": "70010000000153",
+        "GB": "70010000000126",
+        "DE": "70010000000126",
+        "FR": "70010000000126",
+        "AU": "70010000000126"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPAABPA"
+      },
+      "priceVerified": {
+        "US": "onsale $59.99 USD",
+        "CA": "onsale $84.99 CAD",
+        "MX": "onsale MX$1,229.00 MXN",
+        "BR": "onsale R$ 329,90 BRL",
+        "GB": "onsale £49.99 GBP",
+        "DE": "onsale 59,99 € EUR",
+        "FR": "onsale 59,99 € EUR",
+        "AU": "onsale $79.95 AUD",
+        "JP": "onsale 6,578円 JPY",
+        "TW": "onsale TWD 1,339 TWD",
+        "HK": "onsale HKD 329 HKD",
+        "ES": "onsale 59,99 € EUR",
+        "IT": "onsale 59,99 € EUR",
+        "NL": "onsale € 59,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000012085": {
+      "titleZh": "任天堂明星大亂鬥 特別版",
+      "titleEn": "Super Smash Bros. Ultimate",
+      "slug": "smash",
+      "jpTitleId": "70010000012085",
+      "regionIds": {
+        "TW": "70010000102204",
+        "HK": "70010000012908",
+        "US": "70010000012332",
+        "CA": "70010000012332",
+        "MX": "70010000012332",
+        "BR": "70010000012332",
+        "GB": "70010000012331",
+        "DE": "70010000012331",
+        "FR": "70010000012331",
+        "AU": "70010000012331"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPAAABA"
+      },
+      "priceVerified": {
+        "US": "onsale $59.99 USD",
+        "CA": "onsale $84.99 CAD",
+        "MX": "onsale MX$1,229.00 MXN",
+        "BR": "onsale R$ 329,90 BRL",
+        "GB": "onsale £59.99 GBP",
+        "DE": "onsale 69,99 € EUR",
+        "FR": "onsale 69,99 € EUR",
+        "AU": "onsale $89.95 AUD",
+        "JP": "onsale 7,920円 JPY",
+        "TW": "onsale TWD 1,339 TWD",
+        "HK": "onsale HKD 329 HKD",
+        "ES": "onsale 69,99 € EUR",
+        "IT": "onsale 69,99 € EUR",
+        "NL": "onsale € 69,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000027618": {
+      "titleZh": "集合啦！動物森友會",
+      "titleEn": "Animal Crossing: New Horizons",
+      "slug": "acnh",
+      "jpTitleId": "70010000027618",
+      "regionIds": {
+        "TW": "70010000027622",
+        "HK": "70010000027622",
+        "US": "70010000027619",
+        "CA": "70010000027619",
+        "MX": "70010000027619",
+        "BR": "70010000027619",
+        "GB": "70010000027620",
+        "DE": "70010000027620",
+        "FR": "70010000027620",
+        "AU": "70010000027620"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPACBAA"
+      },
+      "priceVerified": {
+        "US": "onsale $59.99 USD",
+        "CA": "onsale $84.99 CAD",
+        "MX": "onsale MX$1,229.00 MXN",
+        "BR": "onsale R$ 329,90 BRL",
+        "GB": "onsale £49.99 GBP",
+        "DE": "onsale 59,99 € EUR",
+        "FR": "onsale 59,99 € EUR",
+        "AU": "onsale $79.95 AUD",
+        "JP": "onsale 6,578円 JPY",
+        "TW": "onsale TWD 1,339 TWD",
+        "HK": "onsale HKD 329 HKD",
+        "ES": "onsale 59,99 € EUR",
+        "IT": "onsale 59,99 € EUR",
+        "NL": "onsale € 59,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000046394": {
+      "titleZh": "斯普拉遁 3",
+      "titleEn": "Splatoon 3",
+      "slug": "splatoon3",
+      "jpTitleId": "70010000046394",
+      "regionIds": {
+        "TW": "70010000046398",
+        "HK": "70010000046398",
+        "US": "70010000046395",
+        "CA": "70010000046395",
+        "MX": "70010000046395",
+        "BR": "70010000046395",
+        "GB": "70010000046396",
+        "DE": "70010000046396",
+        "FR": "70010000046396",
+        "AU": "70010000046396"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPAV5JA"
+      },
+      "priceVerified": {
+        "US": "onsale $59.99 USD",
+        "CA": "onsale $84.99 CAD",
+        "MX": "onsale MX$1,229.00 MXN",
+        "BR": "onsale R$ 329,90 BRL",
+        "GB": "onsale £49.99 GBP",
+        "DE": "onsale 59,99 € EUR",
+        "FR": "onsale 59,99 € EUR",
+        "AU": "onsale $79.95 AUD",
+        "JP": "onsale 6,500円 JPY",
+        "TW": "onsale TWD 1,339 TWD",
+        "HK": "onsale HKD 329 HKD",
+        "ES": "onsale 59,99 € EUR",
+        "IT": "onsale 59,99 € EUR",
+        "NL": "onsale € 59,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000053970": {
+      "titleZh": "寶可夢 朱／紫",
+      "titleEn": "Pokémon Violet",
+      "slug": "pokemon-sv",
+      "jpTitleId": "70010000053970",
+      "regionIds": {
+        "TW": "70010000053974",
+        "HK": "70010000053974",
+        "US": "70010000053971",
+        "CA": "70010000053971",
+        "MX": "70010000053971",
+        "BR": "70010000053971",
+        "GB": "70010000053972",
+        "DE": "70010000053972",
+        "FR": "70010000053972",
+        "AU": "70010000053972"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPALZYA"
+      },
+      "priceVerified": {
+        "US": "onsale $59.99 USD",
+        "CA": "onsale $84.99 CAD",
+        "MX": "onsale MX$1,229.00 MXN",
+        "BR": "onsale R$ 329,90 BRL",
+        "GB": "onsale £49.99 GBP",
+        "DE": "onsale 59,99 € EUR",
+        "FR": "onsale 59,99 € EUR",
+        "AU": "onsale $79.95 AUD",
+        "JP": "onsale 6,500円 JPY",
+        "TW": "onsale TWD 1,339 TWD",
+        "HK": "onsale HKD 329 HKD",
+        "ES": "onsale 59,99 € EUR",
+        "IT": "onsale 59,99 € EUR",
+        "NL": "onsale € 59,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000046404": {
+      "titleZh": "星之卡比 探索發現",
+      "titleEn": "Kirby and the Forgotten Land",
+      "slug": "kirby-fl",
+      "jpTitleId": "70010000046404",
+      "regionIds": {
+        "TW": "70010000046408",
+        "HK": "70010000046408",
+        "US": "70010000046405",
+        "CA": "70010000046405",
+        "MX": "70010000046405",
+        "BR": "70010000046405",
+        "GB": "70010000046406",
+        "DE": "70010000046406",
+        "FR": "70010000046406",
+        "AU": "70010000046406"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPARZGA"
+      },
+      "priceVerified": {
+        "US": "onsale $59.99 USD",
+        "CA": "onsale $84.99 CAD",
+        "MX": "onsale MX$1,229.00 MXN",
+        "BR": "onsale R$ 329,90 BRL",
+        "GB": "onsale £49.99 GBP",
+        "DE": "onsale 59,99 € EUR",
+        "FR": "onsale 59,99 € EUR",
+        "AU": "onsale $79.95 AUD",
+        "JP": "onsale 6,500円 JPY",
+        "TW": "onsale TWD 1,339 TWD",
+        "HK": "onsale HKD 329 HKD",
+        "ES": "onsale 59,99 € EUR",
+        "IT": "onsale 59,99 € EUR",
+        "NL": "onsale € 59,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000000828": {
+      "titleZh": "超級瑪利歐 奧德賽",
+      "titleEn": "Super Mario Odyssey",
+      "slug": "mario-odyssey",
+      "jpTitleId": "70010000000828",
+      "regionIds": {
+        "TW": "70010000102434",
+        "HK": "70010000009372",
+        "US": "70010000001130",
+        "CA": "70010000001130",
+        "MX": "70010000001130",
+        "BR": "70010000001130",
+        "GB": "70010000000127",
+        "DE": "70010000000127",
+        "FR": "70010000000127",
+        "AU": "70010000000127"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPAAACA"
+      },
+      "priceVerified": {
+        "US": "onsale $59.99 USD",
+        "CA": "onsale $84.99 CAD",
+        "MX": "onsale MX$1,229.00 MXN",
+        "BR": "onsale R$ 329,90 BRL",
+        "GB": "onsale £49.99 GBP",
+        "DE": "onsale 59,99 € EUR",
+        "FR": "onsale 59,99 € EUR",
+        "AU": "onsale $79.95 AUD",
+        "JP": "onsale 6,578円 JPY",
+        "TW": "onsale TWD 1,339 TWD",
+        "HK": "onsale HKD 329 HKD",
+        "ES": "onsale 59,99 € EUR",
+        "IT": "onsale 59,99 € EUR",
+        "NL": "onsale € 59,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000068687": {
+      "titleZh": "超級瑪利歐兄弟 驚奇",
+      "titleEn": "Super Mario Bros. Wonder",
+      "slug": "mario-wonder",
+      "jpTitleId": "70010000068687",
+      "regionIds": {
+        "TW": "70010000068691",
+        "HK": "70010000068691",
+        "KR": "70010000068690",
+        "US": "70010000068688",
+        "CA": "70010000068688",
+        "MX": "70010000068688",
+        "BR": "70010000068688",
+        "GB": "70010000068689",
+        "DE": "70010000068689",
+        "FR": "70010000068689",
+        "AU": "70010000068689"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ],
+        "KR": [
+          "KR"
+        ]
+      },
+      "productCodes": {},
+      "priceVerified": {
+        "US": "onsale $59.99 USD",
+        "CA": "onsale $84.99 CAD",
+        "MX": "onsale MX$1,229.00 MXN",
+        "BR": "onsale R$ 329,90 BRL",
+        "GB": "onsale £49.99 GBP",
+        "DE": "onsale 59,99 € EUR",
+        "FR": "onsale 59,99 € EUR",
+        "AU": "onsale $79.95 AUD",
+        "JP": "onsale 6,500円 JPY",
+        "TW": "onsale TWD 1,339 TWD",
+        "HK": "onsale HKD 329 HKD",
+        "KR": "onsale 64,800원 KRW",
+        "ES": "onsale 59,99 € EUR",
+        "IT": "onsale 59,99 € EUR",
+        "NL": "onsale € 59,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000001621": {
+      "titleZh": "路易吉洋樓3",
+      "titleEn": "Luigi's Mansion 3",
+      "slug": "luigi3",
+      "jpTitleId": "70010000001621",
+      "regionIds": {
+        "TW": "70010000024566",
+        "HK": "70010000024566",
+        "US": "70010000001620",
+        "CA": "70010000001620",
+        "MX": "70010000001620",
+        "BR": "70010000001620",
+        "GB": "70010000001619",
+        "DE": "70010000001619",
+        "FR": "70010000001619",
+        "AU": "70010000001619"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPAG3JA"
+      },
+      "priceVerified": {
+        "US": "onsale $59.99 USD",
+        "CA": "onsale $84.99 CAD",
+        "MX": "onsale MX$1,229.00 MXN",
+        "BR": "onsale R$ 329,90 BRL",
+        "GB": "onsale £49.99 GBP",
+        "DE": "onsale 59,99 € EUR",
+        "FR": "onsale 59,99 € EUR",
+        "AU": "onsale $79.95 AUD",
+        "JP": "onsale 6,578円 JPY",
+        "TW": "onsale TWD 1,339 TWD",
+        "HK": "onsale HKD 329 HKD",
+        "ES": "onsale 59,99 € EUR",
+        "IT": "onsale 59,99 € EUR",
+        "NL": "onsale € 59,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000007607": {
+      "titleZh": "Fire Emblem 風花雪月",
+      "titleEn": "Fire Emblem: Three Houses",
+      "slug": "fire-emblem-3h",
+      "jpTitleId": "70010000007607",
+      "regionIds": {
+        "TW": "70010000102684",
+        "HK": "70010000021361",
+        "US": "70010000007606",
+        "CA": "70010000007606",
+        "MX": "70010000007606",
+        "BR": "70010000007606",
+        "GB": "70010000007605",
+        "DE": "70010000007605",
+        "FR": "70010000007605",
+        "AU": "70010000007605"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPANVYA"
+      },
+      "priceVerified": {
+        "US": "onsale $59.99 USD",
+        "CA": "onsale $84.99 CAD",
+        "MX": "onsale MX$1,229.00 MXN",
+        "BR": "onsale R$ 329,90 BRL",
+        "GB": "onsale £49.99 GBP",
+        "DE": "onsale 59,99 € EUR",
+        "FR": "onsale 59,99 € EUR",
+        "AU": "onsale $79.95 AUD",
+        "JP": "onsale 7,678円 JPY",
+        "TW": "onsale TWD 1,339 TWD",
+        "HK": "onsale HKD 329 HKD",
+        "ES": "onsale 59,99 € EUR",
+        "IT": "onsale 59,99 € EUR",
+        "NL": "onsale € 59,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000053335": {
+      "titleZh": "異度神劍3",
+      "titleEn": "Xenoblade Chronicles 3",
+      "slug": "xenoblade3",
+      "jpTitleId": "70010000053335",
+      "regionIds": {
+        "TW": "70010000053339",
+        "HK": "70010000053339",
+        "US": "70010000053336",
+        "CA": "70010000053336",
+        "MX": "70010000053336",
+        "BR": "70010000053336",
+        "GB": "70010000053337",
+        "DE": "70010000053337",
+        "FR": "70010000053337",
+        "AU": "70010000053337"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPAZ3HA"
+      },
+      "priceVerified": {
+        "US": "onsale $59.99 USD",
+        "CA": "onsale $84.99 CAD",
+        "MX": "onsale MX$1,229.00 MXN",
+        "BR": "onsale R$ 329,90 BRL",
+        "GB": "onsale £49.99 GBP",
+        "DE": "onsale 59,99 € EUR",
+        "FR": "onsale 59,99 € EUR",
+        "AU": "onsale $79.95 AUD",
+        "JP": "onsale 8,700円 JPY",
+        "TW": "onsale TWD 1,339 TWD",
+        "HK": "onsale HKD 329 HKD",
+        "ES": "onsale 59,99 € EUR",
+        "IT": "onsale 59,99 € EUR",
+        "NL": "onsale € 59,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000033130": {
+      "titleZh": "黑帝斯 Hades",
+      "titleEn": "Hades",
+      "slug": "hades",
+      "jpTitleId": "70010000033130",
+      "regionIds": {
+        "US": "70010000033131",
+        "CA": "70010000033131",
+        "MX": "70010000033131",
+        "BR": "70010000033131",
+        "GB": "70010000033132",
+        "DE": "70010000033132",
+        "FR": "70010000033132",
+        "AU": "70010000033132"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPAY9RA"
+      },
+      "priceVerified": {
+        "US": "onsale $24.99 USD",
+        "CA": "onsale $31.49 CAD",
+        "MX": "onsale MX$484.81 MXN",
+        "BR": "onsale R$ 92,46 BRL",
+        "GB": "onsale £22.49 GBP",
+        "DE": "onsale 24,99 € EUR",
+        "FR": "onsale 24,99 € EUR",
+        "AU": "onsale $37.50 AUD",
+        "JP": "onsale 2,800円 JPY",
+        "ES": "onsale 24,99 € EUR",
+        "IT": "onsale 24,99 € EUR",
+        "NL": "onsale € 24,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000003209": {
+      "titleZh": "空洞騎士",
+      "titleEn": "Hollow Knight",
+      "slug": "hollow-knight",
+      "jpTitleId": "70010000003209",
+      "regionIds": {
+        "US": "70010000003208",
+        "CA": "70010000003208",
+        "MX": "70010000003208",
+        "BR": "70010000003208",
+        "GB": "70010000003207",
+        "DE": "70010000003207",
+        "FR": "70010000003207",
+        "AU": "70010000003207"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPAKLHA"
+      },
+      "priceVerified": {
+        "US": "onsale $15.00 USD",
+        "CA": "onsale $16.99 CAD",
+        "MX": "onsale MX$149.99 MXN",
+        "BR": "onsale R$ 27,99 BRL",
+        "GB": "onsale £10.99 GBP",
+        "DE": "onsale 14,99 € EUR",
+        "FR": "onsale 14,99 € EUR",
+        "AU": "onsale $17.50 AUD",
+        "JP": "onsale 1,480円 JPY",
+        "ES": "onsale 14,99 € EUR",
+        "IT": "onsale 14,99 € EUR",
+        "NL": "onsale € 14,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000005423": {
+      "titleZh": "星露谷物語",
+      "titleEn": "Stardew Valley",
+      "slug": "stardew",
+      "jpTitleId": "70010000005423",
+      "regionIds": {
+        "US": "70010000001801",
+        "CA": "70010000001801",
+        "MX": "70010000001801",
+        "BR": "70010000001801",
+        "GB": "70010000001802",
+        "DE": "70010000001802",
+        "FR": "70010000001802",
+        "AU": "70010000001802"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPACPGA"
+      },
+      "priceVerified": {
+        "US": "onsale $14.99 USD",
+        "CA": "onsale $16.99 CAD",
+        "MX": "onsale MX$149.99 MXN",
+        "BR": "onsale R$ 24,99 BRL",
+        "GB": "onsale £10.99 GBP",
+        "DE": "onsale 13,99 € EUR",
+        "FR": "onsale 13,99 € EUR",
+        "AU": "onsale $16.99 AUD",
+        "JP": "onsale 1,480円 JPY",
+        "ES": "onsale 13,99 € EUR",
+        "IT": "onsale 13,99 € EUR",
+        "NL": "onsale € 13,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000010822": {
+      "titleZh": "蔚藍 Celeste",
+      "titleEn": "Celeste",
+      "slug": "celeste",
+      "jpTitleId": "70010000010822",
+      "regionIds": {
+        "US": "70010000006442",
+        "CA": "70010000006442",
+        "MX": "70010000006442",
+        "BR": "70010000006442",
+        "GB": "70010000006441",
+        "DE": "70010000006441",
+        "FR": "70010000006441",
+        "AU": "70010000006441"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPACF3A"
+      },
+      "priceVerified": {
+        "US": "onsale $19.99 USD",
+        "CA": "onsale $24.51 CAD",
+        "MX": "onsale MX$355.30 MXN",
+        "BR": "onsale R$ 59,99 BRL",
+        "GB": "onsale £17.99 GBP",
+        "DE": "onsale 19,99 € EUR",
+        "FR": "onsale 19,99 € EUR",
+        "AU": "onsale $30.00 AUD",
+        "JP": "onsale 2,160円 JPY",
+        "ES": "onsale 19,99 € EUR",
+        "IT": "onsale 19,99 € EUR",
+        "NL": "onsale € 19,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000072053": {
+      "titleZh": "小丑牌 Balatro",
+      "titleEn": "Balatro",
+      "slug": "balatro",
+      "jpTitleId": "70010000072053",
+      "regionIds": {
+        "TW": "70010000119174",
+        "HK": "70010000119174",
+        "US": "70010000072051",
+        "CA": "70010000072051",
+        "MX": "70010000072051",
+        "BR": "70010000072051",
+        "GB": "70010000072052",
+        "DE": "70010000072052",
+        "FR": "70010000072052",
+        "AU": "70010000072052"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {},
+      "priceVerified": {
+        "US": "onsale $14.99 USD",
+        "CA": "onsale $18.99 CAD",
+        "MX": "onsale MX$178.99 MXN",
+        "BR": "onsale R$ 44,99 BRL",
+        "GB": "onsale £12.79 GBP",
+        "DE": "onsale 13,99 € EUR",
+        "FR": "onsale 13,99 € EUR",
+        "AU": "onsale $21.95 AUD",
+        "JP": "onsale 1,700円 JPY",
+        "TW": "onsale TWD 258 TWD",
+        "HK": "onsale HKD 95 HKD",
+        "ES": "onsale 13,99 € EUR",
+        "IT": "onsale 13,99 € EUR",
+        "NL": "onsale € 13,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000060371": {
+      "titleZh": "潛水員戴夫",
+      "titleEn": "DAVE THE DIVER",
+      "slug": "dave-diver",
+      "jpTitleId": "70010000060371",
+      "regionIds": {
+        "TW": "70010000060370",
+        "HK": "70010000060370",
+        "US": "70010000060372",
+        "CA": "70010000060372",
+        "MX": "70010000060372",
+        "BR": "70010000060372",
+        "GB": "70010000060373",
+        "DE": "70010000060373",
+        "FR": "70010000060373",
+        "AU": "70010000060373"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {},
+      "priceVerified": {
+        "US": "onsale $19.99 USD",
+        "CA": "onsale $25.99 CAD",
+        "MX": "onsale MX$396.00 MXN",
+        "BR": "onsale R$ 99,99 BRL",
+        "GB": "onsale £16.99 GBP",
+        "DE": "onsale 19,99 € EUR",
+        "FR": "onsale 19,99 € EUR",
+        "AU": "onsale $29.99 AUD",
+        "JP": "onsale 2,400円 JPY",
+        "TW": "onsale TWD 350 TWD",
+        "HK": "onsale HKD 140 HKD",
+        "ES": "onsale 19,99 € EUR",
+        "IT": "onsale 19,99 € EUR",
+        "NL": "onsale € 19,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000009922": {
+      "titleZh": "Undertale 傳說之下",
+      "titleEn": "UNDERTALE",
+      "slug": "undertale",
+      "jpTitleId": "70010000009922",
+      "regionIds": {
+        "US": "70010000009921",
+        "CA": "70010000009921",
+        "MX": "70010000009921",
+        "BR": "70010000009921",
+        "GB": "70010000009919",
+        "DE": "70010000009919",
+        "FR": "70010000009919",
+        "AU": "70010000009919"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPAPWSA"
+      },
+      "priceVerified": {
+        "US": "onsale $14.99 USD",
+        "CA": "onsale $18.99 CAD",
+        "MX": "onsale MX$290.81 MXN",
+        "BR": "onsale R$ 79,00 BRL",
+        "GB": "onsale £11.99 GBP",
+        "DE": "onsale 14,99 € EUR",
+        "FR": "onsale 14,99 € EUR",
+        "AU": "onsale $22.95 AUD",
+        "JP": "onsale 1,620円 JPY",
+        "ES": "onsale 14,99 € EUR",
+        "IT": "onsale 14,99 € EUR",
+        "NL": "onsale € 14,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000013175": {
+      "titleZh": "死亡細胞",
+      "titleEn": "Dead Cells",
+      "slug": "dead-cells",
+      "jpTitleId": "70010000013175",
+      "regionIds": {
+        "US": "70010000007706",
+        "CA": "70010000007706",
+        "MX": "70010000007706",
+        "BR": "70010000007706",
+        "GB": "70010000007705",
+        "DE": "70010000007705",
+        "FR": "70010000007705",
+        "AU": "70010000007705"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPANXTA"
+      },
+      "priceVerified": {
+        "US": "onsale $24.99 USD",
+        "CA": "onsale $33.99 CAD",
+        "MX": "onsale MX$499.00 MXN",
+        "BR": "onsale R$ 99,95 BRL",
+        "GB": "onsale £22.49 GBP",
+        "DE": "onsale 24,99 € EUR",
+        "FR": "onsale 24,99 € EUR",
+        "AU": "onsale $37.50 AUD",
+        "JP": "onsale 2,480円 JPY",
+        "ES": "onsale 24,99 € EUR",
+        "IT": "onsale 24,99 € EUR",
+        "NL": "onsale € 24,99 EUR"
+      },
+      "notes": []
+    },
+    "ring-fit": {
+      "titleZh": "健身環大冒險",
+      "titleEn": "Ring Fit Adventure",
+      "slug": "ring-fit",
+      "jpTitleId": null,
+      "regionIds": {
+        "TW": "70010000027272",
+        "HK": "70010000027272",
+        "AU": "70010000004565"
+      },
+      "groups": {
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {},
+      "priceVerified": {
+        "AU": "not_found",
+        "TW": "not_found",
+        "HK": "sales_termination"
+      },
+      "notes": [
+        "下載版已停售：JP 搜尋 API 回 nsuid=null／not_found，TW not_found、HK sales_termination、AU 70010000004565 在 AU 查無價；僅盒裝＋環同捆在售",
+        "JP 搜尋 API 無在售命中（如下載版已停售，見 ring-fit）"
+      ]
+    },
+    "70010000084607": {
+      "titleZh": "超級瑪利歐派對 空前盛會",
+      "titleEn": "Super Mario Party Jamboree",
+      "slug": "mario-party-j",
+      "jpTitleId": "70010000084607",
+      "regionIds": {
+        "TW": "70010000084611",
+        "HK": "70010000084611",
+        "US": "70010000084608",
+        "CA": "70010000084608",
+        "MX": "70010000084608",
+        "BR": "70010000084608",
+        "AU": "70010000084609",
+        "GB": "70010000084609",
+        "DE": "70010000084609",
+        "FR": "70010000084609"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ]
+      },
+      "productCodes": {},
+      "priceVerified": {
+        "US": "onsale $59.99 USD",
+        "CA": "onsale $84.99 CAD",
+        "MX": "onsale MX$1,229.00 MXN",
+        "BR": "onsale R$ 329,90 BRL",
+        "AU": "onsale $79.95 AUD",
+        "JP": "onsale 7,100円 JPY",
+        "TW": "onsale TWD 1,449 TWD",
+        "HK": "onsale HKD 329 HKD",
+        "GB": "onsale £49.99 GBP",
+        "DE": "onsale 59,99 € EUR",
+        "FR": "onsale 59,99 € EUR",
+        "ES": "onsale 59,99 € EUR",
+        "IT": "onsale 59,99 € EUR",
+        "NL": "onsale € 59,99 EUR"
+      },
+      "notes": [
+        "EU 編號 70010000084609 以價格 API 補驗（前次建置時 EU Solr 單次 fetch 失敗，後以獨立查詢確認）"
+      ]
+    },
+    "70010000084617": {
+      "titleZh": "薩爾達傳說 智慧的再現",
+      "titleEn": "Echoes of Wisdom",
+      "slug": "zelda-eow",
+      "jpTitleId": "70010000084617",
+      "regionIds": {
+        "TW": "70010000084621",
+        "HK": "70010000084621",
+        "US": "70010000084618",
+        "CA": "70010000084618",
+        "MX": "70010000084618",
+        "BR": "70010000084618",
+        "GB": "70010000084619",
+        "DE": "70010000084619",
+        "FR": "70010000084619",
+        "AU": "70010000084619"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPBDGEA"
+      },
+      "priceVerified": {
+        "US": "onsale $59.99 USD",
+        "CA": "onsale $84.99 CAD",
+        "MX": "onsale MX$1,229.00 MXN",
+        "BR": "onsale R$ 329,90 BRL",
+        "GB": "onsale £49.99 GBP",
+        "DE": "onsale 59,99 € EUR",
+        "FR": "onsale 59,99 € EUR",
+        "AU": "onsale $79.95 AUD",
+        "JP": "onsale 7,600円 JPY",
+        "TW": "onsale TWD 1,539 TWD",
+        "HK": "onsale HKD 329 HKD",
+        "ES": "onsale 59,99 € EUR",
+        "IT": "onsale 59,99 € EUR",
+        "NL": "onsale € 59,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000096306": {
+      "titleZh": "咚奇剛 蕉力全開",
+      "titleEn": "Donkey Kong Bananza",
+      "slug": "dk-bananza",
+      "jpTitleId": "70010000096306",
+      "regionIds": {
+        "TW": "70010000096812",
+        "HK": "70010000096812",
+        "US": "70010000096809",
+        "CA": "70010000096809",
+        "MX": "70010000096809",
+        "BR": "70010000096809",
+        "GB": "70010000096810",
+        "DE": "70010000096810",
+        "FR": "70010000096810",
+        "AU": "70010000096810"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {},
+      "priceVerified": {
+        "US": "onsale $69.99 USD",
+        "CA": "onsale $99.99 CAD",
+        "MX": "onsale MX$1,449.00 MXN",
+        "BR": "onsale R$ 389,90 BRL",
+        "GB": "onsale £58.99 GBP",
+        "DE": "onsale 69,99 € EUR",
+        "FR": "onsale 69,99 € EUR",
+        "AU": "onsale $109.95 AUD",
+        "JP": "onsale 7,980円 JPY",
+        "TW": "onsale TWD 1,880 TWD",
+        "HK": "onsale HKD 449 HKD",
+        "ES": "onsale 69,99 € EUR",
+        "IT": "onsale 69,99 € EUR",
+        "NL": "onsale € 69,99 EUR"
+      },
+      "notes": [
+        "JP 編號修正：檔案值 70010000096812 實為台港編號（查 JP 為 not_found），改用日本搜尋 API 的 70010000096306（icode=AAACA）"
+      ]
+    },
+    "70010000092842": {
+      "titleZh": "瑪利歐賽車世界",
+      "titleEn": "Mario Kart World",
+      "slug": "mk-world",
+      "jpTitleId": "70010000092842",
+      "regionIds": {
+        "TW": "70010000096808",
+        "HK": "70010000096808",
+        "US": "70010000095431",
+        "CA": "70010000095431",
+        "MX": "70010000095431",
+        "BR": "70010000095431",
+        "GB": "70010000096802",
+        "DE": "70010000096802",
+        "FR": "70010000096802",
+        "AU": "70010000096802"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {},
+      "priceVerified": {
+        "US": "onsale $79.99 USD",
+        "CA": "onsale $109.99 CAD",
+        "MX": "onsale MX$1,649.00 MXN",
+        "BR": "onsale R$ 439,90 BRL",
+        "GB": "onsale £66.99 GBP",
+        "DE": "onsale 79,99 € EUR",
+        "FR": "onsale 79,99 € EUR",
+        "AU": "onsale $119.95 AUD",
+        "JP": "onsale 8,980円 JPY",
+        "TW": "onsale TWD 2,080 TWD",
+        "HK": "onsale HKD 499 HKD",
+        "ES": "onsale 79,99 € EUR",
+        "IT": "onsale 79,99 € EUR",
+        "NL": "onsale € 79,99 EUR"
+      },
+      "notes": [
+        "JP 編號修正：檔案值 70010000096808 實為台港編號（查 JP 為 not_found），改用日本搜尋 API 的 70010000092842（icode=AAAAA）"
+      ]
+    },
+    "70010000094233": {
+      "titleZh": "寶可夢傳說 Z-A",
+      "titleEn": "Pokémon Legends: Z-A",
+      "slug": "pokemon-za",
+      "jpTitleId": "70010000094233",
+      "regionIds": {
+        "TW": "70010000094237",
+        "HK": "70010000094237",
+        "US": "70010000094234",
+        "CA": "70010000094234",
+        "BR": "70010000094234",
+        "GB": "70010000094235",
+        "DE": "70010000094235",
+        "FR": "70010000094235",
+        "AU": "70010000094235"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {},
+      "priceVerified": {
+        "US": "onsale $59.99 USD",
+        "CA": "onsale $84.99 CAD",
+        "BR": "onsale R$ 329,90 BRL",
+        "GB": "onsale £49.99 GBP",
+        "DE": "onsale 59,99 € EUR",
+        "FR": "onsale 59,99 € EUR",
+        "AU": "onsale $89.95 AUD",
+        "JP": "onsale 7,100円 JPY",
+        "TW": "onsale TWD 1,449 TWD",
+        "HK": "onsale HKD 359 HKD",
+        "ES": "onsale 59,99 € EUR",
+        "IT": "onsale 59,99 € EUR",
+        "NL": "onsale € 59,99 EUR"
+      },
+      "notes": [
+        "JP 編號來自日本搜尋 API（jp-search-api），icode=ALZLA，待價格 API 驗證"
+      ]
+    },
+    "70010000103275": {
+      "titleZh": "黑帝斯 II",
+      "titleEn": "Hades II",
+      "slug": "hades2",
+      "jpTitleId": "70010000103275",
+      "regionIds": {
+        "TW": "70010000103276",
+        "HK": "70010000103276",
+        "US": "70010000060675",
+        "CA": "70010000060675",
+        "MX": "70010000060675",
+        "BR": "70010000060675",
+        "GB": "70010000060676",
+        "DE": "70010000060676",
+        "FR": "70010000060676",
+        "AU": "70010000060676"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {},
+      "priceVerified": {
+        "US": "onsale $29.99 USD",
+        "CA": "onsale $38.99 CAD",
+        "MX": "onsale MX$549.00 MXN",
+        "BR": "onsale R$ 109,90 BRL",
+        "GB": "onsale £24.99 GBP",
+        "DE": "onsale 29,99 € EUR",
+        "FR": "onsale 29,99 € EUR",
+        "AU": "onsale $45.00 AUD",
+        "JP": "onsale 3,980円 JPY",
+        "TW": "onsale TWD 748 TWD",
+        "HK": "onsale HKD 199 HKD",
+        "ES": "onsale 29,99 € EUR",
+        "IT": "onsale 29,99 € EUR",
+        "NL": "onsale € 29,99 EUR"
+      },
+      "notes": [
+        "JP 編號來自日本搜尋 API（jp-search-api），icode=BA3FA，待價格 API 驗證"
+      ]
+    },
+    "70010000020841": {
+      "titleZh": "空洞騎士：絲之歌",
+      "titleEn": "Hollow Knight: Silksong",
+      "slug": "silksong",
+      "jpTitleId": "70010000020841",
+      "regionIds": {
+        "US": "70010000020840",
+        "CA": "70010000020840",
+        "MX": "70010000020840",
+        "BR": "70010000020840",
+        "GB": "70010000020839",
+        "DE": "70010000020839",
+        "FR": "70010000020839",
+        "AU": "70010000020839"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ]
+      },
+      "productCodes": {},
+      "priceVerified": {
+        "US": "onsale $19.99 USD",
+        "CA": "onsale $25.99 CAD",
+        "MX": "onsale MX$227.99 MXN",
+        "BR": "onsale R$ 59,99 BRL",
+        "GB": "onsale £16.75 GBP",
+        "DE": "onsale 19,50 € EUR",
+        "FR": "onsale 19,50 € EUR",
+        "AU": "onsale $29.50 AUD",
+        "JP": "onsale 2,300円 JPY",
+        "ES": "onsale 19,50 € EUR",
+        "IT": "onsale 19,50 € EUR",
+        "NL": "onsale € 19,50 EUR"
+      },
+      "notes": [
+        "JP 編號來自日本搜尋 API（jp-search-api），icode=AUSUA，待價格 API 驗證"
+      ]
+    },
+    "70010000042356": {
+      "titleZh": "女神異聞錄5 皇家版",
+      "titleEn": "Persona 5 Royal",
+      "slug": "persona5r",
+      "jpTitleId": "70010000042356",
+      "regionIds": {
+        "US": "70010000043147",
+        "CA": "70010000043147",
+        "MX": "70010000043147",
+        "BR": "70010000043147",
+        "GB": "70010000043148",
+        "DE": "70010000043148",
+        "FR": "70010000043148",
+        "AU": "70010000043148"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPA42UC"
+      },
+      "priceVerified": {
+        "US": "onsale $59.99 USD",
+        "CA": "onsale $79.99 CAD",
+        "MX": "onsale MX$1,019.00 MXN",
+        "BR": "onsale R$ 295,00 BRL",
+        "GB": "onsale £54.99 GBP",
+        "DE": "onsale 59,99 € EUR",
+        "FR": "onsale 59,99 € EUR",
+        "AU": "onsale $99.95 AUD",
+        "JP": "onsale 7,678円 JPY",
+        "ES": "onsale 59,99 € EUR",
+        "IT": "onsale 59,99 € EUR",
+        "NL": "onsale € 59,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000058127": {
+      "titleZh": "歧路旅人 II",
+      "titleEn": "Octopath Traveler II",
+      "slug": "octopath2",
+      "jpTitleId": "70010000058127",
+      "regionIds": {
+        "TW": "70010000108551",
+        "HK": "70010000108551",
+        "US": "70010000058128",
+        "CA": "70010000058128",
+        "MX": "70010000058128",
+        "BR": "70010000058128",
+        "GB": "70010000058129",
+        "DE": "70010000058129",
+        "FR": "70010000058129",
+        "AU": "70010000058129"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {
+        "EU": "HACPA98RA"
+      },
+      "priceVerified": {
+        "US": "onsale $59.99 USD",
+        "CA": "onsale $79.99 CAD",
+        "MX": "onsale MX$1,200.00 MXN",
+        "BR": "onsale R$ 299,90 BRL",
+        "GB": "onsale £49.99 GBP",
+        "DE": "onsale 59,99 € EUR",
+        "FR": "onsale 59,99 € EUR",
+        "AU": "onsale $84.95 AUD",
+        "JP": "onsale 5,478円 JPY",
+        "TW": "onsale TWD 1,190 TWD",
+        "HK": "onsale HKD 298 HKD",
+        "ES": "onsale 59,99 € EUR",
+        "IT": "onsale 59,99 € EUR",
+        "NL": "onsale € 59,99 EUR"
+      },
+      "notes": []
+    },
+    "70010000049280": {
+      "titleZh": "雙人成行",
+      "titleEn": "It Takes Two",
+      "slug": "it-takes-two",
+      "jpTitleId": "70010000049280",
+      "regionIds": {
+        "TW": "70010000121109",
+        "HK": "70010000121109",
+        "US": "70010000049281",
+        "CA": "70010000049281",
+        "MX": "70010000049281",
+        "BR": "70010000049281",
+        "GB": "70010000121107",
+        "DE": "70010000121107",
+        "FR": "70010000121107",
+        "AU": "70010000049282"
+      },
+      "groups": {
+        "NA": [
+          "US",
+          "CA",
+          "MX",
+          "BR",
+          "CL",
+          "CO",
+          "AR",
+          "PE"
+        ],
+        "EU": [
+          "GB",
+          "IE",
+          "DE",
+          "FR",
+          "ES",
+          "IT",
+          "NL",
+          "BE",
+          "AT",
+          "CH",
+          "PT",
+          "PL",
+          "CZ",
+          "DK",
+          "FI",
+          "SE",
+          "NO",
+          "AU",
+          "NZ",
+          "ZA"
+        ],
+        "JP": [
+          "JP"
+        ],
+        "TW": [
+          "TW"
+        ],
+        "HK": [
+          "HK"
+        ]
+      },
+      "productCodes": {},
+      "priceVerified": {
+        "US": "sales_termination",
+        "CA": "sales_termination",
+        "MX": "sales_termination",
+        "BR": "sales_termination",
+        "GB": "onsale £34.99 GBP",
+        "DE": "onsale 39,99 € EUR",
+        "FR": "onsale 39,99 € EUR",
+        "AU": "sales_termination",
+        "JP": "not_found",
+        "TW": "onsale TWD 1,199 TWD",
+        "HK": "onsale HKD 319 HKD",
+        "ES": "onsale 39,99 € EUR",
+        "IT": "onsale 39,99 € EUR",
+        "NL": "onsale € 39,99 EUR"
+      },
+      "notes": [
+        "EU 70010000121107 與 TW/HK 70010000121109 是 Switch 2 Edition（Solr system=Nintendo Switch 2；US/AU/JP 原版 49281/49282/49280 在當地已 sales_termination／not_found）；Switch 1 原版 EU 編號不在 Solr 前 10 筆，49283 猜測經價格 API 證偽（GB/TW/HK 皆 not_found）"
+      ]
+    }
+  },
+  "summary": {
+    "total": 32,
+    "na": 31,
+    "eu": 31,
+    "au": 32,
+    "jp": 31,
+    "tw": 24,
+    "hk": 24,
+    "kr": 3
+  }
+}

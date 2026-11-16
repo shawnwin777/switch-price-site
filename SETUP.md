@@ -17,7 +17,10 @@ GitHub repo ──▶ Vercel（Next.js 14，部署）
                      │
                      ├─ Supabase Auth（Google / Discord 登入）
                      ├─ Supabase Postgres（games / prices / fx_rates / 收藏 / 留言）
-                     └─ Vercel Cron 每天 00:00 UTC（= 台北 08:00）
+                     ├─ Vercel Cron 每天 4 次（UTC 18／19／21／22）
+                     │       → GET /api/sync-catalog（帶 CRON_SECRET 標頭）
+                     │         → 抓各區官方清單 → 新遊戲進目錄 → 新遊戲即時價
+                     └─ Vercel Cron 每天 8 次（UTC 20／23／02／05／08／11／14／17）
                           → GET /api/refresh（帶 CRON_SECRET 標頭）
                             → 抓匯率 → 抓任天堂價格 API → 寫回 Supabase
 ```
@@ -38,6 +41,8 @@ GitHub repo ──▶ Vercel（Next.js 14，部署）
    執行成功會建立 `games / prices / fx_rates / collections / game_likes /
    comments / comment_likes / user_settings` 共 8 張表與 RLS 政策。
    可重複執行（CREATE 皆為 IF NOT EXISTS）。
+   各區編號對照表 `game_region_ids` 是第 9 張表，另以 migration 執行
+   （見 §8.9；不必與 schema.sql 同時跑）。
 
 ## 2. 匯入種子資料
 
@@ -237,19 +242,32 @@ Vercel 後台 → Project → **Settings → Environment Variables**，全部填
 > 所以三邊都要是同一個網址，缺一邊就會在登入流程的某一步被擋下
 > （例如 Google 報 `redirect_uri_mismatch`、Discord 報「無效的 OAuth2 redirect_uri」）。
 
-## 8. 每日更新排程（台北時間 08:00）
+## 8. 全自動更新排程（目錄同步＋價格更新）
+
+> 2026-11-16 改版：舊「一支每日 cron＋400 款切片」已由工作量切片＋
+> 多支 cron 取代（見 `DATA_NOTES.md` §12.5）。本節是新版說明。
 
 ### 8.1 Vercel Cron（預設，已設定好）
 
-`vercel.json` 已設定：
+`vercel.json` 已設定 12 支 cron（Hobby 上限 100 支內）：
 
-```json
-{ "crons": [{ "path": "/api/refresh", "schedule": "0 0 * * *" }] }
-```
+| 路徑 | 排程（UTC） | 台北時間 | 用途 |
+|---|---|---|---|
+| `/api/sync-catalog` | `0 18 * * *` | 02:00 | 目錄同步（推進分頁窗口） |
+| `/api/sync-catalog` | `0 19 * * *` | 03:00 | 目錄同步 |
+| `/api/refresh` | `0 20 * * *` | 04:00 | 價格更新（slot 1） |
+| `/api/sync-catalog` | `0 21 * * *` | 05:00 | 目錄同步 |
+| `/api/sync-catalog` | `0 22 * * *` | 06:00 | 目錄同步 |
+| `/api/refresh` | `0 23 * * *` | 07:00 | 價格更新（slot 2） |
+| `/api/refresh` | `0 2 * * *` | 10:00 | 價格更新（slot 3） |
+| `/api/refresh` | `0 5 * * *` | 13:00 | 價格更新（slot 4） |
+| `/api/refresh` | `0 8 * * *` | 16:00 | 價格更新（slot 5） |
+| `/api/refresh` | `0 11 * * *` | 19:00 | 價格更新（slot 6） |
+| `/api/refresh` | `0 14 * * *` | 22:00 | 價格更新（slot 7） |
+| `/api/refresh` | `0 17 * * *` | 01:00 | 價格更新（slot 0） |
 
-`0 0 * * *` 是每天 00:00 UTC = 台北時間 08:00。
 Vercel Cron 在環境變數有設定 `CRON_SECRET` 時，
-會自動帶 `Authorization: Bearer <CRON_SECRET>` 來打 `/api/refresh`，
+會自動帶 `Authorization: Bearer <CRON_SECRET>` 來打路由，
 路由收到後會驗證，不符回 401。
 
 **Hobby 方案的 cron 限制（已查官方文件，2026-11-16）**：
@@ -269,26 +287,22 @@ Vercel Cron 在環境變數有設定 `CRON_SECRET` 時，
 - Cron Jobs 是 Vercel 的 legacy 功能，日後會遷移到 Schedules；目前
   `vercel.json` 的寫法仍有效，遷移時再跟著官方指引改。
 - 數量上限是 100 支，不是舊文件寫的 2 支（Vercel 在 2026-01-20
-  已把各方案上限統一為每專案 100 支）。所以**加第二支每日 cron 在
-  數量上是允許的**，但本專案刻意只留一支，原因見 8.2。
+  已把各方案上限統一為每專案 100 支）。本專案用 12 支，遠低於上限。
 
-### 8.2 為什麼是一支 cron＋輪轉，而不是多支 cron
+### 8.2 為什麼是多支 cron＋時段輪轉，而不是一支 cron
 
-遊戲目錄擴大到幾千款後，`幾千款 × 35 國`一次跑不完 60 秒上限
-（實測見 8.3）。加第二支每日 cron 並不能解決核心限制：
+舊設計是一支每日 cron＋依台北日期輪轉（10,051 款 26 天一輪），
+放大到 30,000 款會變 75 天——太慢。改法（`DATA_NOTES.md` §12.5）：
 
-1. 每支 cron 觸發的仍是同一個 60 秒上限的 serverless 執行，單次能跑的
-   遊戲量不變；只是每天多一次執行機會。
-2. 兩支 cron 若都打不帶參數的 `/api/refresh`，會因輪轉鍵是「台北日期」
-   而在同一天跑到**同一片**，等於重複做白工；要分片就得在 `vercel.json`
-   的 path 寫死 `?slice=1&slices=8` 這類參數，但 `slices` 會隨遊戲總數
-   變動，寫死的值很快就過期，還會跟輪轉打架。
-3. 匯率與價格分開跑也沒幫助：匯率抓取約 1 秒，瓶頸全在價格 API，
-   分開並不會讓價格跑得更快。
-
-所以設計是**一支每日 cron＋依台北日期自動輪轉**（8.4）。想加快完整
-一輪的速度，正確做法是從外部再打明確的切片（見 8.6），而不是在
-`vercel.json` 加 cron。
+1. **每天跑 8 次價格更新**（每 3 小時一支 cron）：每支仍受 60 秒上限，
+   但一天 8 次執行機會，一輪從 75 天縮到約 4 天（30,000 款情境）。
+2. **時段輪轉不會重複做白工**：輪轉鍵從「台北日期」改為
+   「絕對日數 × 每天次數 ＋ 台北時段」，每次執行跑不同片；
+   連續 `slices` 次執行恰好每片一次。抖動 ±59 分鐘不會跨時段
+   （cron 時刻選在時段中間，見 8.1 的時刻與 8.4）。
+3. **目錄同步獨立成 4 支 cron**：與價格更新分開跑，互不搶 60 秒預算；
+   每次推進一個分頁窗口（`sync_state` 游標），4 支加起來約 1 天跑完一輪。
+4. 匯率與價格分開跑仍沒幫助：匯率抓取約 1 秒，瓶頸全在價格 API。
 
 ### 8.3 實測耗時與切片大小（2026-11-16 實測）
 
@@ -314,37 +328,41 @@ Vercel Cron 在環境變數有設定 `CRON_SECRET` 時，
 | 5,000 款 | 約 280 秒 | 否 |
 | 10,045 款（日本 XML 全數） | 約 562 秒（9.4 分鐘） | 否 |
 
-**切片大小定為每片 400 款**（預設值，見 8.5 如何調）：
-400 款 × 35 國抓價約 22 秒，留約 35 秒給匯率（約 1 秒）、寫庫與重試，
-在 60 秒上限內有餘裕。保守估算（抓價只給 40 秒）上限約 700 款，
-400 款是留了近一倍餘裕的選擇；寫庫量也隨片縮小
-（400 款 × 35 國最多約 14,000 筆 prices upsert，分 200 筆一批、4 批並行寫入）。
+**切片大小定為每片約 12,000 個（遊戲、國家）對**（預設值，見 8.5 如何調）：
+12,000 對 ≈ 240 次價格 API 呼叫 ≈ 18–25 秒抓價，留約 35 秒給匯率（約 1 秒）、
+寫庫與重試，在 60 秒上限內有餘裕。對數來源是 `games.price_countries`
+（sync-catalog 維護、migration 回填；欄位未建時以 35 計＝舊行為）。
+寫庫量也隨片固定（每片最多約 12,000 筆 prices upsert，分 200 筆一批、
+4 批並行寫入，約 5–8 秒）。
 
-完整跑完一輪的天數（每片 400 款、每天一片）：
+完整跑完一輪的天數（每片 12,000 對、每天 8 次）：
 
-| 遊戲總數 | 片數 | 完整一輪 |
-|---|---|---|
-| 32 款（現況） | 1 片 | **1 天**（與舊版全量更新相同） |
-| 1,000 款 | 3 片 | 3 天 |
-| 3,000 款 | 8 片 | **8 天** |
-| 5,000 款 | 13 片 | 13 天 |
-| 10,045 款 | 26 片 | 26 天 |
+| 情境 | 總對數 | 片數 | 完整一輪 |
+|---|---|---|---|
+| 現況 10,051 款（幾乎全 JP-only） | 約 10,900 | 1 片 | **1 天**（8 次都跑同一片＝每天全量更新） |
+| 30,000 款：1 萬款 32 國＋2 萬款 JP-only | 約 340,000 | 29 片 | 約 **4 天** |
+| 30,000 款：全部 32 國全覆蓋 | 960,000 | 80 片 | 10 天 |
+| 30,000 款：對照表未建（全 JP-only） | 30,000 | 3 片 | 不到 1 天（但只有 JP 價） |
 
-注意：每款遊戲的價格最久約 `片數` 天才更新一次（例如 3,000 款時最久
-8 天），特價結束時間與歷史低價也一樣。匯率不受影響，每天都更新。
+注意：每款遊戲的價格最久約「一輪天數」才更新一次（例如 30,000 款情境最久
+約 4 天），特價結束時間與歷史低價也一樣。匯率不受影響，每次執行都更新。
+新遊戲進目錄當天就有即時價（商店前端價＋價格 API，見 8.10），不用等輪轉。
 
 ### 8.4 切片與輪轉邏輯
 
-- **切分**：全部遊戲按 `slug` 排序（決定性），依序切成每片 `slice_size`
-  款；`slices = ceil(遊戲總數 / slice_size)`。沒 title ID 的遊戲也佔片內
-  位置（只跳過抓價、列在 `pending_no_title_id`，不影響切分穩定性）。
-- **輪轉（預設，不帶切片參數時）**：當天跑第幾片由**台北日期**決定，
-  `slice = dayOfYear(台北) % slices`。同一天不論何時打都選同一片；
-  連續 `slices` 天恰好每片跑一次，再回到起點。
+- **切分**：全部遊戲按 `slug` 排序（決定性），依累積對數切成每片約
+  `pair_budget` 對；`slices = 切出來的片數`。單款遊戲對數超過預算時
+  自成一片（不會被拆開）。沒 title ID 的遊戲也佔片內位置
+  （只跳過抓價、列在 `pending_no_title_id`，不影響切分穩定性）。
+- **輪轉（預設，不帶切片參數時）**：當天跑第幾片由**台北時段**決定，
+  `slot = floor(台北小時 / (24 / runsPerDay))`（預設 8 次／天＝每 3 小時），
+  `slice = (絕對日數 × runsPerDay + slot) % slices`。
+  連續 `slices` 次執行恰好每片跑一次，再回到起點。
+  抖動 ±59 分鐘不會跨時段（cron 時刻選在時段中間，見 8.1）。
 - **匯率**：每次執行都更新（便宜，約 1 秒），與切片無關。
 - **歷史低價**：只針對本次切片的遊戲計算與更新，不做全表重算。
 - **遊戲總數變動**：`slices` 每天重算，新增遊戲可能移動切片邊界；
-  每款遊戲仍約每 `slices` 天被更新一次。不要在中途頻繁改 `slice_size`，
+  每款遊戲仍約每 `slices` 次執行被更新一次。不要在中途頻繁改 `pair_budget`，
   否則邊界會跟著亂跳。
 - **時間預算**：抓價階段有 45 秒軟預算，超過就不再開新國家、記進
   `errors` 後收尾（已抓到的價格照常寫入，下次輪到本片時再補）。
@@ -352,25 +370,31 @@ Vercel Cron 在環境變數有設定 `CRON_SECRET` 時，
   （429／5xx／逾時，指數退避 500ms→1000ms，最多 3 次嘗試，429 的
   `Retry-After` 優先但上限 5 秒）；重試後仍失敗的國家只記進 `errors`，
   不中斷其他國家。
+- **查價編號**：每國用 `game_region_ids` 編號；**只有 JP** 沒有對照編號時
+  用 `games.title_id` 當 fallback，其他國家沒編號直接跳過（不發註定
+  `not_found` 的請求）。對照表未建時 JP 照常、其他國家跳過。
 
 ### 8.5 參數
 
 | 參數 | 說明 | 範例 |
 |---|---|---|
-| （無參數） | 輪轉模式：依台北日期自動選片，匯率每天更新 | `/api/refresh` |
-| `?slice=i&slices=n` | 明確指定第 `i` 片（0-based，共 `n` 片）；`slices` 只用來驗證 `slice` 範圍，實際片數一律以當下總數與 `slice_size` 推算，省略亦可 | `/api/refresh?slice=2&slices=8` |
+| （無參數） | 輪轉模式：依台北時段自動選片，匯率每次都更新 | `/api/refresh` |
+| `?slice=i&slices=n` | 明確指定第 `i` 片（0-based，共 `n` 片）；`slices` 只用來驗證 `slice` 範圍，實際片數一律以當下對數與 `pair_budget` 推算，省略亦可 | `/api/refresh?slice=2&slices=8` |
 | `?offset=&limit=` | 明確指定範圍（按 slug 排序後的位置） | `/api/refresh?offset=800&limit=400` |
-| `?slice_size=` | 每片款數，夾在 50～1000；也可改環境變數 `REFRESH_SLICE_SIZE`（query 優先） | `/api/refresh?slice_size=500` |
+| `?pair_budget=` | 每片（遊戲、國家）對數上限，夾在 1000～50000，預設 12000；也可改環境變數 `REFRESH_PAIR_BUDGET`（query 優先） | `/api/refresh?pair_budget=8000` |
+| `?runs_per_day=` | 每天跑幾次（輪轉用），預設 8；也可改環境變數 `REFRESH_RUNS_PER_DAY` | `/api/refresh?runs_per_day=4` |
 | `?countries=` | 只更新指定國家，可與切片參數併用 | `/api/refresh?slice=0&countries=JP,US,TW` |
 
 參數錯誤回 400（例如 `slice` 超出 `0～slices-1`、`offset < 0`、
 `limit < 1`）。無參數且遊戲總數 ≤ 一片時，行為與舊版全量更新一致。
+`?slice_size=` 已退役（款數切片改為對數切片；explicit-offset 模式仍可用
+它當 `limit` 省略時的預設值）。
 
 **調切片大小**：先看回傳的 `duration_ms`。若長期低於 30 秒，可把
-`slice_size` 調大（例如 500，完整一輪天數跟著減少）；若常接近
-60 秒或出現 `countries_skipped_for_budget`，調小（例如 300）。
-改法：Vercel 後台加環境變數 `REFRESH_SLICE_SIZE` 後重新部署，
-或每次呼叫帶 `?slice_size=`。改大後 `slices` 變少、完整一輪變短；
+`pair_budget` 調大（例如 16000，完整一輪天數跟著減少）；若常接近
+60 秒或出現 `countries_skipped_for_budget`，調小（例如 8000）。
+改法：Vercel 後台加環境變數 `REFRESH_PAIR_BUDGET` 後重新部署，
+或每次呼叫帶 `?pair_budget=`。改大後 `slices` 變少、完整一輪變短；
 改小反之。**不要在輪轉中途頻繁改動**，改完後的第一輪邊界會重排一次。
 
 ### 8.6 手動測試與加快完整一輪的方法
@@ -378,7 +402,7 @@ Vercel Cron 在環境變數有設定 `CRON_SECRET` 時，
 ```bash
 # 未帶密鑰 → 401
 curl https://<你的網址>/api/refresh
-# 帶密鑰 → 輪轉模式（依今天台北日期選片），回傳含 slice 資訊的摘要
+# 帶密鑰 → 輪轉模式（依今天台北時段選片），回傳含 slice 資訊的摘要
 curl https://<你的網址>/api/refresh -H "Authorization: Bearer <CRON_SECRET>"
 # 明確跑第 2 片（共 8 片）
 curl "https://<你的網址>/api/refresh?slice=2&slices=8" -H "Authorization: Bearer <CRON_SECRET>"
@@ -386,12 +410,14 @@ curl "https://<你的網址>/api/refresh?slice=2&slices=8" -H "Authorization: Be
 curl "https://<你的網址>/api/refresh?offset=800&limit=400" -H "Authorization: Bearer <CRON_SECRET>"
 # 只更新指定國家（可與切片併用）
 curl "https://<你的網址>/api/refresh?countries=JP,US,TW" -H "Authorization: Bearer <CRON_SECRET>"
+# 目錄同步試算（只比對、不寫庫）
+curl "https://<你的網址>/api/sync-catalog?dry_run=1" -H "Authorization: Bearer <CRON_SECRET>"
 ```
 
-**想加快完整一輪**（例如 3,000 款想 4 天跑完而不是 8 天）：
-用外部免費排程（cron-job.org、GitHub Actions schedule、NAS 的 cron）
-每天多打幾次明確的切片，例如 08:00 打 `?slice=0`、12:00 打 `?slice=1`、
-16:00 打 `?slice=2`，每次都要帶 `Authorization: Bearer <CRON_SECRET>`。
+**想加快完整一輪**：排程已是每天 8 次（8.1），30,000 款情境約 4 天一輪；
+若還想更快，用外部免費排程（cron-job.org、GitHub Actions schedule、NAS 的 cron）
+在兩支 cron 之間多打幾次明確的切片，例如 09:00 打 `?slice=0`、15:00 打 `?slice=1`，
+每次都要帶 `Authorization: Bearer <CRON_SECRET>`。
 同一天打同一片是安全的（冪等 upsert），只是浪費一次執行。
 也可以在 `vercel.json` 再加一支每日 cron（Hobby 數量上限 100 支，見 8.1），
 但 path 必須寫死明確切片（例如 `"/api/refresh?slice=1&slices=8"`），
@@ -419,7 +445,8 @@ node scripts/verify-refresh-slices.mjs
    並更新本次切片遊戲的 `games.historical_low_twd`
    （只會往下降，不會往上調）。
 3. 回傳 JSON 摘要：`mode`（`rotation`／`explicit-slice`／`explicit-offset`）、
-   `slice`、`slices`、`slice_size`、`total_games`、`games_in_slice`、
+   `slice`、`slices`、`pair_budget`、`pairs_total`、`pairs_in_slice`、
+   `runs_per_day`、`slot`、`cycle_days`、`total_games`、`games_in_slice`、
    `next_slice`、`cycle_complete_date`（本輪完整跑完的台北日期）、
    `prices_updated`、`games_with_new_low`、
    `pending_no_title_id`（本片沒 title ID 的遊戲，保留舊價）、
@@ -430,9 +457,118 @@ node scripts/verify-refresh-slices.mjs
 ### 8.8 執行時間
 
 `maxDuration = 60`（Vercel Hobby 上限）。現況 28 款有 title ID 的遊戲 ×
-35 國實測抓價 4.3 秒；目錄擴大後靠切片＋輪轉控制在 60 秒內，
-每片 400 款抓價約 22 秒。若日後超時，先調小 `slice_size`（見 8.5），
-或升級 Vercel 方案調高上限。
+35 國實測抓價 4.3 秒；目錄擴大後靠工作量切片＋輪轉控制在 60 秒內，
+每片約 12,000 對抓價約 18–25 秒、寫庫約 5–8 秒。若日後超時，先調小
+`pair_budget`（見 8.5），或升級 Vercel 方案調高上限。
+
+### 8.9 各區編號對照表：建表與灌入（來源調查組編號到貨後依序執行）
+
+對照表解決「NSUID 是分區的」問題（見 DATA_NOTES.md §11）：`games.title_id`
+只有日本編號，各國專屬編號存在新表 `game_region_ids`（一款遊戲 × 一國 =
+一列）。每日更新路由已改為按國家用對照編號查價（只有 JP 沒有對照編號時
+用 `games.title_id` fallback，其他國家沒編號直接跳過）；部署新路由不必等
+建表——migration 未跑時 JP 照常、其他國家跳過，不會失敗。
+
+```bash
+cd ~/workspace/switch-price-site
+set -a; source .env.local; set +a   # 需 NEXT_PUBLIC_SUPABASE_URL、SUPABASE_SERVICE_ROLE_KEY
+```
+
+**步驟 1——建表（只需一次；可重複執行）：**
+Supabase Dashboard → SQL Editor，依序貼上以下三個 migration 全文執行：
+
+1. `supabase/migrations/20261116_game_region_ids.sql`：
+   `game_region_ids` 表（`game_id` FK `games` on delete cascade、
+   `country`、`title_id`、`source`；`unique(game_id, country)`；
+   索引 `game_id` 與 `(country, title_id)`）＋ RLS（公開可讀、無寫入 policy，
+   寫入只走 Service Role Key）。
+2. `supabase/migrations/20261117_catalog_sync_state.sql`：`sync_state` 表
+   （目錄同步的分頁游標，見 8.10）。
+3. `supabase/migrations/20261117_game_price_countries.sql`：
+   `games.price_countries` 欄位＋一次性回填（供價格更新工作量切片用）。
+
+**步驟 2——灌對照表（可重複執行；新編號檔到貨後重跑即可）：**
+
+```bash
+node scripts/seed-region-ids.mjs
+# 指定其他對照檔：node scripts/seed-region-ids.mjs data/tw-hk-title-ids.json
+# 來源修正了錯誤編號、要以新檔覆蓋舊值時：node scripts/seed-region-ids.mjs --force
+```
+
+- 預設讀 `data/region-title-ids.json`；無此檔時依序改讀
+  `data/tw-hk-full-ids.json`、`data/tw-hk-title-ids.json`（舊台港格式也吃）。
+  **台港對照檔已產出**（`data/tw-hk-full-ids.json`，29,237 筆：具名 2,347、
+  未具名 26,890；見 DATA_NOTES.md §12.7）：具名筆按標題對進既有遊戲寫入；
+  未具名筆無 join key、不寫入（建檔規則待主代理決定，見 REPORT.md）。
+- 預期輸出：`寫入 N 列，已有相同值跳過 M 列，值衝突保留現有 K 列，
+  對不到遊戲跳過 X 款`。重跑一次應為寫入 0 列。
+- 注意：預設「已有值保留」——新檔與現有值不同時會印出衝突、保留現有值，
+  不會靜默覆蓋；對不到 `games` 的條目（多半是台灣清單獨有、目錄還沒有的
+  遊戲）不會新建遊戲，請先跑 `seed-expanded.mjs` 匯入目錄再重跑本腳本。
+
+**步驟 3——抓各區價、合併進目錄（可選；不等每日更新、想先看到多國價時）：**
+
+```bash
+node scripts/fetch-region-prices.mjs [--countries=US,GB,DE,FR,AU,CA]
+# 產出 data/region-prices-patch.json（不寫庫、不改目錄）
+node scripts/merge-region-prices.mjs
+# 只補目錄缺口（已有價不覆蓋）；合併前備份原檔到 data/.backup/
+node scripts/seed-expanded.mjs
+# 把合併後的目錄灌進 Supabase（既有流程；見 DATA_NOTES.md §10.3）
+```
+
+- 若不跑步驟 3 也沒關係：對照編號進庫後，每日更新會在輪轉到該片時
+  自動用對照編號刷新各國價（完整一輪 30,000 款情境約 4 天，見 8.3）。
+- 寫庫量注意：對照表補齊後，每片實際寫入最多約 12,000 筆 prices upsert
+  （200 筆一批、4 批並行，估算 5～8 秒）；部署後先看回傳的 `duration_ms`
+  與 `region_ids_used`（各國用了幾個對照編號、幾個 fallback），若常接近
+  60 秒，先把 `pair_budget` 調小到 8000（見 8.5）。
+
+**驗證（不連庫、不連網）：**
+
+```bash
+node scripts/verify-region-ids.mjs
+# 驗算：編號選取（region／fallback／none、撞號先勝）、兩種對照檔格式解析、
+# merge 邏輯（只補缺口、冪等、備份、cheapest 重算）；2026-11-16 為 29 項全通過
+```
+
+**部署後驗一次**：帶 `CRON_SECRET` 打一次 `/api/refresh`，對照回傳的
+`region_ids_used.table`（應為 `"ok"`）、`region_ids_used.by_country`
+（有編號的國家 `region` 數應 > 0）、`prices_updated`（應比只有 JP 時明顯
+變多）、`duration_ms`。若 `table` 是 `"missing"`，表示 migration 還沒跑
+（路由會 JP 照常、其他國家跳過，不會失敗）；若某國 `region` 為 0 而
+`skipped` 很多，表示該國編號還沒灌進對照表。
+
+### 8.10 目錄同步（`/api/sync-catalog`，每天 4 次）
+
+新遊戲自動進目錄，不用手動跑種子。流程見 `DATA_NOTES.md` §12.1，
+程式見 `lib/catalog-sync.ts`／`lib/catalog-sources.ts`。
+
+| 項目 | 說明 |
+|---|---|
+| 觸發 | `vercel.json` 4 支 cron：UTC 18、19、21、22（台北 02、03、05、06） |
+| 來源 | JP 搜尋 API、NA Algolia、EU Solr、AU Algolia、TW／HK 清單、KR 清單（並行；單一來源失敗只記、不中斷） |
+| 游標 | `sync_state` 表（migration `20261117_catalog_sync_state.sql`）：分頁來源從上次停的頁繼續抓；跑完一輪歸零、記 `last_full_pass_date`。表未建時每次從第 0 頁重抓（新遊戲仍會被發現，只是完整一輪跑不完） |
+| 一輪 | NA 38 頁、EU 21 頁、JP 約 300 頁、AU 2 頁；每天 4 輪約 1 天跑完（JP 是瓶頸） |
+| 寫入 | 冪等 upsert：games（by slug）、title_id／封面只在為空時回填、game_region_ids（by game_id,country）；重跑同一窗口＝0 寫入 |
+| 新遊戲即時價 | 商店前端價（JP 搜尋 API／NA Algolia，已驗證）先寫入，價格 API 查到同一國價時覆蓋（價格 API 為準）；EU Solr 參考價只做交叉驗證、永不寫入；上限 100 款／次；全程 50 秒軟預算，超過跳過價格階段（目錄已寫入，下次輪轉補價） |
+| 參數 | `?sources=jp-search,tw-list`（只跑指定來源）、`?pages=20`（分頁來源每支本次最多抓幾頁）、`?dry_run=1`（只比對、不寫庫）、`?skip_prices=1`（只寫目錄、不同步查價） |
+| 回報 | `games_inserted`、`title_id_filled`、`cover_filled`、`region_ids_upserted`、`price_countries_updated`、`new_game_prices`、`storefront_prices`（商店前端價清單）、`storefront_prices_written`、`reference_price_mismatches`（Solr 與價格 API 不一致時記錄）、`sync_cursors`（各分頁來源本次窗口）、`needs_review`、`conflicts`、`errors`、`duration_ms` |
+
+**台港韓掃描（本機腳本，不是 Vercel cron）**：全量重掃每週一次
+（`scripts/scan-tw-hk-price-api.mjs`，約 11,600 批、25 分鐘）→ 更新
+`data/tw-hk-full-ids.json` → 跑 `seed-region-ids.mjs` 補對照表；
+每日前沿掃描約 40 批（10 秒）；掃描上限（目前 `70010000150000`）
+每季檢查上調。見 `DATA_NOTES.md` §12.7。
+
+**驗算（不連庫、不連網）：**
+
+```bash
+node scripts/verify-catalog-sync.mjs
+# 驗算：標題正規化、JP XML／台港 RSC 解析、四來源解析器（NA／EU／JP／AU）、
+# 規劃器（新遊戲／回填／碰撞守衛／DLC 跳過／冪等）、商店前端價格
+# （NA eshopDetails／JP dprice／sprice／EU 參考價）；2026-11-16 為 43 項全通過
+```
 
 ## 9. API 一覽（登入組實作）
 
@@ -487,11 +623,20 @@ node scripts/verify-refresh-slices.mjs
 | `app/api/likes/route.ts` | 切換遊戲讚 |
 | `app/api/comments/route.ts` | 新增留言 |
 | `app/api/comments/[id]/like/route.ts` | 切換留言讚 |
-| `app/api/refresh/route.ts` | 每日 08:00 台北時間更新（匯率＋切片價格＋切片歷史低價） |
+| `app/api/refresh/route.ts` | 每天 8 次價格更新（工作量切片＋時段輪轉，見 SETUP.md §8） |
 | `scripts/verify-refresh-slices.mjs` | 切片數學單元驗算（不連庫、不連網） |
-| `vercel.json` | 每天 00:00 UTC 打 `/api/refresh` 的 cron |
+| `app/api/sync-catalog/route.ts` | 每天 4 次目錄同步（分頁游標＋新遊戲即時價，見 SETUP.md §8.10） |
+| `lib/catalog-sources.ts`、`lib/catalog-sync.ts` | 目錄同步的來源抓取器＋DB 編排 |
+| `vercel.json` | 12 支 cron：sync-catalog 4 支＋refresh 8 支 |
 | `scripts/map-title-ids.mjs` | title ID 對照腳本（`npm run map-title-ids`） |
 | `data/title-ids.json` | 對照結果（28/32 款，25 款價格驗證通過） |
+| `supabase/migrations/20261116_game_region_ids.sql` | 各區編號對照表 migration（第 9 張表，見 §8.9） |
+| `lib/region-ids.ts` | 對照編號選取純函式（region → fallback → none） |
+| `scripts/region-ids-input.mjs` | 對照檔共用解析器（新／舊格式皆吃） |
+| `scripts/seed-region-ids.mjs` | 對照表匯入（`npm run seed-region-ids`） |
+| `scripts/fetch-region-prices.mjs` | 各區價格抓取 → patch 檔（`npm run fetch-region-prices`） |
+| `scripts/merge-region-prices.mjs` | patch 合併進目錄，只補缺口（`npm run merge-region-prices`） |
+| `scripts/verify-region-ids.mjs` | 對照表管線 mock 驗算（`npm run verify-region-ids`） |
 | `SETUP.md` | 本文件 |
 | `package.json`（僅補 scripts） | 新增 `map-title-ids`、`seed` 兩個 script，未改依賴 |
 

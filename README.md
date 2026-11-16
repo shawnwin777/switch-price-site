@@ -27,7 +27,7 @@ scripts/seed.mjs      匯入種子資料（32 款遊戲、920 筆價格、匯率
 scripts/map-title-ids.mjs  任天堂 title ID 對照
 data/title-ids.json   title ID 對照結果（28/32 款）
 seed/catalog-2026-11-15.json  種子資料（2026-11-15 快照）
-vercel.json           每天 00:00 UTC（= 台北 08:00）打 /api/refresh 的 cron
+vercel.json           12 支 cron：sync-catalog 每天 4 次＋refresh 每天 8 次
 SETUP.md              詳細設定手冊（Supabase、登入、Vercel、回呼網址）
 DATA_NOTES.md         資料說明（種子來源、title ID、封面、已知缺口）
 FRONTEND_NOTES.md     前端說明（頁面清單、本地跑法）
@@ -119,10 +119,13 @@ Vercel 後台 → Add New → Project → Import 這個 repo → Framework 選 N
 | Discord Developer Portal | 應用程式「Switch 遊戲比價」→ OAuth2 → Redirects，按 Save Changes |
 | Supabase 後台 | Authentication → URL Configuration → Site URL 與 Redirect URLs |
 
-### 7. 每日更新（台北時間 08:00）
+### 7. 全自動更新（目錄同步＋價格更新）
 
-`vercel.json` 已設定每天 00:00 UTC（= 台北 08:00）打 `/api/refresh`。
-流程：抓 ExchangeRate-API 匯率（以當天 08:00 台北時間為準，寫進 `fx_rates`），
+`vercel.json` 已設定 12 支 cron：`/api/sync-catalog` 每天 4 次
+（UTC 18／19／21／22，台北 02／03／05／06，新遊戲自動進目錄＋即時價）、
+`/api/refresh` 每天 8 次（UTC 20／23／02／05／08／11／14／17，每 3 小時，
+工作量切片輪轉更新各國價）。流程：抓各區官方清單 → 比對進目錄 →
+抓 ExchangeRate-API 匯率（以台北日期為準，寫進 `fx_rates`），
 再用任天堂官方價格 API 更新各國價格與特價結束時間。手動測試：
 
 ```bash
@@ -155,7 +158,7 @@ curl https://<你的網址>/api/refresh -H "Authorization: Bearer <CRON_SECRET>"
 - `has_demo = 2` 只有雙人成行一款，依好友通行證免費試玩標為「免費試玩」；原始編碼的確切含義未經原型站確認。
 - 16 款遊戲沒有 YouTube 介紹影片（pokemon-sv、mario-odyssey、mario-wonder 等），詳細頁只顯示封面。
 - Supabase 免費版專案閒置 7 天會暫停，需手動恢復；每天的更新排程會去動資料庫，正常運作時不會閒置。
-- Vercel Hobby 每天一支 cron、serverless 執行 60 秒上限；目前規模夠用，日後遊戲或國家大增時用 `?countries=` 拆打。
+- Vercel Hobby 每專案最多 100 支 cron、serverless 執行 60 秒上限；目前用 12 支 cron，夠用。
 
 ## 還需要使用者做的事
 
@@ -164,6 +167,6 @@ curl https://<你的網址>/api/refresh -H "Authorization: Bearer <CRON_SECRET>"
 3. 開 GitHub 儲存庫、把程式碼推上去（第 5 步）。
 4. 接 Vercel 帳號、設環境變數、部署（第 5 步）。
 5. 部署後把回呼網址填回 Google、Discord、Supabase 三個後台（第 6 步）。
-6. 部署後實測：Google / Discord 登入、收藏有存住、每天 08:00 更新有跑。
+6. 部署後實測：Google / Discord 登入、收藏有存住、目錄同步與價格更新有跑（見 SETUP.md §8）。
 
 沒有任何 Secret 或金鑰寫在程式碼裡；設定用的金鑰只存在 Supabase、Vercel 與各家後台。

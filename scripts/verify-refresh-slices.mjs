@@ -99,6 +99,48 @@ check("rotationSlice 與 dayOfYear 一致（2026-11-16 台北）",
   S.rotationSlice(new Date("2026-11-16T00:00:00+08:00"), 3000, 400).slice ===
     doyIndependent(new Date("2026-11-16T00:00:00+08:00")) % S.sliceCount(3000, 400));
 
+// 5. 工作量切片（30,000 款規模；見 DATA_NOTES.md §12.5）
+{
+  // 10,000 款 32 國＋20,000 款 JP-only ＝ 340,000 對 → 29 片（12,000 對／片）
+  const counts = [...Array(10_000).fill(32), ...Array(20_000).fill(1)];
+  const slices = S.planWorkSlices(counts, 12_000);
+  const covered = slices.reduce((a, s) => a + s.count, 0);
+  const maxPairs = Math.max(...slices.map((s) => s.pairs));
+  check("工作量切片 30,000 款（1 萬×32＋2 萬×1）→ 29 片、覆蓋全部、每片 ≤12,000 對",
+    slices.length === 29 && covered === 30_000 && maxPairs <= 12_000,
+    `slices=${slices.length}，covered=${covered}，maxPairs=${maxPairs}`);
+  check("工作量切片邊界連續（offset＝前一片 offset＋count）",
+    slices.every((s, i) => i === 0 || s.offset === slices[i - 1].offset + slices[i - 1].count));
+  // 單款對數超過預算時自成一片
+  const big = S.planWorkSlices([50_000, 1, 1], 12_000);
+  check("單款對數超預算自成一片", big.length === 2 && big[0].count === 1 && big[0].pairs === 50_000);
+  // 現況 10,051 款幾乎全 JP-only → 1 片
+  const now = S.planWorkSlices(Array(10_051).fill(1), 12_000);
+  check("現況 10,051 款 JP-only → 1 片", now.length === 1 && now[0].pairs === 10_051);
+  // pairsForGame：null 以 35 計（舊行為）、0 款為 0
+  check("pairsForGame：null→35、0→0、32→32",
+    S.pairsForGame(null) === 35 && S.pairsForGame(0) === 0 && S.pairsForGame(32) === 32);
+  check("clampPairBudget 邊界", S.clampPairBudget(100) === 1_000 && S.clampPairBudget(99_999) === 50_000 &&
+    S.clampPairBudget(NaN) === 12_000 && S.clampPairBudget(12_000) === 12_000);
+  // 多輪次輪轉：連續 29 次執行每片恰一次（8 次／天）
+  const rotSlices = 29;
+  const seen = new Set();
+  for (let i = 0; i < rotSlices; i++) {
+    const d = new Date(Date.UTC(2026, 10, 16) + i * 3 * 3_600_000); // 每 3 小時一次
+    seen.add(S.rotationWorkSlice(d, rotSlices, 8).slice);
+  }
+  check("多輪次輪轉：連續 29 次執行每片恰一次", seen.size === rotSlices, `seen=${seen.size}`);
+  // slot 穩定：同一時段內（抖動 ±59 分鐘）不跨 slot
+  const slotA = S.rotationWorkSlice(new Date("2026-11-16T04:00:00+08:00"), 29, 8).slot;
+  const slotB = S.rotationWorkSlice(new Date("2026-11-16T04:59:00+08:00"), 29, 8).slot;
+  const slotC = S.rotationWorkSlice(new Date("2026-11-16T03:01:00+08:00"), 29, 8).slot;
+  check("slot 穩定：04:00±59 分鐘同 slot", slotA === 1 && slotB === 1 && slotC === 1,
+    `slots=${slotA}/${slotB}/${slotC}`);
+  check("workCycleDays：29 片／8 次＝4 天", S.workCycleDays(29, 8) === 4);
+  check("workCycleCompleteDateKey 是本輪最後一片的那一天",
+    S.workCycleCompleteDateKey(new Date("2026-11-16T04:00:00+08:00"), 29, 8) === "2026-11-19");
+}
+
 // 5. 實例：今天（台北 2026-11-16）3000 款的輪轉狀態
 const today = new Date();
 const st = S.rotationSlice(today, 3000, 400);
