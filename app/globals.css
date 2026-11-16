@@ -381,6 +381,7 @@ label.field-label {
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: 8px;
+  color: #ffffff;
   cursor: pointer;
   display: flex;
   font-size: 13px;
