@@ -21,7 +21,9 @@ export default async function HomePage() {
 
   return (
     <>
-      <h1>🎮 Switch 遊戲比價</h1>
+      <h1 className="page-title">
+        <b>Switch</b> 遊戲<span>比價</span>
+      </h1>
       <p className="muted">
         跨區比價 35 國 eShop，找出最便宜的買法。點封面進詳細頁看完整價格表與玩家留言。
       </p>
