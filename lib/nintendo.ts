@@ -49,7 +49,32 @@ export function parseRawValue(raw: string | number | null | undefined): number |
 const FETCH_TIMEOUT_MS = 20_000;
 const PRICE_API = "https://api.ec.nintendo.com/v1/price";
 
-/** 抓一國的價格。ids 一次最多 50 個（API 限制未公開，50 是實測安全的批量）。 */
+/** 價格 API 單一 chunk（≤50 個 ID）最多嘗試次數（1 次 + 2 次重試）。 */
+const PRICE_FETCH_MAX_ATTEMPTS = 3;
+/** 重試退避基底：500ms、1000ms（再加 ≤200ms 抖動）；429 的 Retry-After 優先但上限 5 秒。 */
+const PRICE_RETRY_BASE_MS = 500;
+const PRICE_RETRY_AFTER_CAP_MS = 5_000;
+
+function isRetryableStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+function retryDelayMs(attempt: number, res?: Response): number {
+  const header = res?.headers.get("retry-after");
+  if (header != null) {
+    const seconds = Number(header);
+    if (Number.isFinite(seconds) && seconds > 0) {
+      return Math.min(seconds * 1000, PRICE_RETRY_AFTER_CAP_MS);
+    }
+  }
+  return PRICE_RETRY_BASE_MS * 2 ** attempt + Math.random() * 200;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** 抓一國的價格。ids 一次最多 50 個（API 限制未公開，50 是實測安全的批量）。
+ *  429 / 5xx / 網路逾時會按 chunk 重試（指數退避，最多 3 次嘗試）；
+ *  全部失敗才拋錯，由呼叫方記進 errors、不中斷其他國家。 */
 export async function fetchPricesForCountry(
   country: string,
   titleIds: string[]
@@ -59,15 +84,42 @@ export async function fetchPricesForCountry(
   for (let i = 0; i < titleIds.length; i += 50) {
     const chunk = titleIds.slice(i, i + 50);
     const url = `${PRICE_API}?country=${country}&ids=${chunk.join(",")}&lang=${lang}`;
-    const res = await fetch(url, {
-      headers: { "User-Agent": "switch-price-site/1.0 (daily refresh)" },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-    if (!res.ok) {
-      throw new Error(`價格 API HTTP ${res.status}（country=${country}）`);
+    let lastError: Error | null = null;
+    let done = false;
+    for (let attempt = 0; attempt < PRICE_FETCH_MAX_ATTEMPTS && !done; attempt++) {
+      try {
+        const res = await fetch(url, {
+          headers: { "User-Agent": "switch-price-site/1.0 (daily refresh)" },
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        });
+        if (!res.ok) {
+          if (isRetryableStatus(res.status) && attempt < PRICE_FETCH_MAX_ATTEMPTS - 1) {
+            await sleep(retryDelayMs(attempt, res));
+            continue;
+          }
+          throw new Error(`價格 API HTTP ${res.status}（country=${country}）`);
+        }
+        const data = await res.json();
+        out.push(...((data?.prices ?? []) as NintendoPriceEntry[]));
+        done = true;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        // 可重試：逾時／中斷、429／5xx，以及 fetch 本身的網路錯誤
+        // （TypeError 等，不含「價格 API HTTP …」開頭的非重試狀態碼錯誤）。
+        const isHttpError = lastError.message.startsWith("價格 API HTTP");
+        const retryable =
+          lastError.name === "TimeoutError" ||
+          lastError.name === "AbortError" ||
+          /HTTP (429|5\d\d)/.test(lastError.message) ||
+          !isHttpError;
+        if (retryable && attempt < PRICE_FETCH_MAX_ATTEMPTS - 1) {
+          await sleep(retryDelayMs(attempt));
+          continue;
+        }
+        throw lastError;
+      }
     }
-    const data = await res.json();
-    out.push(...((data?.prices ?? []) as NintendoPriceEntry[]));
+    if (!done && lastError) throw lastError;
   }
   return out;
 }
