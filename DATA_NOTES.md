@@ -16,6 +16,18 @@
 
 ## 2. 種子資料：來源與日期
 
+> ⚠️ 2026-11-16 更正：本文件 §3 寫的「同款遊戲各國共用同一個 title ID」
+> 是錯的。實測證明 title ID（NSUID）是**分區**的：日本 NSUID 只在 JP
+> 價格 API 回在售，查美國／阿根廷一律 `not_found`（例如星露谷日本 ID
+> 查 JP＝¥1,480 在售，查 US／AR＝`not_found`；曠野之息美國 ID 查 US＝
+> $59.99 在售，日本 ID 查 US＝`not_found`）。種子檔 920 筆多國價必定是
+> 用各區 NSUID 抓的，但那份各區對照表沒有留下來（`data/title-ids.json`
+> 只有日本 ID）。影響：每日更新路由用日本 title ID 抓 35 國，實際只會
+> 更新 JP 價，其他國家永遠停在種子價；要多國自動更新，須另建各區 NSUID
+> 對照表（見 §10）。另，香港 JSON `thumb_img` 的 14 位數字**就是**香港區
+> NSUID（舊文件稱不是，是因為當時只拿它去查日本，當然查不到），但只有
+> 59 筆是此格式。擴大目錄見 §10。
+
 - **來源**：Muse fullstack 原型「Switch 遊戲比價完整版」的匯出快照。
   遊戲價格取自任天堂官方 eShop 價格 API
   （`api.ec.nintendo.com/v1/price`），32 國即時價；
@@ -63,6 +75,12 @@
   原因：日本 XML 最新發售日約 2025-05-01，Switch 2 發售後的遊戲不在其中；
   香港清單則停在約 2022-06。需人工從官方 eShop 商品頁網址核對後補上。
   每日更新路由會跳過沒有 title ID 的遊戲、保留舊價格，不會因此失敗。
+  - **2026-11-16 更新**：任務 A 從港台官方清單與每週新作文章找到其中
+    3 款的日本／台港編號——pokemon-za `70010000094237`（TW 1449／HK 359）、
+    ring-fit `70010000027272`（有編號但台港皆無價，下載版已停售）、
+    hades2 `70010000103276`（TW 748／HK 199）；silksong 仍未找到。
+    詳見 `data/tw-hk-title-ids.json` 與 §10。`data/title-ids.json` 本身
+    未改（仍是 2026-11-15 的 28/32 版），新編號在台港對照檔裡。
 - **seed 腳本不會洗掉 title ID**（2026-11-16 修復）：
   `scripts/seed.mjs` 的 games upsert **不帶 `title_id` 欄位**；
   未來若種子檔本身帶了 title_id，也只在該遊戲的 `title_id` 目前為空時
@@ -199,3 +217,112 @@ node scripts/seed.mjs
 5. 歷史低價標記可信度低，見 §7；建議累積多日價格後重算。
 6. 封面為 16:9 主視覺圖而非直式盒裝圖；若日後要直式盒裝圖，
    需另尋來源置換檔案（`cover_url` 路徑不變即可）。
+7. **NSUID 是分區的**（2026-11-16 實測，見 §2）：日本 title ID 只能更新
+   JP 價；每日更新路由目前用日本 ID 抓 35 國，實際只會更新 JP，其他國家
+   價格永遠停在種子／目錄快照值。要多國自動更新，須另建各區 NSUID 對照表。
+8. 擴大目錄的 10,019 款新遊戲只有 JP 價（＋少數台港價），其餘 32 國無價；
+   genre 缺失 99.4%、中文名覆蓋低、DLC 無法區分，見 §10。
+
+## 10. 擴大目錄與台港補價（2026-11-16）
+
+### 10.1 交付檔案
+
+| 檔案 | 內容 |
+|---|---|
+| `data/catalog-expanded.json` | 擴大後目錄：10,051 款、10,761 筆價格、32 國有價（12.8 MB，種子檔相容格式） |
+| `data/tw-hk-title-ids.json` | 台港編號對照：32 款中 24 款有台港編號、23 款有台港價；另附 149 款台灣清單獨有遊戲 |
+| `scripts/build-expanded-catalog.mjs` | 重建擴大目錄的腳本（抓清單、去重、JP 篩選、34 國抓價、封面抽驗），可斷點續跑（`data/.cache/`） |
+| `scripts/map-tw-hk-title-ids.mjs` | 重現台港對照的腳本（抓台港清單、比對、查價格 API） |
+| `scripts/merge-tw-hk-into-catalog.mjs` | 把台港編號與價格合併進擴大目錄（可重複執行、冪等） |
+| `scripts/restore-seed-prices.mjs` | 把舊種子檔價格補回目錄缺的國家（只補缺口、不覆蓋，可重複執行） |
+| `scripts/seed-expanded.mjs` | 把擴大目錄寫進 Supabase（env-only、cover 保留遠端網址、title_id 只在為空時回填） |
+| `scripts/verify-refresh-slices.mjs` | 每日更新切片數學驗算 |
+| `lib/refresh-slices.ts` | 切片與輪轉純函式（每日更新用） |
+
+### 10.2 台港價格（任務 A）
+
+- **新來源**：台灣官方遊戲清單 `https://www.nintendo.com/tw/software/switch/`
+ （Next.js 頁，RSC payload 含 title＋nsuid，分頁 `?spage=N`，166 款）；
+  香港同結構 `https://www.nintendo.com/hk/software/switch/`（176 款）。
+  台灣**沒有** `data/json/switch_software.json` 端點（仿香港路徑回 404）。
+  另有港台每週「Nintendo eShop 新作軟體資訊」文章共 107 篇（內文含 title＋nsuid），
+  是新遊戲台港編號的主要來源。
+- **編號體系**：台港多數遊戲共用同一組 nsuid（如瑪利歐驚奇 TW＝HK＝
+  `70010000068691`，日本是 `68687`）；但 2017–2019 年舊遊戲台灣是 2025-09
+  開店時重新登記的 `70010000102xxx` 新號，香港沿用舊號，必須分開查
+  （如曠野之息 TW `70010000102734`／HK `70010000009367`）。
+- **覆蓋**：32 款中 24 款對到台港編號、23 款拿到台港價（健身環有編號但
+  台港皆無價，下載版已停售）。合併後全目錄有 TW 價 26 款、HK 價 30 款
+  （原種子檔各 4 款）。新增台港價例如：曠野之息 TW 1599／HK 399、
+  王國之淚 1599／399、咚奇剛 1880／449、瑪利歐賽車世界 2080／499、
+  寶可夢傳說 Z-A 1449／359、黑帝斯 II 748／199、雙人成行 1199／319、
+  潛水員戴夫 350／140（TW 價是全目錄最低）。
+- **星露谷物語沒有台灣價的原因**：台灣 eShop 根本沒有上架（台灣官方清單
+  166 款無、107 篇新作文章無、價格 API 掃不到、第三方比價站亦無台港價），
+  只有實體卡。**不是資料缺口，是未上架**，需等日後上架再追蹤；不要再列為待補。
+  同樣未上架台灣的還有黑帝斯、空洞騎士、蔚藍、Undertale、女神異聞錄5
+  皇家版、絲之歌、雙人成行（台灣無，香港有 HKD 319）——見對照檔 unmapped。
+- **4 款未對到的後續**：pokemon-za、ring-fit、hades2 已找到（見 §3），
+  絲之歌仍未找到（發售當週香港新作文章無此遊戲，台港皆無在售）。
+- **未明編號**：`70010000058126`／`49288`／`42364`／`20843` 四個台港在售
+  編號身份未明（價格 API 掃描發現的真實商品），擴目錄時若撞上需另外查身份；
+  死亡細胞的香港編號亦未找到（香港有賣 HKD 188，現 50% off 到 94）。
+
+### 10.3 擴大目錄（任務 B，2026-11-16 價格與匯率快照）
+
+- **規模**：10,051 款（日本 XML 10,045 個 title ID 去重＋2 個 Switch 2
+  人工 ID＋4 款無 title ID 的種子遊戲）、10,761 筆價格、32 國有價。
+  匯率快照 `fxAsOf = 2026-11-16T00:02:31Z`（台北 08:02），與目錄同日。
+- **價格來源**：先以 JP 全量篩選在售（約 9,818 個 ID），再抓其餘
+  34 國——但因 NSUID 分區（見 §2），其餘 33 國全部 `not_found`，所以新遊戲
+  實際只有 JP 價（＋任務 A 合併的台港價 46 筆、香港 thumb 補價 10 筆）。
+  舊 32 款的 30 國價是 `scripts/restore-seed-prices.mjs` 從 2026-11-15
+  種子檔補回的 890 筆（新抓的 JP／台港價優先保留）。
+- **各國覆蓋**：JP 9,821 款（含 3 款無 title ID 的種子遊戲以種子價補回的
+  JP 列）；TW 26 款、HK 30 款；其餘 29 國各 32 款
+  （皆為舊 32 款的種子價）；SG／MY／TH 0 款。
+- **無價遊戲**：228 款（任務 B 回報：218 款下架、10 款查無；皆為日本 XML
+  遊戲，舊 32 款經種子價補回後皆有價）。
+- **封面**：遠端任天堂 CDN 網址（日本 XML `ScreenshotImgURL`，
+  `img-eshop.cdn.nintendo.net`），抽樣 20/20 驗證為真實圖片（6 張回
+  `application/octet-stream`，驗檔頭 magic bytes 確認為 JPEG）；無圖者用
+  `/covers/placeholder.svg`；舊 32 款保持本地 `/covers/<slug>.jpg`。
+  沒有下載任何圖片進 `public/covers/`。
+- **欄位缺口**：genre 缺失 99.4%（9,989／10,051 款無；日本 XML 無類型欄位，
+  香港 JSON 只對到 52 款）；中文名覆蓋低（香港 JSON 只對到 52 款，其餘沿用
+  日文原文標題）；4,188 款（41.7%）標題無拉丁字母，slug 為 `game-<title_id>`；
+  DLC 無法區分（SoftType 只有 `dl`／`pkg_dl`，全部記 `product_type="game"`、
+  `has_demo=0`）；原價 0 円的免費遊戲存在，`historicalLowTwd=0`；
+  Switch 2 遊戲缺口（日本 XML 最新約 2025-05-01，只有 mk-world、dk-bananza；
+  pokemon-za、hades2 靠台港價，silksong 完全無價）。
+- **匯入**：`node scripts/seed-expanded.mjs <catalog-expanded.json>`，
+  首次約 5–10 分鐘（games 51 批＋prices 22 批＋title_id 回填約 3 分鐘），
+  重複執行約 1–2 分鐘。只讀 `process.env`，不讀 `.env.local`。
+  upsert 不刪除資料庫已有列，所以舊 920 筆種子價不會被洗掉。
+
+### 10.4 每日更新改成切片＋輪轉（任務 C）
+
+- **原因**：實測價格 API 速率約 1.6 毫秒／（款×國）（並行度 4），
+  全量一次只算抓價：1,000 款約 56 秒、3,000 款約 168 秒、10,045 款約
+  562 秒，60 秒上限內跑不完。
+- **做法**（`app/api/refresh/route.ts`＋新增 `lib/refresh-slices.ts`）：
+  預設每片 400 款（抓價約 22 秒）；無參數時依台北日期自動輪轉
+  （`slice = dayOfYear % slices`），一支每日 cron 在 n 天內跑完全部遊戲；
+  匯率每天都更新，歷史低價只算本片。完整一輪：32 款 1 天、3,000 款 8 天、
+  10,045 款 26 天。新增參數 `?slice=i&slices=n`、`?offset=&limit=`、
+  `?slice_size=`（或環境變數 `REFRESH_SLICE_SIZE`），`?countries=` 保留。
+  抓價 45 秒軟預算，超時收尾不爛尾；`fetchPricesForCountry` 加 429／5xx
+  指數退避重試。`vercel.json` 未改（仍一支 cron `0 0 * * *`）。
+- **Vercel Hobby cron 限制**（查官方文件 2026-11-16）：每專案最多 100 支
+  cron、每支每天最多跑一次、觸發時間 ±59 分鐘抖動（00:00 UTC 的 cron
+  實際在台北 08:00–08:59 之間觸發）。想加快一輪：用外部免費排程
+  （cron-job.org、GitHub Actions）每天多打幾次明確切片（冪等 upsert，
+  同一天重打同一片安全）。
+- **驗證**：`npx tsc --noEmit` 通過、`npm run build` 通過、
+  `node scripts/verify-refresh-slices.mjs` 全部通過；**未實測連 Supabase**
+  （無 service key），上線後請先用 curl 帶 `CRON_SECRET` 打一次無參數更新，
+  對照回傳的 `slice`／`prices_updated`／`duration_ms`。
+- **已知限制**：遊戲總數變動時切片邊界會重排；Hobby cron 有抖動，
+  「08:00 快照」應理解為「08:00 那個小時內」；Cron Jobs 已被 Vercel 標為
+  legacy，日後遷移到 Schedules 時 `vercel.json` 寫法需跟官方指引改
+  （路由本身不依賴 cron 專屬功能）。
