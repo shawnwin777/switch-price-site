@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
-import { cheapestPrice, getUserCollectionGameIds, isOnSale } from "@/lib/data";
-import { COUNTRIES, DEFAULT_BLOCKED_CODES } from "@/lib/countries";
+import { type GamesPageFilters } from "@/lib/data";
+import {
+  COUNTRIES,
+  DEFAULT_BLOCKED_CODES,
+  productTypeLabel,
+} from "@/lib/countries";
 import type { GameWithPrices } from "@/lib/types";
 import GameCard from "./GameCard";
 import CountrySettings from "./CountrySettings";
@@ -12,25 +17,32 @@ import SaleBanner from "./SaleBanner";
 
 const BLOCKED_KEY = "spc-blocked-countries";
 
+export type HomeFilters = Omit<GamesPageFilters, "userId"> & { page: number };
+
 type SortKey = "cheap-asc" | "cheap-desc" | "title" | "discount";
 
 export default function HomeClient({
   games,
+  total,
+  page,
+  totalPages,
+  filters,
+  productTypes,
   loggedInUserId,
 }: {
   games: GameWithPrices[];
+  total: number;
+  page: number;
+  totalPages: number;
+  filters: HomeFilters;
+  productTypes: string[];
   loggedInUserId: string | null;
 }) {
-  const [query, setQuery] = useState("");
-  const [platform, setPlatform] = useState("all");
-  const [productType, setProductType] = useState("all");
-  const [demo, setDemo] = useState("all");
-  const [sort, setSort] = useState<SortKey>("cheap-asc");
-  const [onlySale, setOnlySale] = useState(false);
-  const [onlyMine, setOnlyMine] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const [input, setInput] = useState(filters.q ?? "");
   const [blocked, setBlocked] = useState<string[]>(DEFAULT_BLOCKED_CODES);
   const [blockedLoaded, setBlockedLoaded] = useState(false);
-  const [myCollection, setMyCollection] = useState<Set<string> | null>(null);
   const [userId, setUserId] = useState<string | null>(loggedInUserId);
 
   // 封鎖清單：localStorage（只在瀏覽器讀，避免 SSR / hydration 不一致）。
@@ -63,18 +75,6 @@ export default function HomeClient({
     db.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
   }, [userId]);
 
-  // 我的收藏 id（只看我的收藏時用）。
-  useEffect(() => {
-    if (!userId) {
-      setMyCollection(null);
-      return;
-    }
-    const db = createSupabaseBrowserClient();
-    getUserCollectionGameIds(db, userId).then((ids) =>
-      setMyCollection(new Set(ids))
-    );
-  }, [userId]);
-
   const visibleCountries = useMemo(() => {
     const blockedSet = new Set(blocked);
     return new Set(
@@ -82,52 +82,58 @@ export default function HomeClient({
     );
   }, [blocked]);
 
-  const productTypes = useMemo(
-    () => [...new Set(games.map((g) => g.product_type ?? "game"))],
-    [games]
-  );
+  // ---- 篩選／排序／分頁都走 URL，伺服器端重新抓資料 ----
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let list = games.filter((g) => {
-      if (platform !== "all" && g.platform !== platform) return false;
-      if (productType !== "all" && (g.product_type ?? "game") !== productType)
-        return false;
-      if (demo !== "all" && String(g.has_demo ?? 0) !== demo) return false;
-      const visiblePrices = g.prices.filter((p) =>
-        visibleCountries.has(p.country)
-      );
-      if (onlySale && !isOnSale(visiblePrices)) return false;
-      if (onlyMine) {
-        if (!myCollection) return false;
-        if (!myCollection.has(g.id) && !g.collected_by_me) return false;
+  // 瀏覽器上一頁／下一頁回到不同搜尋條件時，輸入框跟著更新。
+  useEffect(() => {
+    setInput(filters.q ?? "");
+  }, [filters.q]);
+
+  function buildUrl(patch: Partial<HomeFilters>): string {
+    const f = { ...filtersRef.current, ...patch };
+    const sp = new URLSearchParams();
+    if (f.q) sp.set("q", f.q);
+    if (f.platform) sp.set("platform", f.platform);
+    if (f.productType) sp.set("type", f.productType);
+    if (f.demo != null) sp.set("demo", String(f.demo));
+    if (f.sort && f.sort !== "cheap-asc") sp.set("sort", f.sort);
+    if (f.onlySale) sp.set("sale", "1");
+    if (f.onlyMine) sp.set("mine", "1");
+    if (f.page > 1) sp.set("page", String(f.page));
+    const qs = sp.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  }
+
+  // 改篩選條件時回到第 1 頁；用 replace 避免每點一次就多一筆瀏覽紀錄。
+  function applyFilter(patch: Partial<HomeFilters>) {
+    router.replace(buildUrl({ ...patch, page: 1 }));
+  }
+
+  // 搜尋輸入：本地 state + 400ms debounce 後寫入 URL。
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (input !== (filtersRef.current.q ?? "")) {
+        router.replace(buildUrl({ q: input || undefined, page: 1 }));
       }
-      if (q) {
-        const hay = [g.title_zh, g.title_en ?? "", g.genre ?? "", g.publisher ?? ""]
-          .join(" ")
-          .toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-    const cheap = (g: GameWithPrices) =>
-      cheapestPrice(g.prices.filter((p) => visibleCountries.has(p.country)))
-        ?.price_twd ?? Infinity;
-    const discount = (g: GameWithPrices) =>
-      Math.max(
-        0,
-        ...g.prices
-          .filter((p) => visibleCountries.has(p.country))
-          .map((p) => p.discount_pct ?? 0)
-      );
-    if (sort === "cheap-asc") list = [...list].sort((a, b) => cheap(a) - cheap(b));
-    if (sort === "cheap-desc") list = [...list].sort((a, b) => cheap(b) - cheap(a));
-    if (sort === "title")
-      list = [...list].sort((a, b) => a.title_zh.localeCompare(b.title_zh, "zh-Hant"));
-    if (sort === "discount")
-      list = [...list].sort((a, b) => discount(b) - discount(a));
-    return list;
-  }, [games, query, platform, productType, demo, sort, onlySale, onlyMine, visibleCountries, myCollection]);
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input]);
+
+  function goPage(p: number) {
+    router.push(buildUrl({ page: p }));
+  }
+
+  // 分頁按鈕：最多顯示 7 個頁碼（首尾＋當前前後各一），中間用 … 連接。
+  const pageNums = useMemo(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const set = new Set([1, totalPages, page - 1, page, page + 1]);
+    return [...set].filter((n) => n >= 1 && n <= totalPages).sort((a, b) => a - b);
+  }, [page, totalPages]);
 
   return (
     <>
@@ -138,16 +144,16 @@ export default function HomeClient({
           <input
             className="input search-box"
             type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜尋遊戲名（中文 / 英文）、類型、發行商…"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="搜尋遊戲名（中文 / 英文）…"
             aria-label="搜尋遊戲"
           />
           <select
             className="input"
             style={{ width: "auto" }}
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
+            value={filters.sort ?? "cheap-asc"}
+            onChange={(e) => applyFilter({ sort: e.target.value as SortKey })}
             aria-label="排序"
           >
             <option value="cheap-asc">最低價：低 → 高</option>
@@ -164,8 +170,10 @@ export default function HomeClient({
               <button
                 key={p}
                 type="button"
-                className={`chip ${platform === p ? "active" : ""}`}
-                onClick={() => setPlatform(p)}
+                className={`chip ${(filters.platform ?? "all") === p ? "active" : ""}`}
+                onClick={() =>
+                  applyFilter({ platform: p === "all" ? undefined : p })
+                }
               >
                 {p === "all" ? "全部" : p}
               </button>
@@ -175,8 +183,8 @@ export default function HomeClient({
             <span>商品類型</span>
             <button
               type="button"
-              className={`chip ${productType === "all" ? "active" : ""}`}
-              onClick={() => setProductType("all")}
+              className={`chip ${!filters.productType ? "active" : ""}`}
+              onClick={() => applyFilter({ productType: undefined })}
             >
               全部
             </button>
@@ -184,10 +192,10 @@ export default function HomeClient({
               <button
                 key={t}
                 type="button"
-                className={`chip ${productType === t ? "active" : ""}`}
-                onClick={() => setProductType(t)}
+                className={`chip ${filters.productType === t ? "active" : ""}`}
+                onClick={() => applyFilter({ productType: t })}
               >
-                {t === "game" ? "遊戲本體" : t}
+                {productTypeLabel(t)}
               </button>
             ))}
           </div>
@@ -205,8 +213,14 @@ export default function HomeClient({
               <button
                 key={d.v}
                 type="button"
-                className={`chip ${demo === d.v ? "active" : ""}`}
-                onClick={() => setDemo(d.v)}
+                className={`chip ${
+                  String(filters.demo ?? "all") === d.v ? "active" : ""
+                }`}
+                onClick={() =>
+                  applyFilter({
+                    demo: d.v === "all" ? undefined : Number(d.v),
+                  })
+                }
               >
                 {d.label}
               </button>
@@ -218,29 +232,30 @@ export default function HomeClient({
           <label>
             <input
               type="checkbox"
-              checked={onlySale}
-              onChange={(e) => setOnlySale(e.target.checked)}
+              checked={filters.onlySale ?? false}
+              onChange={(e) => applyFilter({ onlySale: e.target.checked })}
             />
             只看特價
           </label>
           <label title={userId ? "" : "需先登入"}>
             <input
               type="checkbox"
-              checked={onlyMine}
+              checked={filters.onlyMine ?? false}
               disabled={!userId}
-              onChange={(e) => setOnlyMine(e.target.checked)}
+              onChange={(e) => applyFilter({ onlyMine: e.target.checked })}
             />
             只看我的收藏{userId ? "" : "（需登入）"}
           </label>
           <span className="muted">
-            共 {filtered.length} 款（全部 {games.length} 款）
+            共 {total} 款
+            {totalPages > 0 && ` · 第 ${page} / ${totalPages} 頁`}
           </span>
         </div>
       </div>
 
       <CountrySettings blocked={blocked} onChange={setBlocked} />
 
-      {filtered.length === 0 ? (
+      {games.length === 0 ? (
         <div className="empty">
           <p>沒有符合條件的遊戲。</p>
           <p>
@@ -248,11 +263,48 @@ export default function HomeClient({
           </p>
         </div>
       ) : (
-        <div className="game-grid">
-          {filtered.map((g) => (
-            <GameCard key={g.id} game={g} visibleCountries={visibleCountries} />
-          ))}
-        </div>
+        <>
+          <div className="game-grid">
+            {games.map((g) => (
+              <GameCard key={g.id} game={g} visibleCountries={visibleCountries} />
+            ))}
+          </div>
+          {totalPages > 1 && (
+            <nav className="pagination" aria-label="分頁">
+              <button
+                type="button"
+                className="btn"
+                disabled={page <= 1}
+                onClick={() => goPage(page - 1)}
+              >
+                ← 上一頁
+              </button>
+              {pageNums.map((n, i) => (
+                <span key={n} style={{ display: "contents" }}>
+                  {i > 0 && n > pageNums[i - 1] + 1 && (
+                    <span className="ellipsis">…</span>
+                  )}
+                  <button
+                    type="button"
+                    className={`chip page-num ${n === page ? "active" : ""}`}
+                    onClick={() => goPage(n)}
+                    aria-current={n === page ? "page" : undefined}
+                  >
+                    {n}
+                  </button>
+                </span>
+              ))}
+              <button
+                type="button"
+                className="btn"
+                disabled={page >= totalPages}
+                onClick={() => goPage(page + 1)}
+              >
+                下一頁 →
+              </button>
+            </nav>
+          )}
+        </>
       )}
     </>
   );

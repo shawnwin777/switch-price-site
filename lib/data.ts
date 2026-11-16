@@ -83,55 +83,252 @@ export function saleEndOf(prices: Price[]): string | null {
   return ends[0] ?? null;
 }
 
-/** 讀全部遊戲 + 全部價格 + 讚數/收藏數（首頁用）。 */
-export async function getGamesWithPrices(
+// ============================================================================
+// 首頁伺服器端分頁（2026-11-16 修復：PostgREST 預設只回 1,000 筆，
+// 舊版一次 select("*") 只能拿到前 1,000 款遊戲與 1,000 筆價格，
+// 中文標題的遊戲排在 1,000 名外就搜不到也看不到）。
+// 新版：搜尋／篩選／排序／總數都在資料庫做，每頁只抓 60 款，
+// 價格、讚數、收藏數也只抓當頁 60 款的。
+// 最低價／折扣排序與「只看特價」需要 games_with_price_stats 檢視
+// （supabase/migrations/20261117_homepage_price_stats.sql）；
+// 檢視尚未建立時自動退回 games 表（排序改為名稱排序），首頁不會壞掉。
+// ============================================================================
+
+/** 首頁每頁筆數。 */
+export const PAGE_SIZE = 60;
+
+/** games / games_with_price_stats 查詢時明確選取的遊戲欄位（不含統計欄位）。 */
+const GAME_COLUMNS =
+  "id,slug,title_zh,title_en,genre,publisher,platform,product_type,has_demo,cover_url,youtube_id,title_id,historical_low_twd,is_manual,created_by,created_at";
+
+export type HomeSortKey = "cheap-asc" | "cheap-desc" | "title" | "discount";
+
+export interface GamesPageFilters {
+  q?: string;
+  platform?: string;
+  productType?: string;
+  demo?: number;
+  sort?: HomeSortKey;
+  onlySale?: boolean;
+  onlyMine?: boolean;
+  page?: number;
+  userId?: string | null;
+}
+
+export interface GamesPageResult {
+  games: GameWithPrices[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+/** 搜尋字串清理：PostgREST or() 用逗號與括號分隔條件，ilike 的 % _ \ 是萬用字元。
+ *  逗號／括號改為空白，\ % _ 加上跳脫，長度上限 100 字。 */
+function sanitizeSearchTerm(raw: string): string {
+  return raw
+    .replace(/[,()]/g, " ")
+    .replace(/\\/g, "\\\\")
+    .replace(/%/g, "\\%")
+    .replace(/_/g, "\\_")
+    .trim()
+    .slice(0, 100);
+}
+
+interface RawGamesPage {
+  data: Game[] | null;
+  count: number | null;
+  error: { message: string; code?: string } | null;
+}
+
+async function fetchGamesPageRows(
   db: SupabaseClient,
-  userId?: string | null
-): Promise<GameWithPrices[]> {
-  const [{ data: games, error: gErr }, { data: prices, error: pErr }] =
-    await Promise.all([
-      db.from("games").select("*").order("title_zh"),
-      db.from("prices").select("*"),
-    ]);
-  if (gErr || pErr || !games) {
-    if (gErr) console.warn("[data] games 讀取失敗：", gErr.message);
-    if (pErr) console.warn("[data] prices 讀取失敗：", pErr.message);
-    return [];
+  opts: GamesPageFilters,
+  source: "games_with_price_stats" | "games",
+  useStats: boolean
+): Promise<RawGamesPage> {
+  const page = Math.max(1, opts.page ?? 1);
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+  let query = db.from(source).select(GAME_COLUMNS, { count: "exact" });
+
+  const term = sanitizeSearchTerm(opts.q ?? "");
+  if (term) {
+    query = query.or(`title_zh.ilike.%${term}%,title_en.ilike.%${term}%`);
+  }
+  if (opts.platform) query = query.eq("platform", opts.platform);
+  if (opts.productType) {
+    // 舊資料 product_type 為 NULL 時視為 "game"（與舊版前端行為一致）。
+    query =
+      opts.productType === "game"
+        ? query.or("product_type.eq.game,product_type.is.null")
+        : query.eq("product_type", opts.productType);
+  }
+  if (opts.demo != null) query = query.eq("has_demo", opts.demo);
+  if (opts.onlySale && useStats) query = query.eq("has_sale", true);
+  if (opts.onlyMine) {
+    if (!opts.userId) return { data: [], count: 0, error: null };
+    const ids = await getUserCollectionGameIds(db, opts.userId);
+    if (ids.length === 0) return { data: [], count: 0, error: null };
+    query = query.in("id", ids);
   }
 
-  const [likes, collections, myLikes, myCollections] = await Promise.all([
-    db.from("game_likes").select("game_id"),
-    db.from("collections").select("game_id"),
-    userId
-      ? db.from("game_likes").select("game_id").eq("user_id", userId)
-      : Promise.resolve({ data: [] as { game_id: string }[] }),
-    userId
-      ? db.from("collections").select("game_id").eq("user_id", userId)
-      : Promise.resolve({ data: [] as { game_id: string }[] }),
-  ]);
+  const sort = opts.sort ?? "cheap-asc";
+  if (sort === "title" || !useStats) {
+    query = query.order("title_zh", { ascending: true });
+  } else if (sort === "cheap-asc") {
+    query = query
+      .order("cheapest_twd", { ascending: true, nullsFirst: false })
+      .order("title_zh", { ascending: true });
+  } else if (sort === "cheap-desc") {
+    query = query
+      .order("cheapest_twd", { ascending: false, nullsFirst: false })
+      .order("title_zh", { ascending: true });
+  } else {
+    // discount：折扣大 → 小。
+    query = query
+      .order("max_discount_pct", { ascending: false, nullsFirst: false })
+      .order("title_zh", { ascending: true });
+  }
+  // 決定性排序：前面的鍵相同時用 id 收尾，避免分頁邊界跳動。
+  query = query.order("id", { ascending: true });
+
+  const { data, count, error } = await query.range(from, to);
+  return {
+    data: (data as Game[] | null) ?? null,
+    count: count ?? null,
+    error: error as RawGamesPage["error"],
+  };
+}
+
+/** 首頁分頁查詢：搜尋／篩選／排序／總數都在資料庫做，每頁 60 款。
+ *  注意：最低價／折扣排序是「全部國家」的最低價／最大折扣，
+ *  不是「可見國家」的（封鎖清單只存在瀏覽器 localStorage，伺服器不知道）；
+ *  卡片上顯示的最低價仍依可見國家計算，與以前一致。 */
+export async function getGamesPage(
+  db: SupabaseClient,
+  opts: GamesPageFilters
+): Promise<GamesPageResult> {
+  const page = Math.max(1, opts.page ?? 1);
+  const empty: GamesPageResult = { games: [], total: 0, page, totalPages: 0 };
+
+  if (opts.onlyMine && !opts.userId) return empty;
+
+  let res = await fetchGamesPageRows(db, opts, "games_with_price_stats", true);
+  let useStats = true;
+  if (res.error) {
+    const msg = res.error.message ?? "";
+    const code = res.error.code ?? "";
+    if (code === "PGRST205" || /does not exist/i.test(msg)) {
+      // 檢視還沒建立（migration 未套用）：退回 games 表，首頁不壞。
+      console.warn(
+        "[data] games_with_price_stats 檢視不存在，改用 games 表（最低價／折扣排序暫時退為名稱排序；請套用 supabase/migrations/20261117_homepage_price_stats.sql）。"
+      );
+      useStats = false;
+      res = await fetchGamesPageRows(db, opts, "games", false);
+    }
+  }
+  if (res.error || !res.data) {
+    if (res.error) console.warn("[data] 首頁查詢失敗：", res.error.message);
+    return empty;
+  }
+  const total = res.count ?? 0;
+  const totalPages = total > 0 ? Math.ceil(total / PAGE_SIZE) : 0;
+  const games = res.data;
+  if (games.length === 0) return { games: [], total, page, totalPages };
+
+  // 當頁 60 款的價格、讚數、收藏數（不抓整張表）。
+  const ids = games.map((g) => g.id);
+  const [pricesRes, likesRes, collRes, myLikesRes, myCollRes] =
+    await Promise.all([
+      db.from("prices").select("*").in("game_id", ids),
+      db.from("game_likes").select("game_id").in("game_id", ids),
+      db.from("collections").select("game_id").in("game_id", ids),
+      opts.userId
+        ? db
+            .from("game_likes")
+            .select("game_id")
+            .in("game_id", ids)
+            .eq("user_id", opts.userId)
+        : Promise.resolve({ data: [] as { game_id: string }[] }),
+      opts.userId
+        ? db
+            .from("collections")
+            .select("game_id")
+            .in("game_id", ids)
+            .eq("user_id", opts.userId)
+        : Promise.resolve({ data: [] as { game_id: string }[] }),
+    ]);
+  const prices = (pricesRes.data as Price[] | null) ?? [];
   const likeCount = new Map<string, number>();
-  (likes.data ?? []).forEach((r: { game_id: string }) =>
+  ((likesRes.data as { game_id: string }[] | null) ?? []).forEach((r) =>
     likeCount.set(r.game_id, (likeCount.get(r.game_id) ?? 0) + 1)
   );
   const collectionCount = new Map<string, number>();
-  (collections.data ?? []).forEach((r: { game_id: string }) =>
+  ((collRes.data as { game_id: string }[] | null) ?? []).forEach((r) =>
     collectionCount.set(r.game_id, (collectionCount.get(r.game_id) ?? 0) + 1)
   );
-  const myLikeSet = new Set((myLikes.data ?? []).map((r) => r.game_id));
+  const myLikeSet = new Set(
+    ((myLikesRes.data as { game_id: string }[] | null) ?? []).map(
+      (r) => r.game_id
+    )
+  );
   const myCollectionSet = new Set(
-    (myCollections.data ?? []).map((r) => r.game_id)
+    ((myCollRes.data as { game_id: string }[] | null) ?? []).map(
+      (r) => r.game_id
+    )
   );
 
-  return (games as Game[]).map((g) =>
+  let result = games.map((g) =>
     toGameWithPrices(
       g,
-      (prices as Price[]) ?? [],
+      prices,
       likeCount.get(g.id) ?? 0,
       collectionCount.get(g.id) ?? 0,
       myLikeSet.has(g.id),
       myCollectionSet.has(g.id)
     )
   );
+  // 退回模式且只看特價：檢視的 has_sale 不能用，改用當頁價格過濾
+  //（總數會是未過濾的數字，僅出現在 migration 尚未套用的短暫期間）。
+  if (opts.onlySale && !useStats) {
+    result = result.filter((g) => isOnSale(g.prices));
+  }
+  return { games: result, total, page, totalPages };
+}
+
+/** 商品類型選項：product_type 依字母排序後取前 1,000 列再去重——
+ *  不同類型在排序後會連在一起，少量 distinct 值一定落在前 1,000 列內。 */
+export async function getProductTypes(
+  db: SupabaseClient
+): Promise<string[]> {
+  const { data, error } = await db
+    .from("games")
+    .select("product_type")
+    .order("product_type", { ascending: true })
+    .limit(1000);
+  if (error || !data) return ["game"];
+  const types = [
+    ...new Set(
+      (data as { product_type: string | null }[]).map(
+        (r) => r.product_type ?? "game"
+      )
+    ),
+  ];
+  return types.length > 0 ? types : ["game"];
+}
+
+/** 全部價格裡最新的 updated_at（首頁「價格最後更新時間」用）。 */
+export async function getLatestPriceUpdate(
+  db: SupabaseClient
+): Promise<string | null> {
+  const { data, error } = await db
+    .from("prices")
+    .select("updated_at")
+    .not("updated_at", "is", null)
+    .order("updated_at", { ascending: false, nullsFirst: false })
+    .limit(1);
+  if (error || !data || data.length === 0) return null;
+  return (data[0] as { updated_at: string | null }).updated_at ?? null;
 }
 
 /** 讀單一遊戲（詳細頁用）。 */
@@ -284,25 +481,80 @@ export async function getCollectedOnSale(
   );
 }
 
-/** 收藏排行 TOP 50。onlyOnSale=true 時只顯示特價中（預設）。 */
+/** 收藏排行 TOP 50。onlyOnSale=true 時只顯示特價中（預設）。
+ *  只看有收藏的遊戲：先彙總 collections 再分批抓遊戲、價格、讚數，
+ *  不再一次載入全部遊戲（舊版會撞上 PostgREST 1,000 筆上限）。
+ *  注意：與舊版差一點——舊版在收藏數不足 50 款時會用 0 收藏的遊戲補滿，
+ *  新版只列有收藏的遊戲（0 收藏的遊戲本來就不該出現在「收藏排行」）。 */
 export async function getRanking(
   db: SupabaseClient,
   onlyOnSale = true,
   limit = 50
 ): Promise<RankingEntry[]> {
-  const games = await getGamesWithPrices(db);
-  const entries: RankingEntry[] = games.map((g) => ({
-    game: g,
-    collections_count: g.collections_count,
-    likes_count: g.likes_count,
-    cheapest: cheapestPrice(g.prices),
-    on_sale: isOnSale(g.prices),
-    sale_end: saleEndOf(g.prices),
-  }));
+  // 1. 全部收藏彙總（range 迴圈，突破 1,000 筆上限）。
+  const counts = new Map<string, number>();
+  let from = 0;
+  for (;;) {
+    const { data, error } = await db
+      .from("collections")
+      .select("game_id")
+      .range(from, from + 999);
+    if (error || !data) {
+      if (error) console.warn("[data] collections 讀取失敗：", error.message);
+      return [];
+    }
+    (data as { game_id: string }[]).forEach((r) =>
+      counts.set(r.game_id, (counts.get(r.game_id) ?? 0) + 1)
+    );
+    if (data.length < 1000) break;
+    from += 1000;
+  }
+  if (counts.size === 0) return [];
+  const rankedIds = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => id);
+
+  // 2. 分批抓遊戲、價格、讚數（每批 200 個 id，避免 URL 過長）。
+  const gamesById = new Map<string, Game>();
+  const pricesByGame = new Map<string, Price[]>();
+  const likeCounts = new Map<string, number>();
+  for (let i = 0; i < rankedIds.length; i += 200) {
+    const batch = rankedIds.slice(i, i + 200);
+    const [gamesRes, pricesRes, likesRes] = await Promise.all([
+      db.from("games").select(GAME_COLUMNS).in("id", batch),
+      db.from("prices").select("*").in("game_id", batch),
+      db.from("game_likes").select("game_id").in("game_id", batch),
+    ]);
+    ((gamesRes.data as Game[] | null) ?? []).forEach((g) =>
+      gamesById.set(g.id, g)
+    );
+    ((pricesRes.data as Price[] | null) ?? []).forEach((p) => {
+      const list = pricesByGame.get(p.game_id) ?? [];
+      list.push(p);
+      pricesByGame.set(p.game_id, list);
+    });
+    ((likesRes.data as { game_id: string }[] | null) ?? []).forEach((r) =>
+      likeCounts.set(r.game_id, (likeCounts.get(r.game_id) ?? 0) + 1)
+    );
+  }
+
+  const entries: RankingEntry[] = rankedIds.flatMap((id) => {
+    const g = gamesById.get(id);
+    if (!g) return [];
+    const ps = pricesByGame.get(id) ?? [];
+    return [
+      {
+        game: { ...g, cover_url: resolveCoverUrl(g.cover_url) },
+        collections_count: counts.get(id) ?? 0,
+        likes_count: likeCounts.get(id) ?? 0,
+        cheapest: cheapestPrice(ps),
+        on_sale: isOnSale(ps),
+        sale_end: saleEndOf(ps),
+      },
+    ];
+  });
   const filtered = onlyOnSale ? entries.filter((e) => e.on_sale) : entries;
-  return filtered
-    .sort((a, b) => b.collections_count - a.collections_count)
-    .slice(0, limit);
+  return filtered.slice(0, limit);
 }
 
 /** 全部價格裡最新的 updated_at（首頁「價格最後更新時間」用）。 */

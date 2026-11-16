@@ -22,7 +22,7 @@
 | `lib/countries.ts` | 35 國清單、eShop 首頁連結、試玩／商品類型標籤 |
 | `lib/format.ts` | 台幣／當地幣別格式化、台北時間、剩餘天數 |
 | `components/SiteHeader.tsx` | 導覽列（登入狀態、登出） |
-| `components/HomeClient.tsx` | 首頁互動：搜尋、篩選、排序、國家設定、遊戲牆 |
+| `components/HomeClient.tsx` | 首頁互動：搜尋、篩選、排序、國家設定、遊戲牆、分頁（篩選條件走 URL 參數，伺服器端分頁每頁 60 款） |
 | `components/GameCard.tsx` | 遊戲卡片 |
 | `components/CountrySettings.tsx` | 35 國顯示／封鎖（localStorage） |
 | `components/SaleBanner.tsx` | 進站特價提醒（已收藏且特價中） |
@@ -68,10 +68,16 @@ npm start                    # 跑 production build
 
 ## 頁面清單
 
-- `/` 首頁：搜尋（中英文名、類型、發行商）、篩選（Switch / Switch 2、商品類型、
+- `/` 首頁：搜尋（中英文遊戲名，伺服器端 ilike）、篩選（Switch / Switch 2、商品類型、
   試玩類型：免費 Demo／免費試玩／NSO 限時試玩）、排序、只看特價、只看我的收藏
   （需登入）、35 國切換與封鎖、遊戲卡片（封面、標題、最低價、歷史低價徽章、特價標記）、
   進站上方「已收藏且特價中」提醒、匯率 08:00 註明＋價格最後更新時間。
+  搜尋／篩選／排序都在伺服器端做（`lib/data.ts` 的 `getGamesPage`），
+  總數用 count exact，每頁 60 款（`?page=` 分頁）；最低價／折扣排序與只看特價
+  依賴 `games_with_price_stats` 檢視（見 supabase/migrations/20261117_homepage_price_stats.sql），
+  檢視未建立時自動退回名稱排序，首頁不會壞。
+  注意：最低價排序用的是「全部國家」的最低價（封鎖清單只存在瀏覽器 localStorage，
+  伺服器不知道），卡片顯示的最低價仍依可見國家計算。
 - `/games/[slug]` 詳細頁：價格表依台幣排序、最便宜高亮、比台版省多少、歷史低價徽章＋
   歷史低價金額、特價結束時間＋剩餘天數；留言區在價格上方（讚數排序、預設 5 則、
   其餘收在「顯示全部」）；遊戲讚；點封面在新分頁開官方 YouTube 介紹影片

@@ -363,6 +363,25 @@ label.field-label {
   width: 16px;
 }
 
+/* ---------- pagination ---------- */
+.pagination {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: 24px 0;
+}
+
+.pagination .page-num {
+  min-width: 36px;
+  text-align: center;
+}
+
+.pagination .ellipsis {
+  color: var(--muted);
+}
+
 /* ---------- country settings ---------- */
 .country-panel {
   background: var(--card);
