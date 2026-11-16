@@ -9,6 +9,16 @@ import {
   taipeiDateKey,
   type FxSnapshot,
 } from "@/lib/nintendo";
+import {
+  DEFAULT_SLICE_SIZE,
+  clampSliceSize,
+  cycleCompleteDateKey,
+  dayOfYearTaipei,
+  nextSlice,
+  rotationSlice,
+  sliceCount,
+  sliceRange,
+} from "@/lib/refresh-slices";
 
 // 每日更新：GET /api/refresh（Vercel Cron 用 GET）或 POST /api/refresh。
 // 由 vercel.json 的 cron 每天 00:00 UTC（= 台北時間 08:00）觸發，
@@ -21,20 +31,36 @@ import {
 //
 // 流程：
 //   1. 抓 ExchangeRate-API 匯率，換算成「1 外幣 = 多少台幣」，
-//      以台北日期為 date_key 寫進 fx_rates。
+//      以台北日期為 date_key 寫進 fx_rates。每天都更新（便宜）。
 //      匯率抓不到 → 直接回 503，不動價格（沒有匯率就無法正確換算台幣價）。
-//   2. 用官方價格 API 更新各國價格與特價結束時間，寫進 prices，
-//      並更新 games.historical_low_twd。
+//   2. 用官方價格 API 更新「本次切片」各國價格與特價結束時間，寫進 prices，
+//      並只更新本次切片遊戲的 games.historical_low_twd。
 //   3. 沒有 title ID 的遊戲：跳過、保留舊價格，列在 pending_no_title_id。
 //      價格 API 回 not_found 的遊戲／國家：保留舊價格，列在 price_not_found，
-//      絕對不會讓整個更新失敗。
+//      絕對不會讓整個更新失敗。單一國家抓價失敗（重試後仍失敗）只記進 errors，
+//      不中斷其他國家。
+//
+// 切片與輪轉（遊戲太多、60 秒跑不完時；見 SETUP.md §8）：
+//   - 全部遊戲按 slug 排序切成片，每片預設 400 款（?slice_size= 可調，50～1000，
+//     或環境變數 REFRESH_SLICE_SIZE）。實測：400 款 × 35 國抓價約 22 秒。
+//   - 不帶切片參數時自動輪轉：slice = 台北日期的 dayOfYear % slices，
+//     一支每日 cron 在 slices 天內跑完全部遊戲；遊戲總數 ≤ 一片時 slices = 1，
+//     行為與舊版全量更新完全一致（向下相容）。
+//   - 手動指定一片：?slice=2&slices=8（0-based）。slices 只用來驗證 slice 範圍，
+//     實際片數一律以當下遊戲總數與 slice_size 推算；或 ?offset=800&limit=400。
+//   - ?countries=JP,US,TW 保留，可與切片參數併用。
 //
 // 限制：export const maxDuration = 60（Vercel Hobby 上限；Pro 可調到 300）。
-// 若日後國家或遊戲變多導致超時，可用 ?countries=JP,US,TW 把國家拆成多次打。
+// 為了不超時，抓價階段有 45 秒軟預算：超過就不再開新國家、記進 errors 後
+// 收尾回報（已抓到的照常寫入）；重試退避見 lib/nintendo.ts。
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const COUNTRY_CONCURRENCY = 4;
+const PRICE_BATCH_CONCURRENCY = 4;
+const PRICE_BATCH_SIZE = 200;
+/** 抓價階段軟預算（毫秒）：超過就不再開新國家，留時間寫庫與回應。 */
+const PRICE_TIME_BUDGET_MS = 45_000;
 
 function timingSafeCompare(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
@@ -65,6 +91,12 @@ interface PriceUpsert {
   updated_at: string;
 }
 
+function parseIntParam(value: string | null): number | null {
+  if (value == null || value.trim() === "") return null;
+  const n = Number(value);
+  return Number.isInteger(n) ? n : null;
+}
+
 async function handleRefresh(request: NextRequest) {
   const startedAt = Date.now();
 
@@ -85,7 +117,8 @@ async function handleRefresh(request: NextRequest) {
   }
 
   // ---- 限定國家（?countries=JP,US，預設全部）----
-  const wanted = request.nextUrl.searchParams.get("countries");
+  const params = request.nextUrl.searchParams;
+  const wanted = params.get("countries");
   const countries = wanted
     ? PRICE_COUNTRIES.filter((c) =>
         wanted
@@ -101,11 +134,19 @@ async function handleRefresh(request: NextRequest) {
     );
   }
 
+  // ---- 切片大小：?slice_size= 優先，其次環境變數，預設 400（夾在 50～1000）----
+  const envSliceSize = parseIntParam(process.env.REFRESH_SLICE_SIZE ?? null);
+  const sliceSize = clampSliceSize(
+    parseIntParam(params.get("slice_size")) ??
+      envSliceSize ??
+      DEFAULT_SLICE_SIZE
+  );
+
   const admin = createSupabaseAdminClient();
   const dateKey = taipeiDateKey();
   const runAt = new Date().toISOString();
 
-  // ---- 1. 匯率 ----
+  // ---- 1. 匯率（每天都更新，與切片無關）----
   let fx: FxSnapshot;
   try {
     fx = await fetchFxSnapshot();
@@ -134,7 +175,9 @@ async function handleRefresh(request: NextRequest) {
     );
   }
 
-  // ---- 2. 讀遊戲與 title ID ----
+  // ---- 2. 讀全部遊戲（按 slug 排序），再切出本次切片 ----
+  // 遊戲清單本身很小（id/slug/title_id/歷史低價四欄，數千筆也只有幾百 KB），
+  // 全讀再切片比資料庫分頁簡單且決定性相同；切片邊界只取決於 slug 排序。
   const { data: games, error: gamesError } = await admin
     .from("games")
     .select("id, slug, title_id, historical_low_twd")
@@ -145,17 +188,65 @@ async function handleRefresh(request: NextRequest) {
       { status: 500 }
     );
   }
-  const gameRows = games as GameRow[];
-  const pendingNoTitleId = gameRows
+  const allGames = games as GameRow[];
+  const totalGames = allGames.length;
+  const slices = sliceCount(totalGames, sliceSize);
+
+  // 模式：明確 ?slice= > 明確 ?offset=&limit= > 預設輪轉（台北日期）。
+  const sliceParam = parseIntParam(params.get("slice"));
+  const offsetParam = parseIntParam(params.get("offset"));
+  const limitParam = parseIntParam(params.get("limit"));
+  let mode: "rotation" | "explicit-slice" | "explicit-offset";
+  let slice: number;
+  if (sliceParam != null) {
+    const slicesParam = parseIntParam(params.get("slices"));
+    const effectiveSlices =
+      slicesParam != null && slicesParam >= 1 ? slicesParam : slices;
+    if (sliceParam < 0 || sliceParam >= effectiveSlices) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `slice 參數超出範圍：slice=${sliceParam}，slices=${effectiveSlices}（0-based，請用 0～${effectiveSlices - 1}）`,
+        },
+        { status: 400 }
+      );
+    }
+    mode = "explicit-slice";
+    slice = sliceParam;
+  } else if (offsetParam != null || limitParam != null) {
+    if (offsetParam == null || offsetParam < 0 || limitParam == null || limitParam < 1) {
+      return NextResponse.json(
+        { ok: false, error: "offset 需 ≥ 0、limit 需 ≥ 1（例如 ?offset=800&limit=400）" },
+        { status: 400 }
+      );
+    }
+    mode = "explicit-offset";
+    slice = Math.floor(offsetParam / sliceSize);
+  } else {
+    mode = "rotation";
+    slice = rotationSlice(new Date(), totalGames, sliceSize).slice;
+  }
+  const { offset, count } =
+    mode === "explicit-offset"
+      ? {
+          offset: offsetParam!,
+          count: Math.max(0, Math.min(limitParam!, totalGames - offsetParam!)),
+        }
+      : sliceRange(slice, slices, totalGames, sliceSize);
+  const sliceGames = allGames.slice(offset, offset + count);
+  const gameById = new Map(sliceGames.map((g) => [g.id, g]));
+
+  const pendingNoTitleId = sliceGames
     .filter((g) => !g.title_id)
     .map((g) => g.slug);
-  const withTitleId = gameRows.filter(
+  const withTitleId = sliceGames.filter(
     (g): g is GameRow & { title_id: string } => Boolean(g.title_id)
   );
   const titleIdToGame = new Map(withTitleId.map((g) => [g.title_id, g]));
   const titleIds = withTitleId.map((g) => g.title_id);
 
   // ---- 3. 逐國抓價格（先全部收進記憶體，再一次算歷史低價、一次寫入）----
+  // 只處理本次切片的遊戲；歷史低價也只針對切片遊戲更新。
   const priceRows: PriceUpsert[] = [];
   const notFound: { slug: string; title_id: string; countries: string[] }[] =
     [];
@@ -221,7 +312,16 @@ async function handleRefresh(request: NextRequest) {
     }
   }
 
+  let countriesSkippedForBudget = 0;
   for (let i = 0; i < countries.length; i += COUNTRY_CONCURRENCY) {
+    if (Date.now() - startedAt > PRICE_TIME_BUDGET_MS) {
+      countriesSkippedForBudget = countries.length - i;
+      errors.push({
+        country: "-",
+        message: `時間預算（${PRICE_TIME_BUDGET_MS / 1000} 秒）已到，跳過剩餘 ${countriesSkippedForBudget} 國，下次輪到本片時再補；已抓到的價格照常寫入`,
+      });
+      break;
+    }
     await Promise.all(countries.slice(i, i + COUNTRY_CONCURRENCY).map(refreshCountry));
   }
   for (const [slug, list] of notFoundByGame) {
@@ -231,7 +331,7 @@ async function handleRefresh(request: NextRequest) {
     }
   }
 
-  // ---- 4. 歷史低價：新低 = min（舊歷史低價，本次各國最低價）----
+  // ---- 4. 歷史低價（只針對本次切片）：新低 = min（舊歷史低價，本次各國最低價）----
   const newLowByGame = new Map<string, number>();
   for (const row of priceRows) {
     if (row.price_twd == null) continue;
@@ -240,7 +340,7 @@ async function handleRefresh(request: NextRequest) {
   }
   const gamesWithNewLow: string[] = [];
   for (const row of priceRows) {
-    const game = withTitleId.find((g) => g.id === row.game_id);
+    const game = gameById.get(row.game_id);
     const oldLow = game?.historical_low_twd ?? null;
     const newLow = newLowByGame.get(row.game_id);
     const finalLow =
@@ -250,25 +350,34 @@ async function handleRefresh(request: NextRequest) {
     }
   }
 
-  // ---- 5. 寫入 prices + 更新 games.historical_low_twd ----
+  // ---- 5. 寫入 prices + 更新 games.historical_low_twd（只針對切片遊戲）----
   let pricesUpdated = 0;
   if (priceRows.length > 0) {
-    for (let i = 0; i < priceRows.length; i += 200) {
-      const batch = priceRows.slice(i, i + 200);
-      const { error } = await admin
-        .from("prices")
-        .upsert(batch, { onConflict: "game_id,country" });
-      if (error) {
-        return NextResponse.json(
-          { ok: false, error: `寫入 prices 失敗：${error.message}` },
-          { status: 500 }
-        );
+    const batches: PriceUpsert[][] = [];
+    for (let i = 0; i < priceRows.length; i += PRICE_BATCH_SIZE) {
+      batches.push(priceRows.slice(i, i + PRICE_BATCH_SIZE));
+    }
+    for (let i = 0; i < batches.length; i += PRICE_BATCH_CONCURRENCY) {
+      const results = await Promise.all(
+        batches.slice(i, i + PRICE_BATCH_CONCURRENCY).map((batch) =>
+          admin.from("prices").upsert(batch, { onConflict: "game_id,country" })
+        )
+      );
+      for (const { error } of results) {
+        if (error) {
+          return NextResponse.json(
+            { ok: false, error: `寫入 prices 失敗：${error.message}` },
+            { status: 500 }
+          );
+        }
       }
-      pricesUpdated += batch.length;
+      pricesUpdated += batches
+        .slice(i, i + PRICE_BATCH_CONCURRENCY)
+        .reduce((n, b) => n + b.length, 0);
     }
   }
   for (const [gameId, minNew] of newLowByGame) {
-    const game = withTitleId.find((g) => g.id === gameId);
+    const game = gameById.get(gameId);
     if (!game) continue;
     const oldLow = game.historical_low_twd;
     const finalLow = oldLow == null ? minNew : Math.min(oldLow, minNew);
@@ -290,7 +399,18 @@ async function handleRefresh(request: NextRequest) {
     fx_as_of: fx.asOf,
     fx_source: fx.source,
     fx_currencies: fxRows.length,
+    mode,
+    slice,
+    slices,
+    slice_size: sliceSize,
+    total_games: totalGames,
+    games_in_slice: sliceGames.length,
+    games_with_title_id: withTitleId.length,
+    next_slice: nextSlice(slice, slices),
+    rotation_day_of_year: dayOfYearTaipei(new Date()),
+    cycle_complete_date: cycleCompleteDateKey(new Date(), totalGames, sliceSize),
     countries_attempted: countries.map((c) => c.code),
+    countries_skipped_for_budget: countriesSkippedForBudget,
     prices_updated: pricesUpdated,
     games_with_new_low: gamesWithNewLow,
     pending_no_title_id: pendingNoTitleId,
