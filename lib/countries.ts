@@ -52,6 +52,14 @@ export const COUNTRY_MAP: Record<string, CountryInfo> = Object.fromEntries(
   COUNTRIES.map((c) => [c.code, c])
 );
 
+/** 預設只顯示台灣、香港。 */
+export const DEFAULT_VISIBLE_CODES = ["TW", "HK"];
+
+/** 預設封鎖清單：35 國中排除 TW、HK 之後的清單（第一次造訪、沒有儲存設定時使用）。 */
+export const DEFAULT_BLOCKED_CODES: string[] = COUNTRIES.filter(
+  (c) => !DEFAULT_VISIBLE_CODES.includes(c.code)
+).map((c) => c.code);
+
 /** 各區官方 eShop 首頁連結；未知國家回 nintendo.com 首頁。 */
 export function eshopUrl(countryCode: string): string {
   return COUNTRY_MAP[countryCode]?.eshop_url ?? "https://www.nintendo.com/";
