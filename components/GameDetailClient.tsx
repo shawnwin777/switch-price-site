@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 import { cheapestPrice, isOnSale, saleEndOf } from "@/lib/data";
 import { COUNTRIES, DEFAULT_BLOCKED_CODES, demoLabel, eshopUrl, productTypeLabel } from "@/lib/countries";
@@ -26,10 +27,20 @@ export default function GameDetailClient({
   collectedByMe: boolean;
   purchasedByMe: boolean;
 }) {
+  const router = useRouter();
   const [blocked, setBlocked] = useState<string[]>(DEFAULT_BLOCKED_CODES);
   const [blockedLoaded, setBlockedLoaded] = useState(false);
   const [isCollected, setIsCollected] = useState(collectedByMe);
   const [isPurchased, setIsPurchased] = useState(purchasedByMe);
+
+  // 返回上一頁；沒有上一頁紀錄（例如直接開連結進來）時回首頁。
+  function goBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/");
+    }
+  }
 
   useEffect(() => {
     try {
@@ -108,6 +119,9 @@ export default function GameDetailClient({
 
   return (
     <>
+      <button type="button" className="btn back-btn" onClick={goBack}>
+        ← 返回
+      </button>
       <div className="detail-head">
         {youtubeUrl ? (
           <a
@@ -304,10 +318,6 @@ export default function GameDetailClient({
           </table>
         </div>
       )}
-      <p className="muted">
-        <Link href="/">← 回首頁</Link> ·{" "}
-        <Link href="/ranking">收藏排行</Link>
-      </p>
     </>
   );
 }

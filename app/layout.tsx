@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import "./globals.css";
 
@@ -28,10 +27,6 @@ export default function RootLayout({
             <p className="footer-sub">
               本站為玩家自發整理的比價工具，與任天堂無關。價格僅供參考，實際結帳金額以
               eShop 為準。
-            </p>
-            <p className="footer-sub">
-              <Link href="/">首頁</Link> · <Link href="/ranking">收藏排行</Link> ·{" "}
-              <Link href="/login">登入</Link>
             </p>
           </div>
         </footer>
