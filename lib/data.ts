@@ -87,15 +87,15 @@ export function saleEndOf(prices: Price[]): string | null {
 // 首頁伺服器端分頁（2026-11-16 修復：PostgREST 預設只回 1,000 筆，
 // 舊版一次 select("*") 只能拿到前 1,000 款遊戲與 1,000 筆價格，
 // 中文標題的遊戲排在 1,000 名外就搜不到也看不到）。
-// 新版：搜尋／篩選／排序／總數都在資料庫做，每頁只抓 60 款，
-// 價格、讚數、收藏數也只抓當頁 60 款的。
+// 新版：搜尋／篩選／排序／總數都在資料庫做，每頁只抓 20 款，
+// 價格、讚數、收藏數也只抓當頁 20 款的。
 // 最低價／折扣排序與「只看特價」需要 games_with_price_stats 檢視
 // （supabase/migrations/20261117_homepage_price_stats.sql）；
 // 檢視尚未建立時自動退回 games 表（排序改為名稱排序），首頁不會壞掉。
 // ============================================================================
 
 /** 首頁每頁筆數。 */
-export const PAGE_SIZE = 60;
+export const PAGE_SIZE = 20;
 
 /** games / games_with_price_stats 查詢時明確選取的遊戲欄位（不含統計欄位）。 */
 const GAME_COLUMNS =
@@ -200,7 +200,7 @@ async function fetchGamesPageRows(
   };
 }
 
-/** 首頁分頁查詢：搜尋／篩選／排序／總數都在資料庫做，每頁 60 款。
+/** 首頁分頁查詢：搜尋／篩選／排序／總數都在資料庫做，每頁 20 款。
  *  注意：最低價／折扣排序是「全部國家」的最低價／最大折扣，
  *  不是「可見國家」的（封鎖清單只存在瀏覽器 localStorage，伺服器不知道）；
  *  卡片上顯示的最低價仍依可見國家計算，與以前一致。 */
@@ -236,7 +236,7 @@ export async function getGamesPage(
   const games = res.data;
   if (games.length === 0) return { games: [], total, page, totalPages };
 
-  // 當頁 60 款的價格、讚數、收藏數（不抓整張表）。
+  // 當頁 20 款的價格、讚數、收藏數（不抓整張表）。
   const ids = games.map((g) => g.id);
   const [pricesRes, likesRes, collRes, myLikesRes, myCollRes] =
     await Promise.all([
