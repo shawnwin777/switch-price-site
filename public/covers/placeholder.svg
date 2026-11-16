@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <rect width="640" height="360" fill="#0a0f24"/>
+  <rect x="8" y="8" width="624" height="344" fill="none" stroke="#00f0ff" stroke-width="2" stroke-opacity="0.5" rx="12"/>
+  <g fill="none" stroke="#00f0ff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M170 130 h300 a40 40 0 0 1 40 40 v60 a40 40 0 0 1 -40 40 h-60 l-40 50 -40 -50 h-160 a40 40 0 0 1 -40 -40 v-60 a40 40 0 0 1 40 -40 z"/>
+  </g>
+  <g fill="#ff2d78">
+    <circle cx="230" cy="180" r="10"/>
+    <circle cx="410" cy="180" r="10"/>
+  </g>
+  <g fill="#00f0ff">
+    <rect x="300" y="150" width="40" height="12" rx="6"/>
+    <rect x="314" y="136" width="12" height="40" rx="6"/>
+  </g>
+  <text x="320" y="310" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#9aa5d1">封面尚未提供 · 手把佔位圖</text>
+</svg>

@@ -1,0 +1,379 @@
+{
+  "generated_at": "2026-11-15T16:05:13.506Z",
+  "sources": [
+    {
+      "name": "jp-xml",
+      "url": "https://www.nintendo.co.jp/data/software/xml/switch.xml",
+      "entries": 10045,
+      "note": "主要來源：LinkURL /titles/<id> 即 title ID；最新發售日約 2025-05-01，Switch 2 之後的遊戲不在其中"
+    },
+    {
+      "name": "hk-json",
+      "url": "https://www.nintendo.com.hk/data/json/switch_software.json",
+      "entries": 544,
+      "note": "僅作存在性輔助確認：內容約停在 2022-06；thumb_img / link 裡的數字經價格 API 驗證不是 title ID，不採用"
+    },
+    {
+      "name": "jp-sales-api",
+      "url": "https://ec.nintendo.com/api/JP/ja/search/sales",
+      "entries": 0,
+      "note": "截至 2026-11-15 回 HTTP 404（舊搜尋 API 已下線），本次未取用"
+    },
+    {
+      "name": "eshop-title-page",
+      "url": "https://ec.nintendo.com/HK/zh/titles/<title_id>",
+      "entries": 2,
+      "note": "人工核對：官方 eShop 商品頁網址末段即 title ID，僅用於日本 XML 沒有的 Switch 2 遊戲"
+    }
+  ],
+  "mapped": {
+    "botw": {
+      "title_id": "70010000000026",
+      "title": "ゼルダの伝説　ブレス オブ ザ ワイルド",
+      "source": "jp-xml",
+      "title_zh": "薩爾達傳說 曠野之息",
+      "title_en": "Breath of the Wild",
+      "seed_jp_price": 8678,
+      "price_status": "onsale",
+      "regular_price_jpy": 7678,
+      "price_verified": true,
+      "price_note": "種子檔日本原價 8678 與目前官方原價 7678 不同（可能為 Switch 2 Edition 版定價或種子檔誤差）；更新路由採用此原版 title ID"
+    },
+    "totk": {
+      "title_id": "70010000063713",
+      "title": "ゼルダの伝説　ティアーズ オブ ザ キングダム",
+      "source": "jp-xml",
+      "title_zh": "薩爾達傳說 王國之淚",
+      "title_en": "Tears of the Kingdom",
+      "seed_jp_price": 8900,
+      "price_status": "onsale",
+      "regular_price_jpy": 7900,
+      "price_verified": true,
+      "price_note": "種子檔日本原價 8900 與目前官方原價 7900 不同（可能為 Switch 2 Edition 版定價或種子檔誤差）；更新路由採用此原版 title ID"
+    },
+    "mk8dx": {
+      "title_id": "70010000000186",
+      "title": "マリオカート８ デラックス",
+      "source": "jp-xml",
+      "title_zh": "瑪利歐賽車8 豪華版",
+      "title_en": "Mario Kart 8 Deluxe",
+      "seed_jp_price": 6578,
+      "price_status": "onsale",
+      "regular_price_jpy": 6578,
+      "price_verified": true
+    },
+    "smash": {
+      "title_id": "70010000012085",
+      "title": "大乱闘スマッシュブラザーズ SPECIAL",
+      "source": "jp-xml",
+      "title_zh": "任天堂明星大亂鬥 特別版",
+      "title_en": "Super Smash Bros. Ultimate",
+      "seed_jp_price": 7920,
+      "price_status": "onsale",
+      "regular_price_jpy": 7920,
+      "price_verified": true
+    },
+    "acnh": {
+      "title_id": "70010000027618",
+      "title": "あつまれ　どうぶつの森",
+      "source": "jp-xml",
+      "title_zh": "集合啦！動物森友會",
+      "title_en": "Animal Crossing: New Horizons",
+      "seed_jp_price": 6578,
+      "price_status": "onsale",
+      "regular_price_jpy": 6578,
+      "price_verified": true
+    },
+    "splatoon3": {
+      "title_id": "70010000046394",
+      "title": "スプラトゥーン3",
+      "source": "jp-xml",
+      "title_zh": "斯普拉遁 3",
+      "title_en": "Splatoon 3",
+      "seed_jp_price": 6500,
+      "price_status": "onsale",
+      "regular_price_jpy": 6500,
+      "price_verified": true
+    },
+    "pokemon-sv": {
+      "title_id": "70010000053970",
+      "title": "ポケットモンスター バイオレット",
+      "source": "jp-xml",
+      "title_zh": "寶可夢 朱／紫",
+      "title_en": "Pokémon Violet",
+      "seed_jp_price": 6500,
+      "price_status": "onsale",
+      "regular_price_jpy": 6500,
+      "price_verified": true
+    },
+    "kirby-fl": {
+      "title_id": "70010000046404",
+      "title": "星のカービィ　ディスカバリー",
+      "source": "jp-xml",
+      "title_zh": "星之卡比 探索發現",
+      "title_en": "Kirby and the Forgotten Land",
+      "seed_jp_price": 8500,
+      "price_status": "onsale",
+      "regular_price_jpy": 6500,
+      "price_verified": true,
+      "price_note": "種子檔日本原價 8500 與目前官方原價 6500 不同（可能為 Switch 2 Edition 版定價或種子檔誤差）；更新路由採用此原版 title ID"
+    },
+    "mario-odyssey": {
+      "title_id": "70010000000828",
+      "title": "スーパーマリオ オデッセイ",
+      "source": "jp-xml",
+      "title_zh": "超級瑪利歐 奧德賽",
+      "title_en": "Super Mario Odyssey",
+      "seed_jp_price": null,
+      "price_status": "onsale",
+      "regular_price_jpy": 6578,
+      "price_verified": true
+    },
+    "mario-wonder": {
+      "title_id": "70010000068687",
+      "title": "スーパーマリオブラザーズ ワンダー",
+      "source": "jp-xml",
+      "title_zh": "超級瑪利歐兄弟 驚奇",
+      "title_en": "Super Mario Bros. Wonder",
+      "seed_jp_price": 6500,
+      "price_status": "onsale",
+      "regular_price_jpy": 6500,
+      "price_verified": true
+    },
+    "luigi3": {
+      "title_id": "70010000001621",
+      "title": "ルイージマンション３",
+      "source": "jp-xml",
+      "title_zh": "路易吉洋樓3",
+      "title_en": "Luigi's Mansion 3",
+      "seed_jp_price": 6578,
+      "price_status": "onsale",
+      "regular_price_jpy": 6578,
+      "price_verified": true
+    },
+    "fire-emblem-3h": {
+      "title_id": "70010000007607",
+      "title": "ファイアーエムブレム 風花雪月",
+      "source": "jp-xml",
+      "title_zh": "Fire Emblem 風花雪月",
+      "title_en": "Fire Emblem: Three Houses",
+      "seed_jp_price": 7920,
+      "price_status": "onsale",
+      "regular_price_jpy": 7678,
+      "price_verified": true,
+      "price_note": "種子檔日本原價 7920 與目前官方原價 7678 不同（可能為 Switch 2 Edition 版定價或種子檔誤差）；更新路由採用此原版 title ID"
+    },
+    "xenoblade3": {
+      "title_id": "70010000053335",
+      "title": "Xenoblade3 (ゼノブレイド3)",
+      "source": "jp-xml",
+      "title_zh": "異度神劍3",
+      "title_en": "Xenoblade Chronicles 3",
+      "seed_jp_price": 8700,
+      "price_status": "onsale",
+      "regular_price_jpy": 8700,
+      "price_verified": true
+    },
+    "hades": {
+      "title_id": "70010000033130",
+      "title": "HADES",
+      "source": "jp-xml",
+      "title_zh": "黑帝斯 Hades",
+      "title_en": "Hades",
+      "seed_jp_price": null,
+      "price_status": "onsale",
+      "regular_price_jpy": 2800,
+      "price_verified": true
+    },
+    "hollow-knight": {
+      "title_id": "70010000003209",
+      "title": "Hollow Knight（ホロウナイト）",
+      "source": "jp-xml",
+      "title_zh": "空洞騎士",
+      "title_en": "Hollow Knight",
+      "seed_jp_price": 1480,
+      "price_status": "onsale",
+      "regular_price_jpy": 1480,
+      "price_verified": true
+    },
+    "stardew": {
+      "title_id": "70010000005423",
+      "title": "Stardew Valley",
+      "source": "jp-xml",
+      "title_zh": "星露谷物語",
+      "title_en": "Stardew Valley",
+      "seed_jp_price": 1480,
+      "price_status": "onsale",
+      "regular_price_jpy": 1480,
+      "price_verified": true
+    },
+    "celeste": {
+      "title_id": "70010000010822",
+      "title": "Celeste",
+      "source": "jp-xml",
+      "title_zh": "蔚藍 Celeste",
+      "title_en": "Celeste",
+      "seed_jp_price": 2160,
+      "price_status": "onsale",
+      "regular_price_jpy": 2160,
+      "price_verified": true
+    },
+    "balatro": {
+      "title_id": "70010000072053",
+      "title": "Balatro",
+      "source": "jp-xml",
+      "title_zh": "小丑牌 Balatro",
+      "title_en": "Balatro",
+      "seed_jp_price": null,
+      "price_status": "onsale",
+      "regular_price_jpy": 1700,
+      "price_verified": true
+    },
+    "dave-diver": {
+      "title_id": "70010000060371",
+      "title": "デイヴ・ザ・ダイバー",
+      "source": "jp-xml",
+      "title_zh": "潛水員戴夫",
+      "title_en": "DAVE THE DIVER",
+      "seed_jp_price": 2400,
+      "price_status": "onsale",
+      "regular_price_jpy": 2400,
+      "price_verified": true
+    },
+    "undertale": {
+      "title_id": "70010000009922",
+      "title": "UNDERTALE",
+      "source": "jp-xml",
+      "title_zh": "Undertale 傳說之下",
+      "title_en": "UNDERTALE",
+      "seed_jp_price": 1620,
+      "price_status": "onsale",
+      "regular_price_jpy": 1620,
+      "price_verified": true
+    },
+    "dead-cells": {
+      "title_id": "70010000013175",
+      "title": "Dead Cells",
+      "source": "jp-xml",
+      "title_zh": "死亡細胞",
+      "title_en": "Dead Cells",
+      "seed_jp_price": 2480,
+      "price_status": "onsale",
+      "regular_price_jpy": 2480,
+      "price_verified": true
+    },
+    "mario-party-j": {
+      "title_id": "70010000084607",
+      "title": "スーパー マリオパーティ ジャンボリー",
+      "source": "jp-xml",
+      "title_zh": "超級瑪利歐派對 空前盛會",
+      "title_en": "Super Mario Party Jamboree",
+      "seed_jp_price": 9100,
+      "price_status": "onsale",
+      "regular_price_jpy": 7100,
+      "price_verified": true,
+      "price_note": "種子檔日本原價 9100 與目前官方原價 7100 不同（可能為 Switch 2 Edition 版定價或種子檔誤差）；更新路由採用此原版 title ID"
+    },
+    "zelda-eow": {
+      "title_id": "70010000084617",
+      "title": "ゼルダの伝説 知恵のかりもの",
+      "source": "jp-xml",
+      "title_zh": "薩爾達傳說 智慧的再現",
+      "title_en": "Echoes of Wisdom",
+      "seed_jp_price": 7600,
+      "price_status": "onsale",
+      "regular_price_jpy": 7600,
+      "price_verified": true
+    },
+    "dk-bananza": {
+      "title_id": "70010000096812",
+      "title": "咚奇剛 蕉力全開",
+      "source": "eshop-title-page",
+      "title_zh": "咚奇剛 蕉力全開",
+      "title_en": "Donkey Kong Bananza",
+      "seed_jp_price": 7980,
+      "price_status": "not_found",
+      "regular_price_jpy": null,
+      "price_verified": false,
+      "price_note": "價格 API 回 not_found：此 ID 目前查不到價格，更新路由會保留舊價格、標示待確認，不會讓整個更新失敗"
+    },
+    "mk-world": {
+      "title_id": "70010000096808",
+      "title": "瑪利歐賽車世界",
+      "source": "eshop-title-page",
+      "title_zh": "瑪利歐賽車世界",
+      "title_en": "Mario Kart World",
+      "seed_jp_price": 8980,
+      "price_status": "not_found",
+      "regular_price_jpy": null,
+      "price_verified": false,
+      "price_note": "價格 API 回 not_found：此 ID 目前查不到價格，更新路由會保留舊價格、標示待確認，不會讓整個更新失敗"
+    },
+    "persona5r": {
+      "title_id": "70010000042356",
+      "title": "ペルソナ５ ザ・ロイヤル",
+      "source": "jp-xml",
+      "title_zh": "女神異聞錄5 皇家版",
+      "title_en": "Persona 5 Royal",
+      "seed_jp_price": 7678,
+      "price_status": "onsale",
+      "regular_price_jpy": 7678,
+      "price_verified": true
+    },
+    "octopath2": {
+      "title_id": "70010000058127",
+      "title": "オクトパストラベラー II",
+      "source": "jp-xml",
+      "title_zh": "歧路旅人 II",
+      "title_en": "Octopath Traveler II",
+      "seed_jp_price": 5478,
+      "price_status": "onsale",
+      "regular_price_jpy": 5478,
+      "price_verified": true
+    },
+    "it-takes-two": {
+      "title_id": "70010000049280",
+      "title": "It Takes Two",
+      "source": "jp-xml",
+      "title_zh": "雙人成行",
+      "title_en": "It Takes Two",
+      "seed_jp_price": 4300,
+      "price_status": "not_found",
+      "regular_price_jpy": null,
+      "price_verified": false,
+      "price_note": "價格 API 回 not_found：此 ID 目前查不到價格，更新路由會保留舊價格、標示待確認，不會讓整個更新失敗"
+    }
+  },
+  "unmapped": [
+    {
+      "slug": "ring-fit",
+      "title_zh": "健身環大冒險",
+      "title_en": "Ring Fit Adventure",
+      "reason": "公開清單有此遊戲，但未提供可用的 title ID，需人工從官方 eShop 商品頁網址核對"
+    },
+    {
+      "slug": "pokemon-za",
+      "title_zh": "寶可夢傳說 Z-A",
+      "title_en": "Pokémon Legends: Z-A",
+      "reason": "日本 XML（最新約 2025-05）與香港 JSON（約停在 2022-06）都沒有此遊戲，需人工從官方 eShop 商品頁網址核對"
+    },
+    {
+      "slug": "hades2",
+      "title_zh": "黑帝斯 II",
+      "title_en": "Hades II",
+      "reason": "日本 XML（最新約 2025-05）與香港 JSON（約停在 2022-06）都沒有此遊戲，需人工從官方 eShop 商品頁網址核對"
+    },
+    {
+      "slug": "silksong",
+      "title_zh": "空洞騎士：絲之歌",
+      "title_en": "Hollow Knight: Silksong",
+      "reason": "日本 XML（最新約 2025-05）與香港 JSON（約停在 2022-06）都沒有此遊戲，需人工從官方 eShop 商品頁網址核對"
+    }
+  ],
+  "summary": {
+    "total": 32,
+    "mapped": 28,
+    "price_verified": 25,
+    "unmapped": 4
+  }
+}
