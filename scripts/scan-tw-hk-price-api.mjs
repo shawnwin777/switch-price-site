@@ -39,8 +39,11 @@
 //                             currency, discountPct, saleEnd } } }
 //   只存非 not_found 的編號（not_found 為預設值，不存檔）。
 //
-// 節流：預設並行度 4、每批之間 100ms；429／5xx 指數退避重試（最多 5 次）。
+// 節流：預設並行度 2、每批之間 750ms；429／403 指數退避重試（最多 5 次）。
 // 這是對任天堂官方公開 API 的常規查詢，不是暴力請求；請勿把並行度調太高。
+// 2026-11-17 教訓：GitHub Actions 共用 IP 跑 TW 掃描時，66 批後開始連續
+// 回 403（家用 IP 同樣速度跑 15,000 次請求都沒事），所以 403 也要像 429
+// 一樣長退避重試，並把速度放慢；若還是被擋，改用自架 runner（家用 IP）。
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -55,7 +58,7 @@ const BATCH = 50;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function parseArgs() {
-  const a = { country: 'TW', from: 70010000000000, to: 70010000129999, concurrency: 4, tag: '' };
+  const a = { country: 'TW', from: 70010000000000, to: 70010000129999, concurrency: 2, tag: '' };
   for (let i = 2; i < process.argv.length; i++) {
     const arg = process.argv[i];
     const eq = arg.indexOf('=');
@@ -86,8 +89,9 @@ async function fetchBatch(country, ids) {
         `${PRICE_API}?country=${country}&ids=${ids.join(',')}&lang=${lang}`,
         { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(30_000) },
       );
-      if (res.status === 429) {
-        await sleep(5000 * (attempt + 1));
+      if (res.status === 429 || res.status === 403) {
+        // 403 也長退避重試：GitHub 共用 IP 會被任天堂 WAF 擋，短退避沒用。
+        await sleep(20000 * (attempt + 1));
         continue;
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -183,7 +187,7 @@ async function main() {
         const el = ((Date.now() - t0) / 1000).toFixed(0);
         console.log(`[${country}] ${done}/${totalBatches} 批（${el}s，onsale ${onsale}，已存 ${Object.keys(state.results).length} 筆）`);
       }
-      await sleep(100);
+      await sleep(750);
     }
   }
 
