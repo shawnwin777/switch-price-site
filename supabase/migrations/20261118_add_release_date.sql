@@ -3,7 +3,7 @@
 -- 檔案：supabase/migrations/20261118_add_release_date.sql
 -- 套用方式：Supabase Dashboard → SQL Editor 貼上整個檔案執行；
 --           可重複執行（ADD COLUMN IF NOT EXISTS / CREATE INDEX IF NOT EXISTS
---           / CREATE OR REPLACE VIEW）。
+--           / DROP VIEW IF EXISTS + CREATE VIEW）。
 -- 部署順序：程式碼可先部署——欄位還沒建時：
 --   - 目錄同步（/api/sync-catalog）會自動跳過上市日寫入（不報錯、不中斷），
 --   - 「準備上市」頁顯示「上市日期資料補充中」，不會壞掉或空白一片，
@@ -24,7 +24,13 @@ alter table public.games
 create index if not exists games_release_date_idx
   on public.games (release_date);
 
-create or replace view public.games_with_price_stats
+-- 注意：不能用 CREATE OR REPLACE VIEW——games 表在檢視建立之後又加了
+-- price_countries 欄位，g.* 展開後欄位順序對不上，Postgres 會報
+-- 42P16 cannot change name of view column "cheapest_twd" to "price_countries"。
+-- 所以先 DROP 再 CREATE（同一段 SQL 裡，檢視不會有空窗期被查到）。
+drop view if exists public.games_with_price_stats;
+
+create view public.games_with_price_stats
 with (security_invoker = true) as
 select
   g.*,
