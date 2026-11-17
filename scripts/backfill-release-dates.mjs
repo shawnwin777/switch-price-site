@@ -30,9 +30,11 @@
  *     都有帶發售日），不用手動處理。
  *
  * 寫入規則（刻意保守）：
- *   - 只寫 release_date 為 NULL 的列：upsert by id（on_conflict=id，
- *     resolution=merge-duplicates），payload 只有 { id, release_date }，
- *     不動其他欄位；重跑不會覆蓋已有值。
+ *   - 只寫 release_date 為 NULL 的列：PATCH by id（逐筆更新已存在的列），
+ *     payload 只有 { release_date }，不動其他欄位；重跑不會覆蓋已有值。
+ *     注意：不能用 upsert（POST + on_conflict=id）只帶 {id, release_date}，
+ *     Postgres 會先檢查整列 NOT NULL 欄位（slug、title_zh、title_en），
+ *     那些欄位是 NULL，還沒判斷到 id 衝突就先報 23502。
  *   - 可重複執行、看到一半中斷也沒關係，下次重跑會從還沒填的繼續。
  *
  * 連線：只用環境變數 NEXT_PUBLIC_SUPABASE_URL 與
@@ -59,7 +61,7 @@ const LIMIT_ARG = process.argv.find((a) => a.startsWith('--limit='));
 const LIMIT = LIMIT_ARG ? Math.max(1, parseInt(LIMIT_ARG.slice('--limit='.length), 10) || 0) : Infinity;
 
 const SOLR_BATCH = 100; // 一次問 Solr 幾個編號
-const WRITE_BATCH = 500; // 一次 upsert 幾列
+const WRITE_BATCH = 500; // 一次 PATCH 幾列（每列一個請求）
 const PAGE_SIZE = 1000;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -99,16 +101,22 @@ async function fetchAll(table, select, extraQuery = '') {
   return out;
 }
 
-async function upsertGames(rows) {
-  const url = `${restUrl('games')}?on_conflict=${encodeURIComponent('id')}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { ...restHeaders(), Prefer: 'resolution=merge-duplicates,return=minimal' },
-    body: JSON.stringify(rows),
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`寫入 games 失敗（HTTP ${res.status}）：${text.slice(0, 500)}`);
+async function updateGames(rows) {
+  // 用 PATCH 逐筆更新已存在的列：PATCH 只會更新、不會新增，所以永遠不會
+  // 碰到 upsert 的陷阱——Postgres 會先檢查整列 NOT NULL 欄位（slug、
+  // title_zh、title_en），upsert 只帶 {id, release_date} 時那些欄位是
+  // NULL，還沒判斷到 id 衝突就先報 23502。
+  for (const row of rows) {
+    const url = `${restUrl('games')}?id=${encodeURIComponent(`eq.${row.id}`)}`;
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { ...restHeaders(), Prefer: 'return=minimal' },
+      body: JSON.stringify({ release_date: row.release_date }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`寫入 games 失敗（HTTP ${res.status}）：${text.slice(0, 500)}`);
+    }
   }
 }
 
@@ -218,7 +226,7 @@ async function main() {
   }
   console.log(`\n  Solr 查到上市日：${updates.length} 筆${solrFailed > 0 ? `（${solrFailed} 款查詢失敗未寫入）` : ''}`);
 
-  // 5. 寫回 games（只寫 release_date 為 NULL 的列；upsert by id 只帶兩個欄位）。
+  // 5. 寫回 games（只寫 release_date 為 NULL 的列；PATCH by id 只帶 release_date）。
   if (DRY_RUN) {
     console.log('DRY-RUN：不寫入。範例前 5 筆：');
     for (const u of updates.slice(0, 5)) {
@@ -228,7 +236,7 @@ async function main() {
   } else if (updates.length > 0) {
     let written = 0;
     for (const batch of chunk(updates, WRITE_BATCH)) {
-      await upsertGames(batch);
+      await updateGames(batch);
       written += batch.length;
       process.stdout.write(`\r  寫入進度：${written}/${updates.length}`);
     }
