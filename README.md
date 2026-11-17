@@ -134,6 +134,17 @@ curl https://<你的網址>/api/refresh -H "Authorization: Bearer <CRON_SECRET>"
 
 沒有密鑰回 401。也可以用任何外部 cron 打同一支路由。
 
+**台港韓每週掃描（GitHub Actions，不是 Vercel cron）**：台港韓沒有遊戲清單
+公開來源，只能用價格 API 全區間掃描編號，掃一次三區約 25 分鐘，Vercel
+免費版單次跑不完，所以搬到 GitHub Actions（repo 公開、Actions 免費）：
+`.github/workflows/weekly-tw-hk-kr-scan.yml`，每週日 02:00 UTC 自動跑
+（掃描 TW／HK／KR 主區間＋台港新號段 → 合併 → `seed-region-ids` →
+`seed-unnamed-games`）。只需設定一次 GitHub Secrets（見 SETUP.md §8.10）：
+`SUPABASE_SERVICE_ROLE_KEY`（從家裡電腦的 `.env.local` 複製，絕對不要在
+學校／共用電腦上貼）與 `NEXT_PUBLIC_SUPABASE_URL`。未具名商品會以
+`tw-<nsuid>`／`hk-<nsuid>`／`kr-<nsuid>` 建檔進目錄、但不出現在首頁／搜尋
+（見 DATA_NOTES.md §12.8）。
+
 ## 功能清單（與原本完整版對照）
 
 - 搜尋（中英文名、類型、發行商）、篩選（Switch / Switch 2、商品類型、試玩類型、排序、只看特價）✅
@@ -152,7 +163,7 @@ curl https://<你的網址>/api/refresh -H "Authorization: Bearer <CRON_SECRET>"
 - 4 款遊戲沒有 title ID（健身環大冒險、寶可夢傳說 Z-A、黑帝斯 II、空洞騎士：絲之歌），每日更新會跳過它們，見 SETUP.md 第 3 節。
 - 3 款遊戲價格 API 查不到（瑪利歐賽車世界、咚奇剛 蕉力全開、雙人成行），更新時保留種子價，見 SETUP.md 第 3.3 節。
 - 5 款遊戲種子檔日本原價與官方原價不同，第一次更新後會修正為官方原價，見 SETUP.md 第 3.4 節。
-- TW、HK 各只有 4 款有價，KR 只有 4 款，其餘 28 款比價時沒有這三國價格（種子檔原樣）。
+- TW、HK、KR 價格來自每週 GitHub Actions 全區間掃描（見上面 §7）；掃出的未具名商品以 `tw-<nsuid>` 等佔位遊戲建檔、但不出現在首頁／搜尋，疑似 DLC（編號前綴 7005／7007）跳過不建，見 DATA_NOTES.md §12.8。
 - 歷史低價標記可信度低：種子檔 32 款全標歷史低價，且空洞騎士、星露谷的歷史低價僅 4 元；建議累積多日價格後重算，見 DATA_NOTES.md 第 7 節。
 - 匯率快照種子只有 5 個幣別（USD、JPY、HKD、GBP、EUR＋TWD），每日更新會抓完整匯率表。
 - `has_demo = 2` 只有雙人成行一款，依好友通行證免費試玩標為「免費試玩」；原始編碼的確切含義未經原型站確認。
@@ -168,5 +179,6 @@ curl https://<你的網址>/api/refresh -H "Authorization: Bearer <CRON_SECRET>"
 4. 接 Vercel 帳號、設環境變數、部署（第 5 步）。
 5. 部署後把回呼網址填回 Google、Discord、Supabase 三個後台（第 6 步）。
 6. 部署後實測：Google / Discord 登入、收藏有存住、目錄同步與價格更新有跑（見 SETUP.md §8）。
+7. 在 Supabase SQL Editor 跑 `supabase/migrations/20261118_unnamed_games.sql`（未具名商品標記＋檢視重建；只需一次），再到 GitHub repo → Settings → Secrets and variables → Actions 新增兩個 Secrets（`SUPABASE_SERVICE_ROLE_KEY` 從家裡電腦的 `.env.local` 複製、絕對不要在學校／共用電腦上貼，`NEXT_PUBLIC_SUPABASE_URL`），每週台港韓掃描才會自動跑（見 SETUP.md §8.10）。
 
 沒有任何 Secret 或金鑰寫在程式碼裡；設定用的金鑰只存在 Supabase、Vercel 與各家後台。

@@ -555,11 +555,50 @@ node scripts/verify-region-ids.mjs
 | 參數 | `?sources=jp-search,tw-list`（只跑指定來源）、`?pages=20`（分頁來源每支本次最多抓幾頁）、`?dry_run=1`（只比對、不寫庫）、`?skip_prices=1`（只寫目錄、不同步查價） |
 | 回報 | `games_inserted`、`title_id_filled`、`cover_filled`、`region_ids_upserted`、`price_countries_updated`、`new_game_prices`、`storefront_prices`（商店前端價清單）、`storefront_prices_written`、`reference_price_mismatches`（Solr 與價格 API 不一致時記錄）、`sync_cursors`（各分頁來源本次窗口）、`needs_review`、`conflicts`、`errors`、`duration_ms` |
 
-**台港韓掃描（本機腳本，不是 Vercel cron）**：全量重掃每週一次
-（`scripts/scan-tw-hk-price-api.mjs`，約 11,600 批、25 分鐘）→ 更新
-`data/tw-hk-full-ids.json` → 跑 `seed-region-ids.mjs` 補對照表；
+**台港韓掃描（GitHub Actions，每週一次，不是 Vercel cron）**：台港韓沒有
+遊戲清單公開來源，只能用價格 API 全區間掃描編號；全量重掃約 11,600 批、
+25 分鐘，Vercel 免費版單次函式跑不完（60 秒上限、12 支 cron 已用滿），
+所以搬到 GitHub Actions（repo 公開、Actions 免費）：
+`.github/workflows/weekly-tw-hk-kr-scan.yml`，每週日 02:00 UTC 自動跑
+（也可到 Actions 頁手動觸發）。流程：收割每週新作文章（命名來源，失敗
+不中斷）→ 掃描 TW／HK／KR 主區間＋台港 ext1 新號段 → 合併成
+`data/tw-hk-full-ids.json` → `seed-region-ids.mjs`（具名筆補對照表）→
+`seed-unnamed-games.mjs`（未具名筆建佔位遊戲、具名筆建檔／改名／合併）。
+每次執行獨立、無跨次快取，從頭全掃約 40–60 分鐘。ext2（7007，Switch 2
+版／升級包）與 ext3（7005，DLC）區間不列入每週排程（未具名筆會被匯入
+腳本跳過，見 DATA_NOTES.md §12.8）；有需要時本機手動跑。
 每日前沿掃描約 40 批（10 秒）；掃描上限（目前 `70010000150000`）
 每季檢查上調。見 `DATA_NOTES.md` §12.7。
+
+**GitHub Secrets 設定（只需一次）**：repo → Settings → Secrets and
+variables → Actions → New repository secret，新增兩個：
+`SUPABASE_SERVICE_ROLE_KEY`（從**家裡電腦**的 `.env.local` 複製整串貼上；
+**絕對不要在學校／共用電腦上貼這把 key**，它繞過 RLS、權限最高）與
+`NEXT_PUBLIC_SUPABASE_URL`（`https://gplklnhsplydxmyepbzx.supabase.co`）。
+工作流程絕不會把這兩個值印到 log 裡。失敗時 GitHub 會寄信通知 repo 擁有者，
+到 Actions 頁看是哪一步失敗（掃描被任天堂限流時重跑一次即可，見工作流程
+檔頭的風險說明）。
+
+**手動跑（本機，與 Actions 流程相同）**：
+
+```bash
+node scripts/scan-tw-hk-price-api.mjs --country TW
+node scripts/scan-tw-hk-price-api.mjs --country HK
+node scripts/scan-tw-hk-price-api.mjs --country KR
+node scripts/merge-scan-into-full-ids.mjs
+$env:NEXT_PUBLIC_SUPABASE_URL="https://gplklnhsplydxmyepbzx.supabase.co"
+$env:SUPABASE_SERVICE_ROLE_KEY="(整串從 .env.local 複製)"
+node scripts/seed-region-ids.mjs data/tw-hk-full-ids.json
+node scripts/seed-unnamed-games.mjs
+# 只看計畫不寫庫：node scripts/seed-unnamed-games.mjs --dry-run
+```
+
+**未具名商品匯入前置**：先在 Supabase SQL Editor 跑一次
+`supabase/migrations/20261118_unnamed_games.sql`（`games.is_unnamed` 欄位＋
+檢視重建；沒跑時匯入腳本寫入會報 42703 失敗）。未具名商品以
+`tw-<nsuid>`／`hk-<nsuid>`／`kr-<nsuid>` 建檔、但不出現在首頁遊戲牆／
+搜尋結果與接近歷史低價；命名來源找到標題時，匯入腳本會把佔位遊戲改名
+或併入具名遊戲。規則見 `DATA_NOTES.md` §12.8。
 
 **驗算（不連庫、不連網）：**
 

@@ -168,12 +168,19 @@ function buildFilteredGamesQuery(
   useStats: boolean,
   headCount: boolean,
   mineIds: string[] | null,
-  purchasedIds: string[] | null
+  purchasedIds: string[] | null,
+  // 未具名遊戲（games.is_unnamed，見 migration 20261118_unnamed_games.sql）
+  // 不出現在首頁遊戲牆／搜尋結果。filterUnnamed=false 只用在 migration
+  // 尚未套用的短暫退回期間（此時根本還沒有未具名遊戲，因為匯入腳本也
+  // 需要此欄位才能寫入），見 fetchGamesPagePublicCore 的退回邏輯。
+  filterUnnamed = true
 ): GamesQueryBuilder | null {
   const query: GamesQueryBuilder = headCount
     ? db.from(source).select("id", { count: "exact", head: true })
     : db.from(source).select(GAME_COLUMNS, { count: "exact" });
 
+  // 未具名遊戲不上首頁／搜尋（單一過濾點：快取版與即時版都走這裡）。
+  if (filterUnnamed) query.eq("is_unnamed", false);
   const term = sanitizeSearchTerm(opts.q ?? "");
   if (term) {
     query.or(`title_zh.ilike.%${term}%,title_en.ilike.%${term}%`);
@@ -205,7 +212,8 @@ async function fetchGamesPageRows(
   opts: GamesPageFilters,
   source: "games_with_price_stats" | "games",
   useStats: boolean,
-  lists: GamesPageListIds
+  lists: GamesPageListIds,
+  filterUnnamed = true
 ): Promise<RawGamesPage> {
   const page = Math.max(1, opts.page ?? 1);
   const from = (page - 1) * PAGE_SIZE;
@@ -218,7 +226,8 @@ async function fetchGamesPageRows(
     useStats,
     false,
     lists.mineIds,
-    lists.purchasedIds
+    lists.purchasedIds,
+    filterUnnamed
   );
   if (!base) return { data: [], count: 0, error: null };
 
@@ -277,7 +286,8 @@ async function fetchGamesPageRows(
       useStats,
       true,
       lists.mineIds,
-      lists.purchasedIds
+      lists.purchasedIds,
+      filterUnnamed
     );
     if (totalQuery) {
       const { count: totalCount, error: totalError } = await totalQuery;
@@ -331,6 +341,15 @@ function isReleaseColumnError(error: RawGamesPage["error"]): boolean {
   return /release_date/i.test(error.message ?? "");
 }
 
+/** is_unnamed 欄位還不存在的錯誤（migration 20261118_unnamed_games.sql 未跑）。
+ *  檢視／games 表任一缺此欄位時，查詢會報 "column ... is_unnamed does not exist"
+ * （PostgREST 42703／PGRST204）。此時根本還沒有未具名遊戲（匯入腳本也需要
+ *  此欄位才能寫入），所以退回「不過濾」是安全的，見 fetchGamesPagePublicCore。 */
+function isUnnamedColumnError(error: RawGamesPage["error"]): boolean {
+  if (!error) return false;
+  return /is_unnamed/i.test(error.message ?? "");
+}
+
 /** 當頁 12 款的價格、讚數、收藏數（公開資料，可快取；不含個人狀態）。 */
 export async function fetchExtrasForIds(
   db: SupabaseClient,
@@ -376,18 +395,21 @@ export async function fetchGamesPagePublicCore(
     excludePurchasedIds: args.excludePurchasedIds,
   };
 
-  // 嘗試順序：(檢視, 原排序) → 欄位缺失退回名稱排序 → 檢視缺失改用 games 表。
+  // 嘗試順序：(檢視, 原排序) → 欄位缺失退回名稱排序 → 檢視缺失改用 games 表
+  //   → is_unnamed 欄位缺失退回不過濾（migration 未跑時的短暫狀態）。
   let source: "games_with_price_stats" | "games" = "games_with_price_stats";
   let useStats = true;
   let sort = args.sort ?? "cheap-asc";
+  let filterUnnamed = true;
   let res: RawGamesPage | null = null;
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 5; attempt++) {
     res = await fetchGamesPageRows(
       db,
       { ...args, sort },
       source,
       useStats,
-      lists
+      lists,
+      filterUnnamed
     );
     if (!res.error) break;
     if (isViewMissingError(res.error) && source === "games_with_price_stats") {
@@ -403,6 +425,13 @@ export async function fetchGamesPagePublicCore(
         "[data] release_date 欄位不存在，「上市日期」排序暫時退為名稱排序；請套用 supabase/migrations/20261118_add_release_date.sql。"
       );
       sort = "title";
+      continue;
+    }
+    if (isUnnamedColumnError(res.error) && filterUnnamed) {
+      console.warn(
+        "[data] is_unnamed 欄位不存在，未具名過濾暫時關閉（此時尚無未具名遊戲）；請套用 supabase/migrations/20261118_unnamed_games.sql。"
+      );
+      filterUnnamed = false;
       continue;
     }
     break;
@@ -884,42 +913,59 @@ export interface NearLowCandidate {
 }
 
 /** 掃描全部有歷史低價與價格的遊戲，算出接近歷史低價的候選清單
- *  （已按比值由小到大排好）。失敗時回傳 error，不拋錯。 */
+ *  （已按比值由小到大排好）。失敗時回傳 error，不拋錯。
+ *  未具名遊戲（games.is_unnamed）不列入：每日更新會幫它們寫
+ *  historical_low_twd（見 app/api/refresh/route.ts），特價結束漲價後
+ *  比值會落進 1.0–1.1 區間，若不排除就會以「未命名商品」出現在此頁。
+ *  is_unnamed 欄位還沒建（migration 20261118_unnamed_games.sql 未跑）
+ *  時退回不過濾——此時尚無未具名遊戲，退回是安全的。 */
 export async function fetchNearLowCandidates(
   db: SupabaseClient
 ): Promise<{ candidates: NearLowCandidate[]; error: string | null }> {
-  const rows: { id: string; cheapest: number; hist: number }[] = [];
-  let from = 0;
-  for (;;) {
-    const { data, error } = await db
-      .from("games_with_price_stats")
-      .select("id,cheapest_twd,historical_low_twd")
-      .not("cheapest_twd", "is", null)
-      .not("historical_low_twd", "is", null)
-      .order("id", { ascending: true })
-      .range(from, from + 999);
-    if (error || !data) {
-      return {
-        candidates: [],
-        error: error?.message ?? "讀取失敗",
-      };
-    }
-    for (const r of data as {
-      id: string;
-      cheapest_twd: number;
-      historical_low_twd: number;
-    }[]) {
-      if (r.historical_low_twd > 0) {
-        rows.push({
-          id: r.id,
-          cheapest: r.cheapest_twd,
-          hist: r.historical_low_twd,
-        });
+  const scan = async (filterUnnamed: boolean) => {
+    const rows: { id: string; cheapest: number; hist: number }[] = [];
+    let from = 0;
+    for (;;) {
+      let q = db
+        .from("games_with_price_stats")
+        .select("id,cheapest_twd,historical_low_twd")
+        .not("cheapest_twd", "is", null)
+        .not("historical_low_twd", "is", null);
+      if (filterUnnamed) q = q.eq("is_unnamed", false);
+      const { data, error } = await q
+        .order("id", { ascending: true })
+        .range(from, from + 999);
+      if (error || !data) {
+        return { rows, error: error?.message ?? "讀取失敗" };
       }
+      for (const r of data as {
+        id: string;
+        cheapest_twd: number;
+        historical_low_twd: number;
+      }[]) {
+        if (r.historical_low_twd > 0) {
+          rows.push({
+            id: r.id,
+            cheapest: r.cheapest_twd,
+            hist: r.historical_low_twd,
+          });
+        }
+      }
+      if (data.length < 1000) break;
+      from += 1000;
     }
-    if (data.length < 1000) break;
-    from += 1000;
+    return { rows, error: null as string | null };
+  };
+
+  let result = await scan(true);
+  if (result.error && /is_unnamed/i.test(result.error)) {
+    console.warn(
+      "[data] is_unnamed 欄位不存在，接近歷史低價暫時不過濾未具名遊戲；請套用 supabase/migrations/20261118_unnamed_games.sql。"
+    );
+    result = await scan(false);
   }
+  if (result.error) return { candidates: [], error: result.error };
+  const rows = result.rows;
   const candidates = rows
     .map((r) => ({ id: r.id, ratio: r.cheapest / r.hist }))
     .filter((c) => c.ratio > 1 && c.ratio <= NEAR_LOW_MAX_RATIO)

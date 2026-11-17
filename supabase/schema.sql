@@ -38,6 +38,10 @@ create table if not exists public.games (
   -- 上市日期（date，如 2025-05-01）：各區官方目錄的發售日，同步時寫入、
   -- 回填腳本補舊資料；NULL = 尚未補到。見 migration 20261118_add_release_date.sql。
   release_date date,
+  -- 未具名商品（只有編號＋價格、尚未找到標題；見 migration
+  -- 20261118_unnamed_games.sql）：true 時不出現在首頁遊戲牆／搜尋結果
+  -- 與接近歷史低價；命名後由匯入腳本改回 false。
+  is_unnamed boolean not null default false,
   is_manual boolean not null default false,
   created_by uuid,
   created_at timestamptz not null default now()

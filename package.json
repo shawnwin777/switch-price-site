@@ -27,6 +27,7 @@
     "seed-expanded": "node scripts/seed-expanded.mjs",
     "start": "next start",
     "seed-region-ids": "node scripts/seed-region-ids.mjs",
+    "seed-unnamed-games": "node scripts/seed-unnamed-games.mjs",
     "fetch-region-prices": "node scripts/fetch-region-prices.mjs",
     "merge-region-prices": "node scripts/merge-region-prices.mjs",
     "verify-region-ids": "node scripts/verify-region-ids.mjs",

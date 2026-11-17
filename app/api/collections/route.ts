@@ -29,6 +29,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "找不到遊戲" }, { status: 404 });
   }
 
+  // 未具名遊戲尚未開放收藏（見 migration 20261118_unnamed_games.sql）：
+  // 否則它們會透過收藏排行（/ranking 只列有收藏的遊戲）曝光。
+  // is_unnamed 欄位還沒建時查詢失敗，視為具名、照常收藏。
+  const { data: flag, error: flagError } = await supabase
+    .from("games")
+    .select("is_unnamed")
+    .eq("id", game.id)
+    .maybeSingle();
+  if (
+    !flagError &&
+    (flag as { is_unnamed?: boolean } | null)?.is_unnamed === true
+  ) {
+    return NextResponse.json(
+      { error: "未命名商品尚未開放收藏" },
+      { status: 400 }
+    );
+  }
+
   const { data: existing } = await supabase
     .from("collections")
     .select("id")

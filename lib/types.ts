@@ -17,6 +17,8 @@ export interface Game {
   historical_low_twd: number | null;
   /** 上市日期（date，如 2025-05-01；NULL = 尚未補到，見 migration 20261118_add_release_date.sql）。 */
   release_date?: string | null;
+  /** 未具名商品（只有編號＋價格、尚未找到標題；true 時不出現在首頁遊戲牆／搜尋結果與接近歷史低價，見 migration 20261118_unnamed_games.sql）。 */
+  is_unnamed?: boolean | null;
   is_manual: boolean | null;
   created_by: string | null;
   created_at: string | null;

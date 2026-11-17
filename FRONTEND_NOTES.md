@@ -152,6 +152,18 @@ npm start                    # 跑 production build
   - 「接近歷史低價」：目前最低價（各區換算台幣的最小值）高於歷史低價
     且 ≤ 歷史低價 × 1.10（等於歷史低價的不算，那是已破底），依
     （最低價 ÷ 歷史低價）由小到大排，卡片顯示「比歷史低貴 X%」。
+    未具名遊戲（`games.is_unnamed`）不列入——每日更新會幫它們寫歷史低價，
+    特價結束漲價後比值會落進區間，若不排除就會以「未命名商品」出現在此頁。
+- **未具名遊戲不上首頁／搜尋**：台港韓掃描掃出的無標題商品以
+  `tw-<nsuid>`／`hk-<nsuid>`／`kr-<nsuid>` 佔位遊戲建檔（見
+  `scripts/seed-unnamed-games.mjs`、DATA_NOTES.md §12.8），但
+  `lib/data.ts` 的首頁查詢（`buildFilteredGamesQuery`，快取版與即時版共用
+  的單一過濾點）會排除 `games.is_unnamed = true` 的遊戲；`POST
+  /api/collections` 也擋下收藏未具名遊戲，所以不會透過收藏排行曝光。
+  「準備上市」則因佔位遊戲的 `release_date` 為 NULL，本來就不列入。
+  migration（`supabase/migrations/20261118_unnamed_games.sql`）還沒跑時，
+  查詢會因欄位不存在而自動退回不過濾（此時尚無未具名遊戲，是安全的）；
+  詳細頁直接輸入網址仍可打開（方便檢查）。
   - **首頁排序「上市日期：新 → 舊」**：資料庫端 `ORDER BY release_date
     DESC NULLS LAST`，沒有上市日的遊戲排在最後面、不被排除；欄位還沒建
     時自動退回名稱排序（快取 1 小時內恢復）。
