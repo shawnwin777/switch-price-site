@@ -341,12 +341,19 @@ export interface GamesPagePublicArgs {
   excludePurchasedIds: string[];
 }
 
-/** 檢視不存在的錯誤（PGRST205 或 "does not exist"）。 */
+/** 檢視本身不存在的錯誤（PGRST205 或 relation does not exist）。
+ *  注意：欄位不存在時 Postgres 也會報 "... does not exist"（如
+ *  column ... min_sale_end does not exist），那是欄位缺失，各有專屬
+ *  的退回邏輯（isSaleEndColumnError／isReleaseColumnError／
+ *  isUnnamedColumnError），絕對不能在這裡被誤判成檢視不存在——
+ *  否則會錯誤退回 games 表、排序變成名稱排序（2026-11-17 實測教訓：
+ *  migration 未跑時「特價優先」應退回折扣排序，卻變成名稱排序）。 */
 function isViewMissingError(error: RawGamesPage["error"]): boolean {
   if (!error) return false;
   const msg = error.message ?? "";
   const code = error.code ?? "";
-  return code === "PGRST205" || /does not exist/i.test(msg);
+  if (code === "PGRST205") return true;
+  return /relation .*games_with_price_stats.* does not exist/i.test(msg);
 }
 
 /** min_sale_end 欄位還不存在的錯誤（migration 未跑）。 */
