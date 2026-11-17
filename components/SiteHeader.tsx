@@ -38,8 +38,8 @@ export default function SiteHeader() {
           <Image
             src="/sgs-logo.png"
             alt="SHAWN GAME STUDIO"
-            width={1252}
-            height={976}
+            width={2172}
+            height={724}
             priority
           />
         </Link>
