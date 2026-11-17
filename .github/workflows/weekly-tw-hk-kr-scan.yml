@@ -1,57 +1,145 @@
--- ============================================================================
--- games.is_unnamed：未具名商品標記（2026-11-17 決定，見 DATA_NOTES.md §12.8）
--- 檔案：supabase/migrations/20261118_unnamed_games.sql
--- 套用方式：Supabase Dashboard → SQL Editor 貼上整個檔案執行；
---           可重複執行（ADD COLUMN IF NOT EXISTS / CREATE INDEX IF NOT EXISTS
---           / DROP VIEW IF EXISTS + CREATE VIEW）。
--- 部署順序：程式碼可先部署——欄位還沒建時：
---   - 首頁查詢會因 is_unnamed 欄位不存在而自動退回「不過濾」模式
---     （見 lib/data.ts isUnnamedColumnError；此時未具名遊戲根本還不存在，
---     因為匯入腳本也需要此欄位才能寫入，所以退回是安全的），
---   - 接近歷史低價同理（見 lib/data.ts fetchNearLowCandidates），
---   - 收藏未具名遊戲的擋下檢查同理跳過（見 app/api/collections/route.ts）。
---   套用此 migration 後，未具名遊戲才會被匯入、且自動排除在首頁遊戲牆／
---   搜尋結果與接近歷史低價之外。匯入腳本 scripts/seed-unnamed-games.mjs
---   必須在此 migration 之後才能跑（否則寫入 is_unnamed 會報 42703 失敗）。
---
--- 背景：台港韓價格 API 全區間掃描會掃出大量「只有編號＋價格、沒有標題」
---   的在售商品（2026-11-16 對照檔：29,237 筆中 26,890 筆未具名）。主代理
---   2026-11-17 決定：編號＋價格先行建檔進目錄（slug tw-<nsuid>／
---   hk-<nsuid>／kr-<nsuid>），之後命名來源找到標題時再合併改名。
---   但未具名前不得出現在首頁遊戲牆／搜尋結果（否則 2 萬多個「未命名商品」
---   會淹沒首頁），所以用此欄位標記、程式端過濾。
--- 注意：games_with_price_stats 是 select g.*：Postgres 檢視建立時就把
---   欄位展開，games 加欄位不會自動出現在檢視裡，所以這裡重建一次檢視
---   （定義不變），讓 is_unnamed 能在檢視上篩選。不能用 CREATE OR REPLACE
---   VIEW（見 20261118_add_release_date.sql 的 42P16 說明），所以先 DROP
---   再 CREATE。
--- ============================================================================
+# Switch 遊戲比價 — 台港韓每週自動掃描
+# ============================================================================
+# 目的：台港韓沒有像美歐日那樣的「遊戲清單」公開來源，只能用任天堂官方
+#   價格 API 全區間掃描編號（見 scripts/scan-tw-hk-price-api.mjs）。
+#   掃一次三區約 25 分鐘，Vercel 免費版單次函式跑不完（60 秒上限、12 支
+#   cron 已用滿），所以搬到 GitHub Actions：repo 是公開的，Actions 免費。
+#
+# 排程：每週日 02:00 UTC（台北週日 10:00）跑一次；也可手動觸發
+#   （Actions → Weekly TW/HK/KR scan → Run workflow）。
+#   每次執行都是獨立的（runner 用完即丟、沒有跨次快取）：全量重掃＋合併＋
+#   寫庫一次完成，約 40–60 分鐘，遠低於單一 job 6 小時上限。
+#
+# 流程（與本機每週例行相同，見 SETUP.md §8.10）：
+#   1. 每週新作文章收割（命名來源；失敗不中斷，合併腳本會跳過此來源）
+#   2. 掃描 TW／HK／KR 主區間（70010000000000–70010000129999）
+#      ＋ TW／HK ext1 新號段（70010000130000–70010000150000，2026-11 後的新編號）
+#   3. 合併掃描結果＋命名來源 → data/tw-hk-full-ids.json
+#   4. seed-region-ids：具名筆寫 game_region_ids（只補缺口、不覆蓋）
+#   5. seed-unnamed-games：未具名筆建佔位遊戲（tw-/hk-/kr-<nsuid>）、
+#      具名筆建檔／改名／合併（見 scripts/seed-unnamed-games.mjs）
+#
+# 不掃的區間（有意省略，見 DATA_NOTES.md §12.7）：
+#   ext2（700700000xxxxx，Switch 2 Edition／升級包）與 ext3（700500000xxxxx，
+#   DLC／追加內容）：這兩個空間的未具名商品會被匯入腳本跳過（疑似 DLC），
+#   每週掃它們只會多花約 20 分鐘 API 請求、幾乎沒有具名收穫；有需要時
+#   本機手動跑（見 SETUP.md）。KR 也只有主區間（KR DLC／S2 區間尚未掃）。
+#
+# Secrets（只需設定一次，見 SETUP.md §8.10）：
+#   repo → Settings → Secrets and variables → Actions → New repository secret
+#     SUPABASE_SERVICE_ROLE_KEY：從家裡電腦的 .env.local 複製整串貼上。
+#       絕對不要在學校／共用電腦上貼這把 key（它繞過 RLS、權限最高）。
+#     NEXT_PUBLIC_SUPABASE_URL：Supabase 專案 URL
+#       （https://gplklnhsplydxmyepbzx.supabase.co）。
+#   工作流程絕不會把這兩個值印到 log 裡（腳本只印數量與前 20 筆跳過清單）。
+#
+# 首次執行風險（誠實揭露）：GitHub runner 的共用 IP 可能被任天堂價格 API
+#   限流（429）。掃描腳本有 429／5xx 指數退避重試（最多 5 次）；若某國
+#   整批失敗，該步驟會以非零結束、GitHub 寄信通知 repo 擁有者，合併腳本
+#   會因缺掃描檔而報錯（不會寫半套資料庫）。屆時手動重跑一次即可
+#   （掃描支援斷點續跑，但 runner 無跨次快取，重跑是從頭全掃）。
+#   2026-11-16 調查期間 15,000 次請求、價格 API 零次 429——限流目前
+#   只是理論風險，不是已觀測到的問題。
+# ============================================================================
 
-alter table public.games
-  add column if not exists is_unnamed boolean not null default false;
+name: Weekly TW/HK/KR scan
 
--- 只有未具名列才進索引（具名遊戲是絕大多數，不需要索引它們）。
-create index if not exists games_is_unnamed_idx
-  on public.games (is_unnamed) where is_unnamed;
+on:
+  schedule:
+    # 每週日 02:00 UTC（台北週日 10:00，離峰時間）
+    - cron: "0 2 * * 0"
+  workflow_dispatch:
 
--- 注意：不能用 CREATE OR REPLACE VIEW——games 表在檢視建立之後又加了
--- 欄位（price_countries、release_date），g.* 展開後欄位順序對不上，
--- Postgres 會報 42P16 cannot change name of view column。先 DROP 再 CREATE
--- （同一段 SQL 裡，檢視不會有空窗期被查到）。
-drop view if exists public.games_with_price_stats;
+permissions:
+  contents: read
 
-create view public.games_with_price_stats
-with (security_invoker = true) as
-select
-  g.*,
-  (select min(p.price_twd)
-     from public.prices p
-    where p.game_id = g.id) as cheapest_twd,
-  (select max(p.discount_pct)
-     from public.prices p
-    where p.game_id = g.id) as max_discount_pct,
-  exists (select 1
-            from public.prices p
-           where p.game_id = g.id
-             and p.discount_pct > 0) as has_sale
-from public.games g;
+# 同一時間只跑一份（手動觸發撞到排程時，後到的排隊、不取消進行中的）。
+concurrency:
+  group: weekly-tw-hk-kr-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: Scan TW/HK/KR and ingest
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        # 腳本目前只用 Node 內建模組（fetch／fs），不需要 node_modules；
+        # 仍安裝一次，之後腳本若引用套件才不會壞。
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      - name: Harvest weekly articles (naming source, best effort)
+        # 每週新作文章是命名來源之一；失敗或超時不中斷（合併腳本會跳過此來源）。
+        continue-on-error: true
+        run: node scripts/harvest-weekly-articles.mjs
+
+      - name: Scan TW (main range)
+        run: node scripts/scan-tw-hk-price-api.mjs --country TW
+
+      - name: Scan HK (main range)
+        run: node scripts/scan-tw-hk-price-api.mjs --country HK
+
+      - name: Scan KR (main range)
+        run: node scripts/scan-tw-hk-price-api.mjs --country KR
+
+      - name: Scan TW ext1 (new IDs 70010000130000-150000)
+        run: node scripts/scan-tw-hk-price-api.mjs --country TW --from 70010000130000 --to 70010000150000 --tag ext1
+
+      - name: Scan HK ext1 (new IDs 70010000130000-150000)
+        run: node scripts/scan-tw-hk-price-api.mjs --country HK --from 70010000130000 --to 70010000150000 --tag ext1
+
+      - name: Merge scans into tw-hk-full-ids.json
+        run: |
+          set -eo pipefail
+          mkdir -p logs
+          node scripts/merge-scan-into-full-ids.mjs 2>&1 | tee logs/merge.log
+
+      - name: Seed region IDs (named entries)
+        run: |
+          set -eo pipefail
+          mkdir -p logs
+          node scripts/seed-region-ids.mjs data/tw-hk-full-ids.json 2>&1 | tee logs/seed-region-ids.log
+
+      - name: Ingest unnamed games (placeholders + name merge)
+        run: |
+          set -eo pipefail
+          mkdir -p logs
+          node scripts/seed-unnamed-games.mjs 2>&1 | tee logs/seed-unnamed-games.log
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## 台港韓每週掃描"
+            echo ""
+            echo "執行時間：$(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo ""
+            for f in logs/merge.log logs/seed-region-ids.log logs/seed-unnamed-games.log; do
+              if [ -f "$f" ]; then
+                echo "### $f"
+                echo '```'
+                grep -h "完成\|對照檔\|在售\|合併完成" "$f" | tail -20 || true
+                echo '```'
+                echo ""
+              fi
+            done
+            echo "完整 log 請看本次執行的各步驟輸出。"
+          } >> "$GITHUB_STEP_SUMMARY"
