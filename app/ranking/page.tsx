@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getRanking } from "@/lib/data";
 import { formatTwd, saleEndLabel } from "@/lib/format";
+import RankCover from "@/components/RankCover";
 
 export const dynamic = "force-dynamic";
 
@@ -55,17 +56,9 @@ export default async function RankingPage({
             <div key={entry.game.id} className={`rank-row ${i < 3 ? "top3" : ""}`}>
               <div className="rank-num">{i + 1}</div>
               <Link href={`/games/${entry.game.slug}`}>
-                <img
-                  className="rank-cover"
+                <RankCover
                   src={entry.game.cover_url ?? "/covers/placeholder.svg"}
                   alt={entry.game.title_zh}
-                  loading="lazy"
-                  onError={(e) => {
-                    const img = e.currentTarget;
-                    if (!img.src.endsWith("/covers/placeholder.svg")) {
-                      img.src = "/covers/placeholder.svg";
-                    }
-                  }}
                 />
               </Link>
               <div className="rank-info">
