@@ -1,9 +1,12 @@
+import { revalidateTag } from "next/cache";
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser, resolveGame } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 // POST /api/likes { gameId } → { liked: boolean, count: number }
 // 切換遊戲讚。未登入回 401。
+// 讚數會出現在首頁卡片／詳情頁／排行／接近歷史低價（都是快取的公開資料），
+// 成功後清掉相關快取 tag，下次載入就是新數字（就算沒清到，1 小時也會到期）。
 export async function POST(request: NextRequest) {
   const supabase = createSupabaseServerClient();
   const user = await getCurrentUser(supabase);
@@ -55,6 +58,11 @@ export async function POST(request: NextRequest) {
     .from("game_likes")
     .select("id", { count: "exact", head: true })
     .eq("game_id", game.id);
+
+  revalidateTag("games-page");
+  revalidateTag("game");
+  revalidateTag("ranking");
+  revalidateTag("near-low");
 
   return NextResponse.json({ liked, count: count ?? 0 });
 }

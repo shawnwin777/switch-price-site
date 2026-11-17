@@ -50,6 +50,15 @@ export const NEW_GAME_PRICE_CAP = 100;
 /** 全程軟預算（毫秒）：超過就跳過價格階段（目錄已寫入，下次輪轉補價）。 */
 const SYNC_TIME_BUDGET_MS = 50_000;
 
+/** 探測 games 有沒有某個欄位（migration 還沒跑時回 false，不拋錯）。 */
+export async function probeGamesColumn(
+  admin: AdminClient,
+  column: string
+): Promise<boolean> {
+  const { error } = await admin.from("games").select(column).limit(1);
+  return !error;
+}
+
 /** 分頁讀全部遊戲（按 slug 排序；PostgREST 單次上限 1000 列，必須分頁）。 */
 export async function listAllGamesPaginated(
   admin: AdminClient,
@@ -181,6 +190,8 @@ export interface CatalogSyncSummary {
   games_inserted: number;
   title_id_filled: number;
   cover_filled: number;
+  /** 本次補上的上市日期筆數（只補 release_date 為空的遊戲）。 */
+  release_date_filled: number;
   region_ids_upserted: number;
   /** 本次重算 price_countries 的遊戲數（供 /api/refresh 工作量切片用）。 */
   price_countries_updated: number;
@@ -348,7 +359,15 @@ export async function runCatalogSync(
   }
 
   // ---- 2. 讀現有目錄索引（分頁；10,051 款單次讀不完）----
-  const existingGames = await listAllGamesPaginated(admin);
+  // release_date 欄位還沒建（migration 未跑）時不讀它，否則整輪同步
+  // 會報錯；探測到欄位存在才讀取、才寫入上市日（見下方 4a/4b）。
+  const hasReleaseDateColumn = await probeGamesColumn(admin, "release_date");
+  const existingGames = await listAllGamesPaginated(
+    admin,
+    hasReleaseDateColumn
+      ? "id, slug, title_id, title_zh, title_en, cover_url, historical_low_twd, release_date"
+      : undefined
+  );
   const { rows: existingRegionIds, tableMissing } =
     await listAllRegionIdsPaginated(admin);
   if (tableMissing) {
@@ -379,6 +398,7 @@ export async function runCatalogSync(
     games_inserted: 0,
     title_id_filled: 0,
     cover_filled: 0,
+    release_date_filled: 0,
     region_ids_upserted: 0,
     price_countries_updated: 0,
     new_game_prices: {
@@ -414,6 +434,18 @@ export async function runCatalogSync(
 
   // ---- 4a. 寫入新遊戲（upsert by slug；冪等：重跑同一天 = 0 寫入）----
   // 先寫遊戲、再寫編號（編號需要 game_id）。
+  // release_date 欄位還沒建時，先把新遊戲的上市日欄位拿掉再 upsert，
+  // 否則整批寫入會報錯；migration 跑完後下次同步自動寫入。
+  if (!hasReleaseDateColumn && plan.newGames.length > 0) {
+    for (const g of plan.newGames) {
+      delete (g as Partial<typeof g>).release_date;
+    }
+    errors.push({
+      stage: "release_date",
+      message:
+        "release_date 欄位尚未建立（migration 未跑），本次新遊戲的上市日未寫入；請執行 supabase/migrations/20261118_add_release_date.sql",
+    });
+  }
   const slugToId = new Map<string, string>();
   if (plan.newGames.length > 0) {
     for (const batch of chunk(plan.newGames, GAME_BATCH_SIZE)) {
@@ -476,6 +508,22 @@ export async function runCatalogSync(
       errors.push({ stage: "cover_fill", message: `${fill.slug}：${error.message}` });
     } else {
       summary.cover_filled++;
+    }
+  }
+  // ---- 4b-2. 上市日回填（只在目前為空時寫，絕不覆蓋已有值）----
+  // 欄位還沒建時上面已經記過一筆 errors，這裡直接跳過。
+  if (hasReleaseDateColumn) {
+    for (const fill of plan.releaseDateFills) {
+      const { error } = await admin
+        .from("games")
+        .update({ release_date: fill.release_date })
+        .eq("id", fill.gameId)
+        .is("release_date", null);
+      if (error) {
+        errors.push({ stage: "release_date_fill", message: `${fill.slug}：${error.message}` });
+      } else {
+        summary.release_date_filled++;
+      }
     }
   }
 

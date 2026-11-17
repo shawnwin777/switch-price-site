@@ -4,6 +4,7 @@
 // 所以 Supabase 專案不存在時頁面仍可建置與顯示「尚無資料」。
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PostgrestFilterBuilder } from "@supabase/postgrest-js";
+import { taipeiDateKey } from "./format";
 import type {
   CollectedOnSale,
   CommentItem,
@@ -104,7 +105,12 @@ export const PAGE_SIZE = 12;
 const GAME_COLUMNS =
   "id,slug,title_zh,title_en,genre,publisher,platform,product_type,has_demo,cover_url,youtube_id,title_id,historical_low_twd,is_manual,created_by,created_at";
 
-export type HomeSortKey = "cheap-asc" | "cheap-desc" | "title" | "discount";
+export type HomeSortKey =
+  | "cheap-asc"
+  | "cheap-desc"
+  | "title"
+  | "discount"
+  | "release";
 
 export interface GamesPageFilters {
   q?: string;
@@ -199,23 +205,11 @@ async function fetchGamesPageRows(
   opts: GamesPageFilters,
   source: "games_with_price_stats" | "games",
   useStats: boolean,
-  excludePurchasedIds: string[] = []
+  lists: GamesPageListIds
 ): Promise<RawGamesPage> {
   const page = Math.max(1, opts.page ?? 1);
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
-
-  // 只看我的收藏／只看已購買的 id 清單先取好（總數查詢會重用，不重取）。
-  let mineIds: string[] | null = null;
-  let purchasedIds: string[] | null = null;
-  if (opts.onlyMine) {
-    if (!opts.userId) return { data: [], count: 0, error: null };
-    mineIds = await getUserCollectionGameIds(db, opts.userId);
-  }
-  if (opts.onlyPurchased) {
-    if (!opts.userId) return { data: [], count: 0, error: null };
-    purchasedIds = await getUserPurchaseGameIds(db, opts.userId);
-  }
 
   const base = buildFilteredGamesQuery(
     db,
@@ -223,20 +217,29 @@ async function fetchGamesPageRows(
     source,
     useStats,
     false,
-    mineIds,
-    purchasedIds
+    lists.mineIds,
+    lists.purchasedIds
   );
   if (!base) return { data: [], count: 0, error: null };
 
   // 已購買排除：只在一般遊戲牆／搜尋時套用（只看我的收藏／只看已購買
   // 是使用者自己的清單，不排除）。
-  const exclusionActive = excludePurchasedIds.length > 0;
+  const exclusionActive = lists.excludePurchasedIds.length > 0;
   if (exclusionActive) {
-    base.not("id", "in", `(${excludePurchasedIds.join(",")})`);
+    base.not("id", "in", `(${lists.excludePurchasedIds.join(",")})`);
   }
 
   const sort = opts.sort ?? "cheap-asc";
-  if (sort === "title" || !useStats) {
+  if (sort === "title") {
+    base.order("title_zh", { ascending: true });
+  } else if (sort === "release") {
+    // 上市日期：新 → 舊；沒有上市日期的排在最後面（nullsFirst: false）。
+    // release_date 欄位還沒建（migration 未跑）時這裡會報錯，
+    // 由 fetchGamesPagePublicCore 捕捉後自動退回名稱排序。
+    base
+      .order("release_date", { ascending: false, nullsFirst: false })
+      .order("title_zh", { ascending: true });
+  } else if (!useStats) {
     base.order("title_zh", { ascending: true });
   } else if (sort === "cheap-asc") {
     base
@@ -273,8 +276,8 @@ async function fetchGamesPageRows(
       source,
       useStats,
       true,
-      mineIds,
-      purchasedIds
+      lists.mineIds,
+      lists.purchasedIds
     );
     if (totalQuery) {
       const { count: totalCount, error: totalError } = await totalQuery;
@@ -288,7 +291,201 @@ async function fetchGamesPageRows(
   };
 }
 
+/** 首頁分頁查詢用、事先取好的個人 id 清單（由呼叫端即時取，絕不快取；
+ *  同時是快取鍵的一部分，所以收藏／購買一變，下次就是新的 key，
+ *  不會拿到舊的排除結果）。 */
+export interface GamesPageListIds {
+  mineIds: string[] | null;
+  purchasedIds: string[] | null;
+  excludePurchasedIds: string[];
+}
+
+/** 首頁公開查詢的參數（可序列化，可進 unstable_cache 的 key；不含 userId，
+ *  userId 只用在呼叫端的即時覆蓋，不進快取）。 */
+export interface GamesPagePublicArgs {
+  q?: string;
+  platform?: string;
+  productType?: string;
+  demo?: number;
+  sort?: HomeSortKey;
+  onlySale?: boolean;
+  onlyMine?: boolean;
+  onlyPurchased?: boolean;
+  page?: number;
+  mineIds: string[] | null;
+  purchasedIds: string[] | null;
+  excludePurchasedIds: string[];
+}
+
+/** 檢視不存在的錯誤（PGRST205 或 "does not exist"）。 */
+function isViewMissingError(error: RawGamesPage["error"]): boolean {
+  if (!error) return false;
+  const msg = error.message ?? "";
+  const code = error.code ?? "";
+  return code === "PGRST205" || /does not exist/i.test(msg);
+}
+
+/** release_date 欄位還不存在的錯誤（migration 未跑）。 */
+function isReleaseColumnError(error: RawGamesPage["error"]): boolean {
+  if (!error) return false;
+  return /release_date/i.test(error.message ?? "");
+}
+
+/** 當頁 12 款的價格、讚數、收藏數（公開資料，可快取；不含個人狀態）。 */
+export async function fetchExtrasForIds(
+  db: SupabaseClient,
+  ids: string[]
+): Promise<{
+  prices: Price[];
+  likeCount: Map<string, number>;
+  collectionCount: Map<string, number>;
+}> {
+  const [pricesRes, likesRes, collRes] = await Promise.all([
+    db.from("prices").select("*").in("game_id", ids),
+    db.from("game_likes").select("game_id").in("game_id", ids),
+    db.from("collections").select("game_id").in("game_id", ids),
+  ]);
+  const prices = (pricesRes.data as Price[] | null) ?? [];
+  const likeCount = new Map<string, number>();
+  ((likesRes.data as { game_id: string }[] | null) ?? []).forEach((r) =>
+    likeCount.set(r.game_id, (likeCount.get(r.game_id) ?? 0) + 1)
+  );
+  const collectionCount = new Map<string, number>();
+  ((collRes.data as { game_id: string }[] | null) ?? []).forEach((r) =>
+    collectionCount.set(r.game_id, (collectionCount.get(r.game_id) ?? 0) + 1)
+  );
+  return { prices, likeCount, collectionCount };
+}
+
+/** 首頁公開資料核心（可進 unstable_cache）：分頁列＋價格／讚數／收藏數。
+ *  個人狀態（我是否按讚／收藏／購買）不在這裡，由 overlayMyGameFlags
+ *  在呼叫端即時補上，所以快取絕不會把 A 的狀態發給 B。
+ *  退回邏輯（與舊版一致）：檢視未建時改用 games 表；「上市日期」排序
+ *  在 release_date 欄位未建時自動退回名稱排序（migration 跑完後，
+ *  快取到期 1 小時內自動恢復上市日期排序）。 */
+export async function fetchGamesPagePublicCore(
+  db: SupabaseClient,
+  args: GamesPagePublicArgs
+): Promise<GamesPageResult> {
+  const page = Math.max(1, args.page ?? 1);
+  const empty: GamesPageResult = { games: [], total: 0, page, totalPages: 0 };
+
+  const lists: GamesPageListIds = {
+    mineIds: args.mineIds,
+    purchasedIds: args.purchasedIds,
+    excludePurchasedIds: args.excludePurchasedIds,
+  };
+
+  // 嘗試順序：(檢視, 原排序) → 欄位缺失退回名稱排序 → 檢視缺失改用 games 表。
+  let source: "games_with_price_stats" | "games" = "games_with_price_stats";
+  let useStats = true;
+  let sort = args.sort ?? "cheap-asc";
+  let res: RawGamesPage | null = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    res = await fetchGamesPageRows(
+      db,
+      { ...args, sort },
+      source,
+      useStats,
+      lists
+    );
+    if (!res.error) break;
+    if (isViewMissingError(res.error) && source === "games_with_price_stats") {
+      console.warn(
+        "[data] games_with_price_stats 檢視不存在，改用 games 表（最低價／折扣排序暫時退為名稱排序；請套用 supabase/migrations/20261117_homepage_price_stats.sql）。"
+      );
+      useStats = false;
+      source = "games";
+      continue;
+    }
+    if (isReleaseColumnError(res.error) && sort === "release") {
+      console.warn(
+        "[data] release_date 欄位不存在，「上市日期」排序暫時退為名稱排序；請套用 supabase/migrations/20261118_add_release_date.sql。"
+      );
+      sort = "title";
+      continue;
+    }
+    break;
+  }
+  if (!res || res.error || !res.data) {
+    if (res?.error) console.warn("[data] 首頁查詢失敗：", res.error.message);
+    return empty;
+  }
+  const total = res.count ?? 0;
+  const totalPages = total > 0 ? Math.ceil(total / PAGE_SIZE) : 0;
+  const games = res.data;
+  if (games.length === 0) return { games: [], total, page, totalPages };
+
+  const ids = games.map((g) => g.id);
+  const extras = await fetchExtrasForIds(db, ids);
+  let result = games.map((g) =>
+    toGameWithPrices(
+      g,
+      extras.prices,
+      extras.likeCount.get(g.id) ?? 0,
+      extras.collectionCount.get(g.id) ?? 0
+    )
+  );
+  // 退回模式且只看特價：檢視的 has_sale 不能用，改用當頁價格過濾
+  //（總數會是未過濾的數字，僅出現在 migration 尚未套用的短暫期間）。
+  if (args.onlySale && !useStats) {
+    result = result.filter((g) => isOnSale(g.prices));
+  }
+  return { games: result, total, page, totalPages };
+}
+
+/** 即時補上個人狀態（我是否按讚／收藏／已購買）：永遠即時查、不快取。
+ *  userId 為 null 時原樣回傳。呼叫端在快取的公開結果上套用，確保
+ *  個人狀態永遠是當下登入者自己的、不會從快取漏給別人。 */
+export async function overlayMyGameFlags(
+  db: SupabaseClient,
+  games: GameWithPrices[],
+  userId: string | null
+): Promise<GameWithPrices[]> {
+  if (!userId || games.length === 0) return games;
+  const ids = games.map((g) => g.id);
+  const [myLikesRes, myCollRes, myPurchRes] = await Promise.all([
+    db
+      .from("game_likes")
+      .select("game_id")
+      .in("game_id", ids)
+      .eq("user_id", userId),
+    db
+      .from("collections")
+      .select("game_id")
+      .in("game_id", ids)
+      .eq("user_id", userId),
+    db
+      .from("user_purchases")
+      .select("game_id")
+      .in("game_id", ids)
+      .eq("user_id", userId),
+  ]);
+  const myLikeSet = new Set(
+    ((myLikesRes.data as { game_id: string }[] | null) ?? []).map(
+      (r) => r.game_id
+    )
+  );
+  const myCollectionSet = new Set(
+    ((myCollRes.data as { game_id: string }[] | null) ?? []).map(
+      (r) => r.game_id
+    )
+  );
+  const myPurchaseSet = new Set(
+    ((myPurchRes.data as { game_id: string }[] | null) ?? []).map(
+      (r) => r.game_id
+    )
+  );
+  return games.map((g) => ({
+    ...g,
+    liked_by_me: myLikeSet.has(g.id),
+    collected_by_me: myCollectionSet.has(g.id),
+    purchased_by_me: myPurchaseSet.has(g.id),
+  }));
+}
+
 /** 首頁分頁查詢：搜尋／篩選／排序／總數都在資料庫做，每頁 12 款。
+ *  （即時版；頁面改走 lib/cached-data.ts 的快取版，邏輯相同。）
  *  注意：最低價／折扣排序是「全部國家」的最低價／最大折扣，
  *  不是「可見國家」的（封鎖清單只存在瀏覽器 localStorage，伺服器不知道）；
  *  卡片上顯示的最低價仍依可見國家計算，與以前一致。
@@ -305,99 +502,40 @@ export async function getGamesPage(
   if (opts.onlyMine && !opts.userId) return empty;
   if (opts.onlyPurchased && !opts.userId) return empty;
 
-  // 已購買排除用的 id 清單（只在一般遊戲牆／搜尋時用）。
+  // 個人 id 清單即時取（小查詢，不快取；它們同時是快取鍵的一部分，
+  // 所以收藏／購買一變，下次就是新的 key，不會拿到舊的排除結果）。
+  let mineIds: string[] | null = null;
+  let purchasedIds: string[] | null = null;
   let excludePurchasedIds: string[] = [];
+  if (opts.onlyMine) {
+    mineIds = await getUserCollectionGameIds(db, opts.userId!);
+  }
+  if (opts.onlyPurchased) {
+    purchasedIds = await getUserPurchaseGameIds(db, opts.userId!);
+  }
   if (opts.userId && !opts.onlyMine && !opts.onlyPurchased) {
     excludePurchasedIds = await getUserPurchaseGameIds(db, opts.userId);
   }
 
-  let res = await fetchGamesPageRows(
-    db,
-    opts,
-    "games_with_price_stats",
-    true,
-    excludePurchasedIds
-  );
-  let useStats = true;
-  if (res.error) {
-    const msg = res.error.message ?? "";
-    const code = res.error.code ?? "";
-    if (code === "PGRST205" || /does not exist/i.test(msg)) {
-      // 檢視還沒建立（migration 未套用）：退回 games 表，首頁不壞。
-      console.warn(
-        "[data] games_with_price_stats 檢視不存在，改用 games 表（最低價／折扣排序暫時退為名稱排序；請套用 supabase/migrations/20261117_homepage_price_stats.sql）。"
-      );
-      useStats = false;
-      res = await fetchGamesPageRows(db, opts, "games", false, excludePurchasedIds);
-    }
-  }
-  if (res.error || !res.data) {
-    if (res.error) console.warn("[data] 首頁查詢失敗：", res.error.message);
-    return empty;
-  }
-  const total = res.count ?? 0;
-  const totalPages = total > 0 ? Math.ceil(total / PAGE_SIZE) : 0;
-  const games = res.data;
-  if (games.length === 0) return { games: [], total, page, totalPages };
-
-  // 當頁 12 款的價格、讚數、收藏數（不抓整張表）。
-  const ids = games.map((g) => g.id);
-  const [pricesRes, likesRes, collRes, myLikesRes, myCollRes] =
-    await Promise.all([
-      db.from("prices").select("*").in("game_id", ids),
-      db.from("game_likes").select("game_id").in("game_id", ids),
-      db.from("collections").select("game_id").in("game_id", ids),
-      opts.userId
-        ? db
-            .from("game_likes")
-            .select("game_id")
-            .in("game_id", ids)
-            .eq("user_id", opts.userId)
-        : Promise.resolve({ data: [] as { game_id: string }[] }),
-      opts.userId
-        ? db
-            .from("collections")
-            .select("game_id")
-            .in("game_id", ids)
-            .eq("user_id", opts.userId)
-        : Promise.resolve({ data: [] as { game_id: string }[] }),
-    ]);
-  const prices = (pricesRes.data as Price[] | null) ?? [];
-  const likeCount = new Map<string, number>();
-  ((likesRes.data as { game_id: string }[] | null) ?? []).forEach((r) =>
-    likeCount.set(r.game_id, (likeCount.get(r.game_id) ?? 0) + 1)
-  );
-  const collectionCount = new Map<string, number>();
-  ((collRes.data as { game_id: string }[] | null) ?? []).forEach((r) =>
-    collectionCount.set(r.game_id, (collectionCount.get(r.game_id) ?? 0) + 1)
-  );
-  const myLikeSet = new Set(
-    ((myLikesRes.data as { game_id: string }[] | null) ?? []).map(
-      (r) => r.game_id
-    )
-  );
-  const myCollectionSet = new Set(
-    ((myCollRes.data as { game_id: string }[] | null) ?? []).map(
-      (r) => r.game_id
-    )
-  );
-
-  let result = games.map((g) =>
-    toGameWithPrices(
-      g,
-      prices,
-      likeCount.get(g.id) ?? 0,
-      collectionCount.get(g.id) ?? 0,
-      myLikeSet.has(g.id),
-      myCollectionSet.has(g.id)
-    )
-  );
-  // 退回模式且只看特價：檢視的 has_sale 不能用，改用當頁價格過濾
-  //（總數會是未過濾的數字，僅出現在 migration 尚未套用的短暫期間）。
-  if (opts.onlySale && !useStats) {
-    result = result.filter((g) => isOnSale(g.prices));
-  }
-  return { games: result, total, page, totalPages };
+  const result = await fetchGamesPagePublicCore(db, {
+    q: opts.q,
+    platform: opts.platform,
+    productType: opts.productType,
+    demo: opts.demo,
+    sort: opts.sort,
+    onlySale: opts.onlySale,
+    onlyMine: opts.onlyMine,
+    onlyPurchased: opts.onlyPurchased,
+    page: opts.page,
+    mineIds,
+    purchasedIds,
+    excludePurchasedIds,
+  });
+  if (!opts.userId) return result;
+  return {
+    ...result,
+    games: await overlayMyGameFlags(db, result.games, opts.userId),
+  };
 }
 
 /** 商品類型選項：product_type 依字母排序後取前 1,000 列再去重——
@@ -435,11 +573,11 @@ export async function getLatestPriceUpdate(
   return (data[0] as { updated_at: string | null }).updated_at ?? null;
 }
 
-/** 讀單一遊戲（詳細頁用）。 */
-export async function getGameBySlug(
+/** 讀單一遊戲的公開資料（可快取）：遊戲＋價格＋讚數／收藏數。
+ *  個人狀態不在這裡，由 overlayMyGameFlags 即時補。 */
+export async function fetchGamePublicCore(
   db: SupabaseClient,
-  slug: string,
-  userId?: string | null
+  slug: string
 ): Promise<GameWithPrices | null> {
   const { data: game, error } = await db
     .from("games")
@@ -454,28 +592,65 @@ export async function getGameBySlug(
     .from("prices")
     .select("*")
     .eq("game_id", (game as Game).id);
-  const [likes, collections, myLike, myCollection, myPurchase] = await Promise.all([
-    db.from("game_likes").select("id", { count: "exact", head: true }).eq("game_id", (game as Game).id),
-    db.from("collections").select("id", { count: "exact", head: true }).eq("game_id", (game as Game).id),
-    userId
-      ? db.from("game_likes").select("id").eq("game_id", (game as Game).id).eq("user_id", userId).maybeSingle()
-      : Promise.resolve({ data: null }),
-    userId
-      ? db.from("collections").select("id").eq("game_id", (game as Game).id).eq("user_id", userId).maybeSingle()
-      : Promise.resolve({ data: null }),
-    userId
-      ? db.from("user_purchases").select("id").eq("game_id", (game as Game).id).eq("user_id", userId).maybeSingle()
-      : Promise.resolve({ data: null }),
+  const [likes, collections] = await Promise.all([
+    db
+      .from("game_likes")
+      .select("id", { count: "exact", head: true })
+      .eq("game_id", (game as Game).id),
+    db
+      .from("collections")
+      .select("id", { count: "exact", head: true })
+      .eq("game_id", (game as Game).id),
   ]);
   return toGameWithPrices(
     game as Game,
     (prices as Price[]) ?? [],
     likes.count ?? 0,
-    collections.count ?? 0,
-    Boolean(myLike.data),
-    Boolean(myCollection.data),
-    Boolean(myPurchase.data)
+    collections.count ?? 0
   );
+}
+
+/** 讀單一遊戲（詳細頁用；即時版，頁面改走快取版，邏輯相同）。 */
+export async function getGameBySlug(
+  db: SupabaseClient,
+  slug: string,
+  userId?: string | null
+): Promise<GameWithPrices | null> {
+  const game = await fetchGamePublicCore(db, slug);
+  if (!game) return null;
+  if (!userId) return game;
+  const [overlaid] = await overlayMyGameFlags(db, [game], userId);
+  return overlaid;
+}
+
+/** 依 id 清單讀遊戲的公開資料（可快取）：遊戲＋價格＋讚數／收藏數。
+ *  回傳順序與傳入的 ids 一致（找不到的跳過）。 */
+export async function fetchGamesByIdsPublic(
+  db: SupabaseClient,
+  ids: string[]
+): Promise<GameWithPrices[]> {
+  if (ids.length === 0) return [];
+  const { data: games } = await db
+    .from("games")
+    .select(GAME_COLUMNS)
+    .in("id", ids);
+  if (!games) return [];
+  const extras = await fetchExtrasForIds(db, ids);
+  const byId = new Map<string, Game>(
+    (games as Game[]).map((g) => [g.id, g])
+  );
+  return ids.flatMap((id) => {
+    const g = byId.get(id);
+    if (!g) return [];
+    return [
+      toGameWithPrices(
+        g,
+        extras.prices,
+        extras.likeCount.get(id) ?? 0,
+        extras.collectionCount.get(id) ?? 0
+      ),
+    ];
+  });
 }
 
 /** 讀最新一期匯率快照（date_key 最新的那一批）。回傳 { rates, dateKey, asOf }。 */
@@ -685,4 +860,205 @@ export function latestPriceUpdate(prices: Price[]): string | null {
     .filter((t): t is string => Boolean(t))
     .sort();
   return times.length > 0 ? times[times.length - 1] : null;
+}
+
+// ============================================================================
+// 接近歷史低價（/near-low）
+// ----------------------------------------------------------------------------
+// 規則（寫死在程式裡，頁面也顯示）：
+//   最低價（全部國家換算台幣後）> 歷史低價，且 <= 歷史低價 × 1.10。
+//   也就是「現在買只比歷史最低貴 0–10%」，但還沒等於歷史低價。
+//   歷史低價為 0／NULL、或尚無價格的遊戲不列入。
+//   排序：離歷史低價越近（比值越小）越前面；比值相同時 id 收尾。
+// PostgREST 不能直接比較兩個欄位，所以候選掃描在程式裡算比值
+// （只取 id＋兩個價格欄位，分頁掃一次，約 1 萬列），結果進快取 1 小時。
+// ============================================================================
+
+/** 接近歷史低價的比值上限：最低價 <= 歷史低價 × 1.10。 */
+export const NEAR_LOW_MAX_RATIO = 1.1;
+
+export interface NearLowCandidate {
+  id: string;
+  /** 最低價 ÷ 歷史低價（>1 且 <= 1.1 才算接近）。 */
+  ratio: number;
+}
+
+/** 掃描全部有歷史低價與價格的遊戲，算出接近歷史低價的候選清單
+ *  （已按比值由小到大排好）。失敗時回傳 error，不拋錯。 */
+export async function fetchNearLowCandidates(
+  db: SupabaseClient
+): Promise<{ candidates: NearLowCandidate[]; error: string | null }> {
+  const rows: { id: string; cheapest: number; hist: number }[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await db
+      .from("games_with_price_stats")
+      .select("id,cheapest_twd,historical_low_twd")
+      .not("cheapest_twd", "is", null)
+      .not("historical_low_twd", "is", null)
+      .order("id", { ascending: true })
+      .range(from, from + 999);
+    if (error || !data) {
+      return {
+        candidates: [],
+        error: error?.message ?? "讀取失敗",
+      };
+    }
+    for (const r of data as {
+      id: string;
+      cheapest_twd: number;
+      historical_low_twd: number;
+    }[]) {
+      if (r.historical_low_twd > 0) {
+        rows.push({
+          id: r.id,
+          cheapest: r.cheapest_twd,
+          hist: r.historical_low_twd,
+        });
+      }
+    }
+    if (data.length < 1000) break;
+    from += 1000;
+  }
+  const candidates = rows
+    .map((r) => ({ id: r.id, ratio: r.cheapest / r.hist }))
+    .filter((c) => c.ratio > 1 && c.ratio <= NEAR_LOW_MAX_RATIO)
+    .sort((a, b) => a.ratio - b.ratio || (a.id < b.id ? -1 : 1));
+  return { candidates, error: null };
+}
+
+/** 候選清單切一頁（純函式；快取版與即時版共用）。 */
+export function paginateNearLow(
+  candidates: NearLowCandidate[],
+  page: number
+): { slice: NearLowCandidate[]; total: number; totalPages: number } {
+  const p = Math.max(1, page);
+  const total = candidates.length;
+  return {
+    slice: candidates.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE),
+    total,
+    totalPages: total > 0 ? Math.ceil(total / PAGE_SIZE) : 0,
+  };
+}
+
+export interface NearLowPageResult {
+  games: GameWithPrices[];
+  /** 每款遊戲的比值（最低價 ÷ 歷史低價），顯示「比歷史低貴 X%」用。 */
+  ratios: Record<string, number>;
+  total: number;
+  page: number;
+  totalPages: number;
+  error: string | null;
+}
+
+/** 接近歷史低價列表頁（即時版；頁面改走快取版，邏輯相同）。 */
+export async function fetchNearLowPagePublic(
+  db: SupabaseClient,
+  page: number
+): Promise<NearLowPageResult> {
+  const p = Math.max(1, page);
+  const { candidates, error } = await fetchNearLowCandidates(db);
+  if (error) {
+    return {
+      games: [],
+      ratios: {},
+      total: 0,
+      page: p,
+      totalPages: 0,
+      error,
+    };
+  }
+  const { slice, total, totalPages } = paginateNearLow(candidates, p);
+  const games = await fetchGamesByIdsPublic(
+    db,
+    slice.map((c) => c.id)
+  );
+  const ratios: Record<string, number> = {};
+  for (const c of slice) ratios[c.id] = c.ratio;
+  return { games, ratios, total, page: p, totalPages, error: null };
+}
+
+// ============================================================================
+// 準備上市（/upcoming）
+// ----------------------------------------------------------------------------
+// 規則：release_date（上市日期）> 今天（台北日期）的遊戲，越快上市越前面。
+//   今天上市的當天不列入（已經上市了，首頁遊戲牆看得到）。
+//   沒有上市日期的遊戲不列入（不是排除在全站外，只是不出現在這區）。
+// release_date 欄位還沒建（migration 未跑）或還沒有任何遊戲有上市日期時，
+// 回傳 unavailable / hasAnyReleaseDate=false，頁面顯示「上市日期資料補充中」
+// 而不是空白或壞掉。
+// ============================================================================
+
+export interface UpcomingPageResult {
+  games: GameWithPrices[];
+  total: number;
+  page: number;
+  totalPages: number;
+  /** 全部遊戲裡至少有一款已有 release_date。 */
+  hasAnyReleaseDate: boolean;
+  /** release_date 欄位還不存在或查詢失敗（顯示「資料補充中」用）。 */
+  unavailable: boolean;
+}
+
+/** 準備上市列表頁（即時版；頁面改走快取版，邏輯相同）。 */
+export async function fetchUpcomingPagePublic(
+  db: SupabaseClient,
+  page: number
+): Promise<UpcomingPageResult> {
+  const p = Math.max(1, page);
+  const empty: UpcomingPageResult = {
+    games: [],
+    total: 0,
+    page: p,
+    totalPages: 0,
+    hasAnyReleaseDate: false,
+    unavailable: true,
+  };
+  const today = taipeiDateKey();
+  const { data, count, error } = await db
+    .from("games")
+    .select(GAME_COLUMNS + ",release_date", { count: "exact" })
+    .gt("release_date", today)
+    .order("release_date", { ascending: true })
+    .order("id", { ascending: true })
+    .range((p - 1) * PAGE_SIZE, p * PAGE_SIZE - 1);
+  if (error || !data) {
+    if (error) console.warn("[data] 準備上市查詢失敗：", error.message);
+    return empty;
+  }
+  const total = count ?? 0;
+  // 是否已有任何上市日期資料（決定顯示「資料補充中」或「目前沒有即將上市」）。
+  const { count: datedCount } = await db
+    .from("games")
+    .select("id", { count: "exact", head: true })
+    .not("release_date", "is", null);
+  const games = data as unknown as Game[];
+  if (games.length === 0) {
+    return {
+      games: [],
+      total,
+      page: p,
+      totalPages: total > 0 ? Math.ceil(total / PAGE_SIZE) : 0,
+      hasAnyReleaseDate: (datedCount ?? 0) > 0,
+      unavailable: false,
+    };
+  }
+  const ids = games.map((g) => g.id);
+  const extras = await fetchExtrasForIds(db, ids);
+  const result = games.map((g) =>
+    toGameWithPrices(
+      g,
+      extras.prices,
+      extras.likeCount.get(g.id) ?? 0,
+      extras.collectionCount.get(g.id) ?? 0
+    )
+  );
+  return {
+    games: result,
+    total,
+    page: p,
+    totalPages: Math.ceil(total / PAGE_SIZE),
+    hasAnyReleaseDate: (datedCount ?? 0) > 0,
+    unavailable: false,
+  };
 }

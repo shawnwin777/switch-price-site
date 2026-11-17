@@ -1,21 +1,37 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import {
-  getGamesPage,
-  getLatestFx,
-  getLatestPriceUpdate,
-  getProductTypes,
+  getUserCollectionGameIds,
+  getUserPurchaseGameIds,
+  overlayMyGameFlags,
   type HomeSortKey,
 } from "@/lib/data";
+import {
+  getCachedGamesPagePublic,
+  getCachedLatestFx,
+  getCachedLatestPriceUpdate,
+  getCachedNearLowPage,
+  getCachedProductTypes,
+  getCachedUpcomingPage,
+} from "@/lib/cached-data";
 import { formatTaipei } from "@/lib/format";
 import { isAdminEmail } from "@/lib/admin";
 import HomeClient from "@/components/HomeClient";
 
 // 資料頁面用 force-dynamic：建置時不呼叫 Supabase，
 // Supabase 專案不存在時也能 npm run build 通過。
+// 快取在資料層（lib/cached-data.ts，公開資料快取 1 小時），
+// 頁面本身仍每次請求都讀登入狀態、即時補個人狀態。
 export const dynamic = "force-dynamic";
 
-const SORT_KEYS: HomeSortKey[] = ["cheap-asc", "cheap-desc", "title", "discount"];
+const SORT_KEYS: HomeSortKey[] = [
+  "cheap-asc",
+  "cheap-desc",
+  "title",
+  "discount",
+  "release",
+];
 const PRODUCT_TYPES = ["game", "dlc", "bundle", "subscription"];
 
 type SearchParams = { [key: string]: string | string[] | undefined };
@@ -78,12 +94,46 @@ export default async function HomePage({
   const {
     data: { user },
   } = await db.auth.getUser();
-  const [page, fx, lastUpdate, productTypes] = await Promise.all([
-    getGamesPage(db, { ...params, userId: user?.id ?? null }),
-    getLatestFx(db),
-    getLatestPriceUpdate(db),
-    getProductTypes(db),
-  ]);
+  const userId = user?.id ?? null;
+
+  // 個人 id 清單即時取（小查詢，不快取；同時是快取鍵的一部分，
+  // 所以收藏／購買一變，下次就是新的 key，不會拿到舊的排除結果）。
+  let mineIds: string[] | null = null;
+  let purchasedIds: string[] | null = null;
+  let excludePurchasedIds: string[] = [];
+  if (params.onlyMine) {
+    mineIds = userId
+      ? await getUserCollectionGameIds(db, userId)
+      : [];
+  }
+  if (params.onlyPurchased) {
+    purchasedIds = userId
+      ? await getUserPurchaseGameIds(db, userId)
+      : [];
+  }
+  if (userId && !params.onlyMine && !params.onlyPurchased) {
+    excludePurchasedIds = await getUserPurchaseGameIds(db, userId);
+  }
+
+  const [pageRes, fx, lastUpdate, productTypes, nearLow, upcoming] =
+    await Promise.all([
+      getCachedGamesPagePublic({
+        ...params,
+        mineIds,
+        purchasedIds,
+        excludePurchasedIds,
+      }),
+      getCachedLatestFx(),
+      getCachedLatestPriceUpdate(),
+      getCachedProductTypes(),
+      getCachedNearLowPage(1),
+      getCachedUpcomingPage(1),
+    ]);
+  // 個人狀態即時補上（快取裡沒有個人資料）。
+  const page = {
+    ...pageRes,
+    games: await overlayMyGameFlags(db, pageRes.games, userId),
+  };
   // 頁數超出範圍時導回最後一頁（保留其他篩選條件）。
   if (page.total > 0 && params.page > page.totalPages) {
     const sp = toSearchParams({ ...params, page: page.totalPages });
@@ -124,6 +174,28 @@ export default async function HomePage({
             目前尚無遊戲資料（Supabase 尚未匯入種子資料或專案未建立）。
           </>
         )}
+      </div>
+      <div className="feature-cards">
+        <Link href="/upcoming" className="feature-card">
+          <div className="feature-card-title">📅 準備上市</div>
+          <div className="feature-card-sub">
+            {upcoming.unavailable || !upcoming.hasAnyReleaseDate
+              ? "上市日期資料補充中"
+              : upcoming.total > 0
+                ? `${upcoming.total} 款即將上市`
+                : "目前沒有即將上市的遊戲"}
+          </div>
+        </Link>
+        <Link href="/near-low" className="feature-card">
+          <div className="feature-card-title">📉 接近歷史低價</div>
+          <div className="feature-card-sub">
+            {nearLow.error
+              ? "資料準備中"
+              : nearLow.total > 0
+                ? `${nearLow.total} 款只比歷史低貴一點點`
+                : "目前沒有接近歷史低價的遊戲"}
+          </div>
+        </Link>
       </div>
       <HomeClient
         games={page.games}

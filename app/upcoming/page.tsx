@@ -1,0 +1,124 @@
+import Link from "next/link";
+import { getCachedUpcomingPage } from "@/lib/cached-data";
+import { cheapestPrice } from "@/lib/data";
+import { formatTwd } from "@/lib/format";
+import RankCover from "@/components/RankCover";
+
+export const dynamic = "force-dynamic";
+
+/** "2026-04-10" → "2026/04/10"（直接切字串，不經過時區換算）。 */
+function fmtDate(d: string | null | undefined): string {
+  if (!d) return "—";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+  return m ? `${m[1]}/${m[2]}/${m[3]}` : d;
+}
+
+export default async function UpcomingPage({
+  searchParams,
+}: {
+  searchParams: { page?: string };
+}) {
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const result = await getCachedUpcomingPage(page);
+  const offset = (result.page - 1) * 12;
+
+  return (
+    <>
+      <h1>📅 準備上市</h1>
+      <p className="muted">
+        上市日期在今天之後的遊戲，越快上市越前面。今天上市的當天不列入
+        （已經上市了，首頁遊戲牆看得到）。上市日期來自各區官方目錄，
+        每小時更新一次。
+      </p>
+      {result.unavailable || !result.hasAnyReleaseDate ? (
+        <div className="empty">
+          <p>
+            上市日期資料補充中——正在從各區目錄把上市日期補進來，
+            補好後這裡會列出即將上市的遊戲。
+          </p>
+          <p>
+            <Link href="/">回首頁 →</Link>
+          </p>
+        </div>
+      ) : result.total === 0 ? (
+        <div className="empty">
+          <p>目前沒有即將上市的遊戲。</p>
+          <p>
+            <Link href="/">回首頁 →</Link>
+          </p>
+        </div>
+      ) : (
+        <>
+          <p className="muted">共 {result.total} 款即將上市。</p>
+          <div className="rank-list">
+            {result.games.map((game, i) => {
+              const cheapest = cheapestPrice(game.prices);
+              return (
+                <div key={game.id} className="rank-row">
+                  <div className="rank-num">{offset + i + 1}</div>
+                  <Link href={`/games/${game.slug}`}>
+                    <RankCover
+                      src={game.cover_url ?? "/covers/placeholder.svg"}
+                      alt={game.title_zh}
+                    />
+                  </Link>
+                  <div className="rank-info">
+                    <div className="t">
+                      <Link
+                        href={`/games/${game.slug}`}
+                        style={{ color: "var(--text)" }}
+                      >
+                        {game.title_zh}
+                      </Link>
+                    </div>
+                    <div className="rank-meta">
+                      上市 {fmtDate(game.release_date)}
+                      {cheapest && (
+                        <>
+                          {" · "}最低 {formatTwd(cheapest.price_twd)}（
+                          {cheapest.country_name ?? cheapest.country}）
+                        </>
+                      )}
+                    </div>
+                    <div>
+                      <span className="badge badge-platform">
+                        {game.platform ?? "Switch"}
+                      </span>{" "}
+                      <span className="muted">
+                        ♥ {game.collections_count} 人收藏 · 👍{" "}
+                        {game.likes_count}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="filter-row">
+            {result.page > 1 && (
+              <Link
+                className="chip"
+                href={`/upcoming?page=${result.page - 1}`}
+                style={{ textDecoration: "none" }}
+              >
+                ← 上一頁
+              </Link>
+            )}
+            <span className="muted">
+              第 {result.page} / {result.totalPages} 頁
+            </span>
+            {result.page < result.totalPages && (
+              <Link
+                className="chip"
+                href={`/upcoming?page=${result.page + 1}`}
+                style={{ textDecoration: "none" }}
+              >
+                下一頁 →
+              </Link>
+            )}
+          </div>
+        </>
+      )}
+    </>
+  );
+}

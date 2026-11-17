@@ -1113,6 +1113,8 @@ export interface ExistingGameLite {
   cover_url: string | null;
   /** 歷史低價（台幣；目錄同步不用，/api/refresh 讀庫時共用此型別）。 */
   historical_low_twd?: number | null;
+  /** 上市日期（YYYY-MM-DD；目錄同步讀取用，寫入時只補空值）。 */
+  release_date?: string | null;
 }
 
 export interface ExistingRegionId {
@@ -1134,6 +1136,10 @@ export interface NewGameRow {
   youtube_id: null;
   /** JP 區 NSUID；TW/HK-only 新遊戲為 null（等 JP 清單出現再補）。 */
   title_id: string | null;
+  /** 上市日期（YYYY-MM-DD）：來源條目的 salesDate（JP 搜尋 API sdate、
+   *  EU Solr dates_released_dts、JP XML SalesDate、AU Algolia date_timestamp；
+   *  TW/HK 清單沒有）；沒有時為 null，等回填腳本或日後來源補。 */
+  release_date: string | null;
   is_manual: false;
 }
 
@@ -1153,6 +1159,9 @@ export interface CatalogSyncPlan {
   titleIdFills: { gameId: string; slug: string; title_id: string }[];
   /** 已在庫、cover_url 目前為 null 的遊戲，補上 JP 清單的封面。 */
   coverFills: { gameId: string; slug: string; cover_url: string }[];
+  /** 已在庫、release_date 目前為 null 的遊戲，補上來源條目的發售日。
+   *  只在為空時寫（寫庫時有 .is("release_date", null) 守衛，絕不覆蓋已有值）。 */
+  releaseDateFills: { gameId: string; slug: string; release_date: string }[];
   /** 需人工看一眼的項目（標題撞名、疑似 DLC 等）：不自動寫入、不擋同步。 */
   needsReview: { slug: string; title: string; reason: string }[];
   /** 衝突（同名不同編號等）：本次跳過、只記錄。 */
@@ -1235,6 +1244,9 @@ export interface CatalogSyncPlan {
  *     cover_url（JP XML 的 ScreenshotImgURL；其他來源用佔位圖）、
  *     platform（完整來源的 hard／system_names／console；JP XML 與台港
  *     清單一律視為 Switch）、genre（只有 AU Algolia 命中帶 genre）、
+ *     release_date（條目的 salesDate：JP 搜尋 API sdate、EU Solr
+ *     dates_released_dts、JP XML SalesDate、AU Algolia date_timestamp；
+ *     TW/HK 清單沒有 → null，等回填腳本或日後來源補）、
  *     product_type = "game"、has_demo = 0。
  *   - 填不了（留 null，等人工或日後來源補）：genre（除 AU 子集外沒有來源）、
  *     youtube_id、中文名（台港清單只覆蓋約 342 款，其餘新遊戲的 title_zh
@@ -1283,6 +1295,7 @@ export function planCatalogSync(
     regionIdUpserts: [],
     titleIdFills: [],
     coverFills: [],
+    releaseDateFills: [],
     needsReview: [],
     conflicts: [],
     storefrontPrices: [],
@@ -1372,6 +1385,13 @@ export function planCatalogSync(
           cover_url: e.coverUrl,
         });
       }
+      if (!existing.release_date && e.salesDate) {
+        plan.releaseDateFills.push({
+          gameId: existing.id,
+          slug: existing.slug,
+          release_date: e.salesDate,
+        });
+      }
       continue;
     }
     // 編號對不到：標題唯一命中且該遊戲 title_id 為空 → 補編號（例如先以
@@ -1388,6 +1408,13 @@ export function planCatalogSync(
           `JP ${e.titleId}「${e.title}」標題對到 ${g.slug}，但此編號已在他區對照表屬於 ${gameById.get(regionOwnerId)?.slug ?? regionOwnerId}，未合併（可能是編號撞號）`
         );
         continue;
+      }
+      if (!g.release_date && e.salesDate) {
+        plan.releaseDateFills.push({
+          gameId: g.id,
+          slug: g.slug,
+          release_date: e.salesDate,
+        });
       }
       if (!g.title_id) {
         plan.titleIdFills.push({ gameId: g.id, slug: g.slug, title_id: e.titleId });
@@ -1436,6 +1463,7 @@ export function planCatalogSync(
       cover_url: e.coverUrl ?? "/covers/placeholder.svg",
       youtube_id: null,
       title_id: e.titleId,
+      release_date: e.salesDate ?? null,
       is_manual: false,
     };
     plan.newGames.push(row);
@@ -1472,6 +1500,14 @@ export function planCatalogSync(
     const existingGameId = regionIndex.get(regionKey);
     if (existingGameId) {
       plan.stats.matchedByRegionId++;
+      const g = gameById.get(existingGameId);
+      if (g && !g.release_date && e.salesDate) {
+        plan.releaseDateFills.push({
+          gameId: g.id,
+          slug: g.slug,
+          release_date: e.salesDate,
+        });
+      }
       continue; // 編號已在對照表，什麼都不用做
     }
     const norm = normalizeTitle(e.title);
@@ -1485,6 +1521,13 @@ export function planCatalogSync(
         title_id: e.titleId,
         source: e.source,
       });
+      if (!match.game.release_date && e.salesDate) {
+        plan.releaseDateFills.push({
+          gameId: match.game.id,
+          slug: match.game.slug,
+          release_date: e.salesDate,
+        });
+      }
       plan.stats.matchedByTitle++;
       continue;
     }
@@ -1493,6 +1536,7 @@ export function planCatalogSync(
       // 並把中文標題補進索引（否則同一款的另一區條目會誤建成重複遊戲）。
       const cand = match.candidate;
       cand.title_zh = e.title;
+      if (!cand.release_date && e.salesDate) cand.release_date = e.salesDate;
       indexCandidateTitle(cand);
       plan.regionIdUpserts.push({
         gameId: null,
@@ -1547,6 +1591,7 @@ export function planCatalogSync(
       cover_url: "/covers/placeholder.svg",
       youtube_id: null,
       title_id: null,
+      release_date: e.salesDate ?? null,
       is_manual: false,
     };
     plan.newGames.push(row);

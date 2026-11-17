@@ -15,6 +15,8 @@ export interface Game {
   youtube_id: string | null;
   title_id: string | null;
   historical_low_twd: number | null;
+  /** 上市日期（date，如 2025-05-01；NULL = 尚未補到，見 migration 20261118_add_release_date.sql）。 */
+  release_date?: string | null;
   is_manual: boolean | null;
   created_by: string | null;
   created_at: string | null;

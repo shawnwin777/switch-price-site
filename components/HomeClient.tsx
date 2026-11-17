@@ -162,6 +162,7 @@ export default function HomeClient({
             <option value="cheap-asc">價格：低 → 高</option>
             <option value="cheap-desc">價格：高 → 低</option>
             <option value="discount">折扣：大 → 小</option>
+            <option value="release">上市日期：新 → 舊</option>
             <option value="title">名稱：A → Z</option>
           </select>
         </div>

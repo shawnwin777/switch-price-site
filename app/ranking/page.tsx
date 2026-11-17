@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { getRanking } from "@/lib/data";
+import { getCachedRanking } from "@/lib/cached-data";
 import { formatTwd, saleEndLabel } from "@/lib/format";
 import RankCover from "@/components/RankCover";
 
@@ -12,8 +11,9 @@ export default async function RankingPage({
   searchParams: { sale?: string };
 }) {
   const onlyOnSale = searchParams.sale !== "all";
-  const db = createSupabaseServerClient();
-  const ranking = await getRanking(db, onlyOnSale, 10);
+  // 排行是完全公開資料，走快取（1 小時）；封面圖是 Client Component
+  // RankCover（<img onError> 不能寫在 Server Component 裡，見 2026-11-17 修復）。
+  const ranking = await getCachedRanking(onlyOnSale, 10);
 
   return (
     <>
