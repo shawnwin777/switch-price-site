@@ -8,7 +8,8 @@
 # 排程：每週日 02:00 UTC（台北週日 10:00）跑一次；也可手動觸發
 #   （Actions → Weekly TW/HK/KR scan → Run workflow）。
 #   每次執行都是獨立的（runner 用完即丟、沒有跨次快取）：全量重掃＋合併＋
-#   寫庫一次完成，約 40–60 分鐘，遠低於單一 job 6 小時上限。
+#   寫庫一次完成，約 3 小時（掃描放慢後；2026-11-17 實測 run #3 跑滿
+#   180 分鐘上限被取消，故上限改 360 分鐘，GitHub 單一 job 上限）。
 #
 # 流程（與本機每週例行相同，見 SETUP.md §8.10）：
 #   1. 每週新作文章收割（命名來源；失敗不中斷，合併腳本會跳過此來源）
@@ -62,7 +63,7 @@ jobs:
   scan:
     name: Scan TW/HK/KR and ingest
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 360
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
