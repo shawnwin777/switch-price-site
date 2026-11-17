@@ -68,7 +68,7 @@ a:hover {
   justify-content: space-between;
   margin: 0 auto;
   max-width: 1180px;
-  padding: 12px 16px;
+  padding: 6px 16px;
 }
 
 .logo {
@@ -85,7 +85,7 @@ a:hover {
 
 .logo img {
   display: block;
-  height: 56px;
+  height: 76px;
   width: auto;
 }
 
