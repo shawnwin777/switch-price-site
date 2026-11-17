@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { cheapestPrice, isOnSale, saleEndOf, PLACEHOLDER_COVER } from "@/lib/data";
 import { demoLabel, productTypeLabel } from "@/lib/countries";
-import { formatTwd, saleEndLabel } from "@/lib/format";
+import { formatTwd, isSaleEndingSoon, saleEndLabel } from "@/lib/format";
 import type { GameWithPrices } from "@/lib/types";
 import CollectionButton from "./CollectionButton";
 
@@ -20,6 +20,7 @@ export default function GameCard({
   const cheapest = cheapestPrice(visiblePrices);
   const onSale = isOnSale(visiblePrices);
   const saleEnd = saleEndOf(visiblePrices);
+  const saleEndingSoon = saleEnd ? isSaleEndingSoon(saleEnd) : false;
   const cheapestIsHistLow = cheapest?.is_historical_low ?? false;
 
   return (
@@ -76,7 +77,18 @@ export default function GameCard({
                 </div>
               )}
               {saleEnd && (
-                <div className="muted">特價至：{saleEndLabel(saleEnd)}</div>
+                <div className={saleEndingSoon ? "sale-urgent" : "muted"}>
+                  特價至：{saleEndLabel(saleEnd)}
+                  {saleEndingSoon && (
+                    <span
+                      className="sale-urgent-icon"
+                      role="img"
+                      aria-label="特價即將結束"
+                    >
+                      ⚠
+                    </span>
+                  )}
+                </div>
               )}
             </>
           ) : (

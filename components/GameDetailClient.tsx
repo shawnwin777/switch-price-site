@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 import { cheapestPrice, isOnSale, saleEndOf } from "@/lib/data";
 import { COUNTRIES, DEFAULT_BLOCKED_CODES, demoLabel, eshopUrl, productTypeLabel } from "@/lib/countries";
-import { formatRaw, formatTwd, saleEndLabel } from "@/lib/format";
+import { formatRaw, formatTwd, isSaleEndingSoon, saleEndLabel } from "@/lib/format";
 import type { CommentItem, GameWithPrices } from "@/lib/types";
 import CollectionButton from "./CollectionButton";
 import PurchaseButton from "./PurchaseButton";
@@ -205,7 +205,18 @@ export default function GameDetailClient({
             </p>
           )}
           {saleEnd && (
-            <p className="muted">特價結束：{saleEndLabel(saleEnd)}</p>
+            <p className={isSaleEndingSoon(saleEnd) ? "sale-urgent" : "muted"}>
+              特價結束：{saleEndLabel(saleEnd)}
+              {isSaleEndingSoon(saleEnd) && (
+                <span
+                  className="sale-urgent-icon"
+                  role="img"
+                  aria-label="特價即將結束"
+                >
+                  ⚠
+                </span>
+              )}
+            </p>
           )}
           <div className="detail-actions">
             <LikeButton

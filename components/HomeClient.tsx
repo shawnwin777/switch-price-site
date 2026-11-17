@@ -19,7 +19,7 @@ const BLOCKED_KEY = "spc-blocked-countries";
 
 export type HomeFilters = Omit<GamesPageFilters, "userId"> & { page: number };
 
-type SortKey = "cheap-asc" | "cheap-desc" | "title" | "discount";
+type SortKey = "deals" | "cheap-asc" | "cheap-desc" | "title" | "discount" | "release";
 
 export default function HomeClient({
   games,
@@ -100,7 +100,7 @@ export default function HomeClient({
     if (f.platform) sp.set("platform", f.platform);
     if (f.productType) sp.set("type", f.productType);
     if (f.demo != null) sp.set("demo", String(f.demo));
-    if (f.sort && f.sort !== "cheap-asc") sp.set("sort", f.sort);
+    if (f.sort && f.sort !== "deals") sp.set("sort", f.sort);
     if (f.onlySale) sp.set("sale", "1");
     if (f.onlyMine) sp.set("mine", "1");
     if (f.onlyPurchased) sp.set("purchased", "1");
@@ -155,10 +155,11 @@ export default function HomeClient({
           <select
             className="input"
             style={{ width: "auto" }}
-            value={filters.sort ?? "cheap-asc"}
+            value={filters.sort ?? "deals"}
             onChange={(e) => applyFilter({ sort: e.target.value as SortKey })}
             aria-label="排序"
           >
+            <option value="deals">特價優先：即將結束</option>
             <option value="cheap-asc">價格：低 → 高</option>
             <option value="cheap-desc">價格：高 → 低</option>
             <option value="discount">折扣：大 → 小</option>

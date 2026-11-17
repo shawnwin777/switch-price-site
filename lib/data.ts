@@ -93,8 +93,10 @@ export function saleEndOf(prices: Price[]): string | null {
 // 中文標題的遊戲排在 1,000 名外就搜不到也看不到）。
 // 新版：搜尋／篩選／排序／總數都在資料庫做，每頁只抓 12 款，
 // 價格、讚數、收藏數也只抓當頁 12 款的。
-// 最低價／折扣排序與「只看特價」需要 games_with_price_stats 檢視
+// 最低價／折扣／特價優先排序與「只看特價」需要 games_with_price_stats 檢視
 // （supabase/migrations/20261117_homepage_price_stats.sql）；
+// 特價優先另外需要 min_sale_end 欄位
+// （supabase/migrations/20261118_add_min_sale_end.sql，未套用時退回折扣排序）；
 // 檢視尚未建立時自動退回 games 表（排序改為名稱排序），首頁不會壞掉。
 // ============================================================================
 
@@ -106,6 +108,7 @@ const GAME_COLUMNS =
   "id,slug,title_zh,title_en,genre,publisher,platform,product_type,has_demo,cover_url,youtube_id,title_id,historical_low_twd,is_manual,created_by,created_at";
 
 export type HomeSortKey =
+  | "deals"
   | "cheap-asc"
   | "cheap-desc"
   | "title"
@@ -238,7 +241,7 @@ async function fetchGamesPageRows(
     base.not("id", "in", `(${lists.excludePurchasedIds.join(",")})`);
   }
 
-  const sort = opts.sort ?? "cheap-asc";
+  const sort = opts.sort ?? "deals";
   if (sort === "title") {
     base.order("title_zh", { ascending: true });
   } else if (sort === "release") {
@@ -257,6 +260,17 @@ async function fetchGamesPageRows(
   } else if (sort === "cheap-desc") {
     base
       .order("cheapest_twd", { ascending: false, nullsFirst: false })
+      .order("title_zh", { ascending: true });
+  } else if (sort === "deals") {
+    // 特價優先：特價中的排前面，依特價結束時間近 → 遠；
+    // 長期特價（無結束日）接在有結束日的特價後面；
+    // 沒特價的排最後面，裡面再依最低價。
+    // min_sale_end 欄位還沒建（migration 未跑）時這裡會報錯，
+    // 由 fetchGamesPagePublicCore 捕捉後自動退回折扣排序。
+    base
+      .order("has_sale", { ascending: false, nullsFirst: false })
+      .order("min_sale_end", { ascending: true, nullsFirst: false })
+      .order("cheapest_twd", { ascending: true, nullsFirst: false })
       .order("title_zh", { ascending: true });
   } else {
     // discount：折扣大 → 小。
@@ -335,6 +349,12 @@ function isViewMissingError(error: RawGamesPage["error"]): boolean {
   return code === "PGRST205" || /does not exist/i.test(msg);
 }
 
+/** min_sale_end 欄位還不存在的錯誤（migration 未跑）。 */
+function isSaleEndColumnError(error: RawGamesPage["error"]): boolean {
+  if (!error) return false;
+  return /min_sale_end/i.test(error.message ?? "");
+}
+
 /** release_date 欄位還不存在的錯誤（migration 未跑）。 */
 function isReleaseColumnError(error: RawGamesPage["error"]): boolean {
   if (!error) return false;
@@ -396,10 +416,11 @@ export async function fetchGamesPagePublicCore(
   };
 
   // 嘗試順序：(檢視, 原排序) → 欄位缺失退回名稱排序 → 檢視缺失改用 games 表
-  //   → is_unnamed 欄位缺失退回不過濾（migration 未跑時的短暫狀態）。
+  //   → is_unnamed 欄位缺失退回不過濾（migration 未跑時的短暫狀態）
+  //   → min_sale_end 欄位缺失時「特價優先」退回折扣排序。
   let source: "games_with_price_stats" | "games" = "games_with_price_stats";
   let useStats = true;
-  let sort = args.sort ?? "cheap-asc";
+  let sort = args.sort ?? "deals";
   let filterUnnamed = true;
   let res: RawGamesPage | null = null;
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -418,6 +439,13 @@ export async function fetchGamesPagePublicCore(
       );
       useStats = false;
       source = "games";
+      continue;
+    }
+    if (isSaleEndColumnError(res.error) && sort === "deals") {
+      console.warn(
+        "[data] min_sale_end 欄位不存在，「特價優先」排序暫時退為折扣排序；請套用 supabase/migrations/20261118_add_min_sale_end.sql。"
+      );
+      sort = "discount";
       continue;
     }
     if (isReleaseColumnError(res.error) && sort === "release") {

@@ -26,6 +26,7 @@ import HomeClient from "@/components/HomeClient";
 export const dynamic = "force-dynamic";
 
 const SORT_KEYS: HomeSortKey[] = [
+  "deals",
   "cheap-asc",
   "cheap-desc",
   "title",
@@ -59,7 +60,7 @@ function parseParams(searchParams: SearchParams) {
     demo: demo === "1" || demo === "2" || demo === "3" ? Number(demo) : undefined,
     sort: (SORT_KEYS as string[]).includes(sort ?? "")
       ? (sort as HomeSortKey)
-      : "cheap-asc",
+      : "deals",
     onlySale: first(searchParams.sale) === "1",
     onlyMine: first(searchParams.mine) === "1",
     onlyPurchased: first(searchParams.purchased) === "1",
@@ -76,7 +77,7 @@ function toSearchParams(params: HomePageParams): URLSearchParams {
   if (params.platform) sp.set("platform", params.platform);
   if (params.productType) sp.set("type", params.productType);
   if (params.demo != null) sp.set("demo", String(params.demo));
-  if (params.sort !== "cheap-asc") sp.set("sort", params.sort);
+  if (params.sort !== "deals") sp.set("sort", params.sort);
   if (params.onlySale) sp.set("sale", "1");
   if (params.onlyMine) sp.set("mine", "1");
   if (params.onlyPurchased) sp.set("purchased", "1");

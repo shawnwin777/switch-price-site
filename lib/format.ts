@@ -63,10 +63,29 @@ export function daysLeft(saleEnd: string | null | undefined): number | null {
 
 export function saleEndLabel(saleEnd: string | null | undefined): string {
   if (!saleEnd) return "長期特價";
+  const end = new Date(saleEnd).getTime();
+  if (Number.isNaN(end)) return "—";
+  const diff = end - Date.now();
+  if (diff <= 0) return "已結束";
+  // 不到一天：顯示小時（不到一小時顯示分鐘），讓快結束的特價一眼看得出。
+  if (diff < 1000 * 60 * 60) {
+    return `${formatTaipei(saleEnd)}（剩 ${Math.ceil(diff / (1000 * 60))} 分鐘）`;
+  }
+  if (diff < 1000 * 60 * 60 * 24) {
+    return `${formatTaipei(saleEnd)}（剩 ${Math.ceil(diff / (1000 * 60 * 60))} 小時）`;
+  }
   const left = daysLeft(saleEnd);
   if (left === null) return "—";
-  if (left <= 0) return "已結束";
   return `${formatTaipei(saleEnd)}（剩 ${left} 天）`;
+}
+
+/** 特價是否在 24 小時內結束（已結束、長期特價或無效時間回 false）。 */
+export function isSaleEndingSoon(saleEnd: string | null | undefined): boolean {
+  if (!saleEnd) return false;
+  const end = new Date(saleEnd).getTime();
+  if (Number.isNaN(end)) return false;
+  const diff = end - Date.now();
+  return diff > 0 && diff < 1000 * 60 * 60 * 24;
 }
 
 /** 今天的台北日期 YYYY-MM-DD（給 fx_rates.date_key 用）。 */

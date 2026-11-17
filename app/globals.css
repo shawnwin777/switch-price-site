@@ -159,6 +159,18 @@ h3 {
   font-size: 13px;
 }
 
+/* 特價 24 小時內結束：黃色字提醒，旁邊紅色三角驚嘆號。 */
+.sale-urgent {
+  color: var(--amber);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sale-urgent-icon {
+  color: #ff453a;
+  margin-left: 4px;
+}
+
 .btn {
   background: var(--card-2);
   border: 1px solid var(--line);
