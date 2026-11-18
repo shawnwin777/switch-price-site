@@ -40,7 +40,7 @@ export default async function NearLowPage({
       ) : (
         <>
           <p className="muted">共 {result.total} 款接近歷史低價。</p>
-          <div className="rank-list two-col">
+          <div className="rank-list four-col">
             {result.games.map((game, i) => {
               const cheapest = cheapestPrice(game.prices);
               const ratio = result.ratios[game.id] ?? 1;

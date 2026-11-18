@@ -106,8 +106,8 @@ export const PAGE_SIZE = 12;
 /** 首頁遊戲牆每頁筆數（六欄 × 三排＝18 款）。 */
 export const HOME_PAGE_SIZE = 18;
 
-/** 接近歷史低價每頁筆數（兩欄呈現，一頁 50 款）。 */
-export const NEAR_LOW_PAGE_SIZE = 50;
+/** 接近歷史低價每頁筆數（四欄 × 25 排＝100 款）。 */
+export const NEAR_LOW_PAGE_SIZE = 100;
 
 /** games / games_with_price_stats 查詢時明確選取的遊戲欄位（不含統計欄位）。 */
 const GAME_COLUMNS =

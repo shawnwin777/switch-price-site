@@ -53,7 +53,9 @@ export const CACHE_REVALIDATE_SECONDS = 3600;
 export const getCachedGamesPagePublic = unstable_cache(
   async (args: GamesPagePublicArgs): Promise<GamesPageResult> =>
     fetchGamesPagePublicCore(createPublicClient(), args),
-  ["games-page"],
+  // v2：2026-11-18 首頁改 18 款／頁，舊 key 的快取是 12 款／頁的舊資料，
+  // 換 key 讓它立刻重算（部署不會清 Data Cache，舊項目會留到過期）。
+  ["games-page-v2"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["games-page"] }
 );
 
@@ -126,7 +128,9 @@ export const getCachedNearLowPage = unstable_cache(
     for (const c of slice) ratios[c.id] = c.ratio;
     return { games, ratios, total, page: p, totalPages, error: null };
   },
-  ["near-low-page"],
+  // v2：2026-11-18 改 100 款／頁，舊 key 的快取是 12／50 款混舊資料
+  // （第 2 頁曾顯示舊 12 款卻編號 51–62），換 key 讓它立刻重算。
+  ["near-low-page-v2"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["near-low"] }
 );
 
