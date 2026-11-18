@@ -47,7 +47,7 @@ a:hover {
 
 .container {
   margin: 0 auto;
-  max-width: 1180px;
+  max-width: 1400px;
   padding: 0 16px;
 }
 
@@ -67,7 +67,7 @@ a:hover {
   gap: 12px;
   justify-content: space-between;
   margin: 0 auto;
-  max-width: 1180px;
+  max-width: 1400px;
   padding: 6px 16px;
 }
 

@@ -312,6 +312,12 @@ export function parseNaAlgoliaHits(hits: unknown[]): CatalogListEntry[] {
     const regularRaw = parseRawNumber(details?.regularPrice);
     const discountRaw = parseRawNumber(details?.discountPrice);
     const currency = asStr(details?.currency) || "USD";
+    // 封面：productImage 是 16:9 主視覺（1920×1080，已驗證），相對路徑需補
+    // assets.nintendo.com 前綴；沒有時退回方形圖 productImageSquare。
+    const productImage = asStr(h?.productImage);
+    const coverUrl = productImage
+      ? `https://assets.nintendo.com/image/upload/q_auto/f_auto/${productImage}`
+      : asStr(h?.productImageSquare) || null;
     out.push({
       titleId: nsuid,
       title,
@@ -319,6 +325,7 @@ export function parseNaAlgoliaHits(hits: unknown[]): CatalogListEntry[] {
       source: "na-algolia",
       platform: platformFromText(asStr(h?.platform)),
       productKind: kind,
+      coverUrl,
       storePrice:
         regularRaw != null || discountRaw != null
           ? {
@@ -389,6 +396,8 @@ export function parseEuSolrDocs(docs: unknown[]): CatalogListEntry[] {
       productCode,
       platform,
       salesDate: released ? released.slice(0, 10) : null,
+      // 16:9 主視覺（本站卡片就是 16:9 框）；Solr 抓取時需列入 fl 欄位。
+      coverUrl: asStr(d?.image_url_h16x9_s) || null,
       productKind: "game",
       referencePrice:
         regularRaw != null || lowestRaw != null
@@ -430,6 +439,12 @@ export function parseJpSearchItems(items: unknown[]): CatalogListEntry[] {
     const pprice = parseRawNumber(it?.pprice);
     const sprice = parseRawNumber(it?.sprice);
     const current = parseRawNumber(it?.current_price);
+    // iurl 是任天堂 CDN 圖片 hash（64 碼 hex）：封面＝
+    // https://img-eshop.cdn.nintendo.net/i/<hash>.jpg（已驗證回 200 image/jpeg）。
+    const iurl = asStr(it?.iurl);
+    const coverUrl = /^[0-9a-f]{64}$/.test(iurl)
+      ? `https://img-eshop.cdn.nintendo.net/i/${iurl}.jpg`
+      : null;
     const regularRaw = dprice ?? pprice;
     const effectiveRaw = current ?? sprice ?? dprice ?? pprice;
     out.push({
@@ -440,6 +455,7 @@ export function parseJpSearchItems(items: unknown[]): CatalogListEntry[] {
       icode: asStr(it?.icode) || null,
       platform,
       salesDate: asStr(it?.sdate) || null,
+      coverUrl,
       productKind: "game",
       storePrice:
         regularRaw != null || effectiveRaw != null
@@ -687,9 +703,12 @@ export interface PagedFetchResult {
 /** 單次執行每來源最多抓幾頁（預設窗口；?pages= 可調）。
  *  NA 38 頁一輪、EU 21 頁一輪、JP 約 300 頁需 3 次、AU 2 頁一輪。 */
 export const PAGE_CAP: Record<string, number> = {
-  "na-algolia": 40,
-  "eu-solr": 25,
-  "jp-search": 100,
+  // 每輪抓的頁數要小到一次同步能在 Vercel Hobby 60 秒上限內跑完
+  // （抓＋比對＋寫庫＋查價），否則整輪被砍、游標永遠不前進、
+  // 封面與上市日期永遠補不上（2026-11-18 前就是這樣：JP 100 頁／輪跑不完）。
+  "na-algolia": 10,
+  "eu-solr": 10,
+  "jp-search": 20,
   "au-algolia": 5,
 };
 
@@ -826,7 +845,7 @@ export async function fetchEuSolrPages(
     const url =
       `https://search.nintendo-europe.com/en/select?q=*&fq=type%3AGAME` +
       `&fq=nsuid_txt%3A*&rows=${EU_PAGE_SIZE}&start=${page * EU_PAGE_SIZE}` +
-      `&wt=json&fl=title,nsuid_txt,product_code_txt,system_names_txt,dates_released_dts`;
+      `&wt=json&fl=title,nsuid_txt,product_code_txt,system_names_txt,dates_released_dts,image_url_h16x9_s`;
     const { ok, status, text } = await fetchTextRetry(url);
     if (!ok) throw new Error(`EU Solr HTTP ${status}（start=${page * EU_PAGE_SIZE}）`);
     const data = JSON.parse(text) as {
@@ -1378,7 +1397,11 @@ export function planCatalogSync(
     const existing = byTitleId.get(e.titleId);
     if (existing) {
       plan.stats.matchedByTitleId++;
-      if (!existing.cover_url && e.coverUrl) {
+      if (
+        (!existing.cover_url ||
+          existing.cover_url === "/covers/placeholder.svg") &&
+        e.coverUrl
+      ) {
         plan.coverFills.push({
           gameId: existing.id,
           slug: existing.slug,
@@ -1418,7 +1441,10 @@ export function planCatalogSync(
       }
       if (!g.title_id) {
         plan.titleIdFills.push({ gameId: g.id, slug: g.slug, title_id: e.titleId });
-        if (!g.cover_url && e.coverUrl) {
+        if (
+          (!g.cover_url || g.cover_url === "/covers/placeholder.svg") &&
+          e.coverUrl
+        ) {
           plan.coverFills.push({ gameId: g.id, slug: g.slug, cover_url: e.coverUrl });
         }
         continue;
@@ -1508,6 +1534,18 @@ export function planCatalogSync(
           release_date: e.salesDate,
         });
       }
+      // 非 JP 條目（NA／EU 帶圖）也能補封面：佔位圖一樣算缺圖。
+      if (
+        g &&
+        (!g.cover_url || g.cover_url === "/covers/placeholder.svg") &&
+        e.coverUrl
+      ) {
+        plan.coverFills.push({
+          gameId: g.id,
+          slug: g.slug,
+          cover_url: e.coverUrl,
+        });
+      }
       continue; // 編號已在對照表，什麼都不用做
     }
     const norm = normalizeTitle(e.title);
@@ -1528,6 +1566,17 @@ export function planCatalogSync(
           release_date: e.salesDate,
         });
       }
+      if (
+        (!match.game.cover_url ||
+          match.game.cover_url === "/covers/placeholder.svg") &&
+        e.coverUrl
+      ) {
+        plan.coverFills.push({
+          gameId: match.game.id,
+          slug: match.game.slug,
+          cover_url: e.coverUrl,
+        });
+      }
       plan.stats.matchedByTitle++;
       continue;
     }
@@ -1537,6 +1586,12 @@ export function planCatalogSync(
       const cand = match.candidate;
       cand.title_zh = e.title;
       if (!cand.release_date && e.salesDate) cand.release_date = e.salesDate;
+      if (
+        (!cand.cover_url || cand.cover_url === "/covers/placeholder.svg") &&
+        e.coverUrl
+      ) {
+        cand.cover_url = e.coverUrl;
+      }
       indexCandidateTitle(cand);
       plan.regionIdUpserts.push({
         gameId: null,
@@ -1588,7 +1643,7 @@ export function planCatalogSync(
       platform: e.platform ?? "Switch",
       product_type: "game",
       has_demo: 0,
-      cover_url: "/covers/placeholder.svg",
+      cover_url: e.coverUrl ?? "/covers/placeholder.svg",
       youtube_id: null,
       title_id: null,
       release_date: e.salesDate ?? null,

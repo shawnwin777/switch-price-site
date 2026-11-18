@@ -103,6 +103,9 @@ export function saleEndOf(prices: Price[]): string | null {
 /** 首頁每頁筆數。 */
 export const PAGE_SIZE = 12;
 
+/** 首頁遊戲牆每頁筆數（六欄 × 三排＝18 款）。 */
+export const HOME_PAGE_SIZE = 18;
+
 /** 接近歷史低價每頁筆數（兩欄呈現，一頁 50 款）。 */
 export const NEAR_LOW_PAGE_SIZE = 50;
 
@@ -234,8 +237,8 @@ async function fetchGamesPageRows(
   filterCountry = true
 ): Promise<RawGamesPage> {
   const page = Math.max(1, opts.page ?? 1);
-  const from = (page - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
+  const from = (page - 1) * HOME_PAGE_SIZE;
+  const to = from + HOME_PAGE_SIZE - 1;
 
   const base = buildFilteredGamesQuery(
     db,
@@ -513,7 +516,7 @@ export async function fetchGamesPagePublicCore(
     return empty;
   }
   const total = res.count ?? 0;
-  const totalPages = total > 0 ? Math.ceil(total / PAGE_SIZE) : 0;
+  const totalPages = total > 0 ? Math.ceil(total / HOME_PAGE_SIZE) : 0;
   const games = res.data;
   if (games.length === 0) return { games: [], total, page, totalPages };
 

@@ -503,7 +503,8 @@ export async function runCatalogSync(
       .from("games")
       .update({ cover_url: fill.cover_url })
       .eq("id", fill.gameId)
-      .is("cover_url", null);
+      // 空值或佔位圖都算缺圖，都補（佔位圖是寫庫時填的預設值，不是真的有圖）。
+      .or("cover_url.is.null,cover_url.eq./covers/placeholder.svg");
     if (error) {
       errors.push({ stage: "cover_fill", message: `${fill.slug}：${error.message}` });
     } else {
