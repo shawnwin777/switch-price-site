@@ -47,7 +47,7 @@ a:hover {
 
 .container {
   margin: 0 auto;
-  max-width: 1400px;
+  max-width: 1600px;
   padding: 0 16px;
 }
 
@@ -67,7 +67,7 @@ a:hover {
   gap: 12px;
   justify-content: space-between;
   margin: 0 auto;
-  max-width: 1400px;
+  max-width: 1600px;
   padding: 6px 16px;
 }
 
@@ -508,7 +508,7 @@ label.field-label {
 .game-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   margin-top: 16px;
 }
 
@@ -760,8 +760,8 @@ table.price-table {
   margin-top: 14px;
 }
 
-/* 接近歷史低價：四欄並排，一頁 100 款；中螢幕退回兩欄，窄螢幕單欄。
- * 四欄時列高壓縮（小封面、小排名），才塞得下標題與價格。 */
+/* 接近歷史低價：四欄直式卡片，一頁 100 款；中螢幕退回兩欄，窄螢幕單欄。
+ * 卡片是文字在上、圖片在下，排名數字壓在圖片左上角，方便一眼掃排名。 */
 .rank-list.four-col {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -769,18 +769,33 @@ table.price-table {
 }
 
 .rank-list.four-col .rank-row {
+  align-items: stretch;
+  flex-direction: column;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 12px;
 }
 
-.rank-list.four-col .rank-num {
-  font-size: 18px;
-  min-width: 30px;
+.rank-cover-link {
+  display: block;
+  position: relative;
 }
 
 .rank-list.four-col .rank-cover {
-  height: 40px;
-  width: 72px;
+  aspect-ratio: 16 / 9;
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.rank-list.four-col .rank-num {
+  background: rgba(5, 8, 22, 0.78);
+  border-radius: 8px;
+  font-size: 20px;
+  left: 8px;
+  min-width: 0;
+  padding: 2px 10px;
+  position: absolute;
+  top: 8px;
 }
 
 @media (max-width: 1100px) {

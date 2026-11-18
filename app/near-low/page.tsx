@@ -47,13 +47,6 @@ export default async function NearLowPage({
               const pct = ((ratio - 1) * 100).toFixed(1);
               return (
                 <div key={game.id} className="rank-row">
-                  <div className="rank-num">{offset + i + 1}</div>
-                  <Link href={`/games/${game.slug}`}>
-                    <RankCover
-                      src={game.cover_url ?? "/covers/placeholder.svg"}
-                      alt={game.title_zh}
-                    />
-                  </Link>
                   <div className="rank-info">
                     <div className="t">
                       <Link
@@ -82,6 +75,13 @@ export default async function NearLowPage({
                       </span>
                     </div>
                   </div>
+                  <Link href={`/games/${game.slug}`} className="rank-cover-link">
+                    <RankCover
+                      src={game.cover_url ?? "/covers/placeholder.svg"}
+                      alt={game.title_zh}
+                    />
+                    <div className="rank-num">{offset + i + 1}</div>
+                  </Link>
                 </div>
               );
             })}
