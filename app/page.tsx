@@ -16,6 +16,7 @@ import {
   getCachedUpcomingPage,
 } from "@/lib/cached-data";
 import { formatTaipei } from "@/lib/format";
+import { COUNTRY_MAP } from "@/lib/countries";
 import { isAdminEmail } from "@/lib/admin";
 import HomeClient from "@/components/HomeClient";
 
@@ -47,6 +48,7 @@ function parseParams(searchParams: SearchParams) {
   const platform = first(searchParams.platform);
   const type = first(searchParams.type);
   const demo = first(searchParams.demo);
+  const country = first(searchParams.country);
   const sort = first(searchParams.sort);
   const page = Math.max(1, parseInt(first(searchParams.page) ?? "1", 10) || 1);
   return {
@@ -58,6 +60,8 @@ function parseParams(searchParams: SearchParams) {
         ? type
         : undefined,
     demo: demo === "1" || demo === "2" || demo === "3" ? Number(demo) : undefined,
+    country:
+      country && COUNTRY_MAP[country] ? country : undefined,
     sort: (SORT_KEYS as string[]).includes(sort ?? "")
       ? (sort as HomeSortKey)
       : "deals",
@@ -77,6 +81,7 @@ function toSearchParams(params: HomePageParams): URLSearchParams {
   if (params.platform) sp.set("platform", params.platform);
   if (params.productType) sp.set("type", params.productType);
   if (params.demo != null) sp.set("demo", String(params.demo));
+  if (params.country) sp.set("country", params.country);
   if (params.sort !== "deals") sp.set("sort", params.sort);
   if (params.onlySale) sp.set("sale", "1");
   if (params.onlyMine) sp.set("mine", "1");
@@ -145,6 +150,7 @@ export default async function HomePage({
     Boolean(params.platform) ||
     Boolean(params.productType) ||
     params.demo != null ||
+    Boolean(params.country) ||
     params.onlySale ||
     params.onlyMine ||
     params.onlyPurchased;

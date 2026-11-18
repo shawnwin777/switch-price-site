@@ -78,11 +78,14 @@ export default function HomeClient({
   }, [userId]);
 
   const visibleCountries = useMemo(() => {
+    // 選了國家篩選時，卡片只顯示該國的價格（最低價、特價徽章、
+    // 特價至都以該國為準）；沒選時沿用下方的國家顯示設定（預設只留台港）。
+    if (filters.country) return new Set([filters.country]);
     const blockedSet = new Set(blocked);
     return new Set(
       COUNTRIES.filter((c) => !blockedSet.has(c.code)).map((c) => c.code)
     );
-  }, [blocked]);
+  }, [blocked, filters.country]);
 
   // ---- 篩選／排序／分頁都走 URL，伺服器端重新抓資料 ----
   const filtersRef = useRef(filters);
@@ -100,6 +103,7 @@ export default function HomeClient({
     if (f.platform) sp.set("platform", f.platform);
     if (f.productType) sp.set("type", f.productType);
     if (f.demo != null) sp.set("demo", String(f.demo));
+    if (f.country) sp.set("country", f.country);
     if (f.sort && f.sort !== "deals") sp.set("sort", f.sort);
     if (f.onlySale) sp.set("sale", "1");
     if (f.onlyMine) sp.set("mine", "1");
@@ -165,6 +169,22 @@ export default function HomeClient({
             <option value="discount">折扣：大 → 小</option>
             <option value="release">上市日期：新 → 舊</option>
             <option value="title">名稱：A → Z</option>
+          </select>
+          <select
+            className="input"
+            style={{ width: "auto" }}
+            value={filters.country ?? ""}
+            onChange={(e) =>
+              applyFilter({ country: e.target.value || undefined })
+            }
+            aria-label="國家"
+          >
+            <option value="">國家：全部</option>
+            {COUNTRIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
           </select>
         </div>
 

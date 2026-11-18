@@ -120,6 +120,8 @@ export interface GamesPageFilters {
   platform?: string;
   productType?: string;
   demo?: number;
+  /** 國家篩選：只顯示在該國有價格的遊戲（國家代碼，如 JP）。 */
+  country?: string;
   sort?: HomeSortKey;
   onlySale?: boolean;
   onlyMine?: boolean;
@@ -176,7 +178,12 @@ function buildFilteredGamesQuery(
   // 不出現在首頁遊戲牆／搜尋結果。filterUnnamed=false 只用在 migration
   // 尚未套用的短暫退回期間（此時根本還沒有未具名遊戲，因為匯入腳本也
   // 需要此欄位才能寫入），見 fetchGamesPagePublicCore 的退回邏輯。
-  filterUnnamed = true
+  filterUnnamed = true,
+  // 國家篩選（view 的 price_country_list，見 migration
+  // 20261119_add_price_country_list.sql）。filterCountry=false 只用在
+  // migration 尚未套用的短暫退回期間（此時篩選不生效、顯示全部遊戲），
+  // 見 fetchGamesPagePublicCore 的退回邏輯。
+  filterCountry = true
 ): GamesQueryBuilder | null {
   const query: GamesQueryBuilder = headCount
     ? db.from(source).select("id", { count: "exact", head: true })
@@ -184,6 +191,10 @@ function buildFilteredGamesQuery(
 
   // 未具名遊戲不上首頁／搜尋（單一過濾點：快取版與即時版都走這裡）。
   if (filterUnnamed) query.eq("is_unnamed", false);
+  // 國家篩選：只顯示在該國家有價格的遊戲。注意：特價統計（has_sale、
+  // min_sale_end）仍是全部國家的，不隨國家篩選改變。
+  if (opts.country && filterCountry)
+    query.contains("price_country_list", [opts.country]);
   const term = sanitizeSearchTerm(opts.q ?? "");
   if (term) {
     query.or(`title_zh.ilike.%${term}%,title_en.ilike.%${term}%`);
@@ -216,7 +227,8 @@ async function fetchGamesPageRows(
   source: "games_with_price_stats" | "games",
   useStats: boolean,
   lists: GamesPageListIds,
-  filterUnnamed = true
+  filterUnnamed = true,
+  filterCountry = true
 ): Promise<RawGamesPage> {
   const page = Math.max(1, opts.page ?? 1);
   const from = (page - 1) * PAGE_SIZE;
@@ -230,7 +242,8 @@ async function fetchGamesPageRows(
     false,
     lists.mineIds,
     lists.purchasedIds,
-    filterUnnamed
+    filterUnnamed,
+    filterCountry
   );
   if (!base) return { data: [], count: 0, error: null };
 
@@ -301,7 +314,8 @@ async function fetchGamesPageRows(
       true,
       lists.mineIds,
       lists.purchasedIds,
-      filterUnnamed
+      filterUnnamed,
+      filterCountry
     );
     if (totalQuery) {
       const { count: totalCount, error: totalError } = await totalQuery;
@@ -331,6 +345,8 @@ export interface GamesPagePublicArgs {
   platform?: string;
   productType?: string;
   demo?: number;
+  /** 國家篩選：只顯示在該國有價格的遊戲（國家代碼，如 JP）。 */
+  country?: string;
   sort?: HomeSortKey;
   onlySale?: boolean;
   onlyMine?: boolean;
@@ -366,6 +382,14 @@ function isSaleEndColumnError(error: RawGamesPage["error"]): boolean {
 function isReleaseColumnError(error: RawGamesPage["error"]): boolean {
   if (!error) return false;
   return /release_date/i.test(error.message ?? "");
+}
+
+/** price_country_list 欄位還不存在的錯誤（migration 未跑）。 */
+function isPriceCountryListColumnError(
+  error: RawGamesPage["error"]
+): boolean {
+  if (!error) return false;
+  return /price_country_list/i.test(error.message ?? "");
 }
 
 /** is_unnamed 欄位還不存在的錯誤（migration 20261118_unnamed_games.sql 未跑）。
@@ -424,11 +448,13 @@ export async function fetchGamesPagePublicCore(
 
   // 嘗試順序：(檢視, 原排序) → 欄位缺失退回名稱排序 → 檢視缺失改用 games 表
   //   → is_unnamed 欄位缺失退回不過濾（migration 未跑時的短暫狀態）
-  //   → min_sale_end 欄位缺失時「特價優先」退回折扣排序。
+  //   → min_sale_end 欄位缺失時「特價優先」退回折扣排序
+  //   → price_country_list 欄位缺失時國家篩選暫時關閉（顯示全部遊戲）。
   let source: "games_with_price_stats" | "games" = "games_with_price_stats";
   let useStats = true;
   let sort = args.sort ?? "deals";
   let filterUnnamed = true;
+  let filterCountry = true;
   let res: RawGamesPage | null = null;
   for (let attempt = 0; attempt < 5; attempt++) {
     res = await fetchGamesPageRows(
@@ -437,7 +463,8 @@ export async function fetchGamesPagePublicCore(
       source,
       useStats,
       lists,
-      filterUnnamed
+      filterUnnamed,
+      filterCountry
     );
     if (!res.error) break;
     if (isViewMissingError(res.error) && source === "games_with_price_stats") {
@@ -453,6 +480,13 @@ export async function fetchGamesPagePublicCore(
         "[data] min_sale_end 欄位不存在，「特價優先」排序暫時退為折扣排序；請套用 supabase/migrations/20261118_add_min_sale_end.sql。"
       );
       sort = "discount";
+      continue;
+    }
+    if (isPriceCountryListColumnError(res.error) && filterCountry) {
+      console.warn(
+        "[data] price_country_list 欄位不存在，國家篩選暫時關閉；請套用 supabase/migrations/20261119_add_price_country_list.sql。"
+      );
+      filterCountry = false;
       continue;
     }
     if (isReleaseColumnError(res.error) && sort === "release") {
