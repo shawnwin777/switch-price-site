@@ -761,7 +761,8 @@ table.price-table {
 }
 
 /* 接近歷史低價：四欄直式卡片，一頁 100 款；中螢幕退回兩欄，窄螢幕單欄。
- * 卡片是文字在上、圖片在下，排名數字壓在圖片左上角，方便一眼掃排名。 */
+ * 卡片是文字在上、圖片在下，排名數字壓在圖片左上角，方便一眼掃排名。
+ * 標題固定兩行高（超過兩行截斷），同排卡片的圖片才會對齊。 */
 .rank-list.four-col {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -773,6 +774,15 @@ table.price-table {
   flex-direction: column;
   gap: 10px;
   padding: 12px;
+}
+
+.rank-list.four-col .rank-info .t {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  line-height: 1.35;
+  min-height: 2.7em;
+  overflow: hidden;
 }
 
 .rank-cover-link {

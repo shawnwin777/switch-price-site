@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 import { type GamesPageFilters } from "@/lib/data";
+import { pageWindow } from "@/lib/pagination";
 import {
   COUNTRIES,
   DEFAULT_BLOCKED_CODES,
@@ -133,14 +134,12 @@ export default function HomeClient({
     router.push(buildUrl({ page: p }));
   }
 
-  // 分頁按鈕：最多顯示 7 個頁碼（首尾＋當前前後各一），中間用 … 連接。
-  const pageNums = useMemo(() => {
-    if (totalPages <= 7) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
-    }
-    const set = new Set([1, totalPages, page - 1, page, page + 1]);
-    return [...set].filter((n) => n >= 1 && n <= totalPages).sort((a, b) => a - b);
-  }, [page, totalPages]);
+  // 分頁按鈕：每 10 頁一組（1–10、11–20…），組後有 …＋最末頁；
+  // 總頁數 ≤ 10 時只列出全部頁碼（見 lib/pagination）。
+  const pageNums = useMemo(
+    () => pageWindow(page, totalPages),
+    [page, totalPages]
+  );
 
   return (
     <>
@@ -318,12 +317,14 @@ export default function HomeClient({
               >
                 ← 上一頁
               </button>
-              {pageNums.map((n, i) => (
-                <span key={n} style={{ display: "contents" }}>
-                  {i > 0 && n > pageNums[i - 1] + 1 && (
-                    <span className="ellipsis">…</span>
-                  )}
+              {pageNums.map((n, i) =>
+                n === "…" ? (
+                  <span key={`e${i}`} className="ellipsis">
+                    …
+                  </span>
+                ) : (
                   <button
+                    key={n}
                     type="button"
                     className={`chip page-num ${n === page ? "active" : ""}`}
                     onClick={() => goPage(n)}
@@ -331,8 +332,8 @@ export default function HomeClient({
                   >
                     {n}
                   </button>
-                </span>
-              ))}
+                )
+              )}
               <button
                 type="button"
                 className="btn"

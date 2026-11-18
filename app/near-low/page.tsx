@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCachedNearLowPage } from "@/lib/cached-data";
 import { cheapestPrice, NEAR_LOW_PAGE_SIZE } from "@/lib/data";
+import { pageWindow } from "@/lib/pagination";
 import { formatTwd } from "@/lib/format";
 import RankCover from "@/components/RankCover";
 
@@ -86,29 +87,47 @@ export default async function NearLowPage({
               );
             })}
           </div>
-          <div className="filter-row">
-            {result.page > 1 && (
-              <Link
-                className="chip"
-                href={`/near-low?page=${result.page - 1}`}
-                style={{ textDecoration: "none" }}
-              >
-                ← 上一頁
-              </Link>
-            )}
-            <span className="muted">
-              第 {result.page} / {result.totalPages} 頁
-            </span>
-            {result.page < result.totalPages && (
-              <Link
-                className="chip"
-                href={`/near-low?page=${result.page + 1}`}
-                style={{ textDecoration: "none" }}
-              >
-                下一頁 →
-              </Link>
-            )}
-          </div>
+          {result.totalPages > 1 && (
+            <nav className="pagination" aria-label="分頁">
+              {result.page > 1 && (
+                <Link
+                  className="chip"
+                  href={`/near-low?page=${result.page - 1}`}
+                  style={{ textDecoration: "none" }}
+                >
+                  ← 上一頁
+                </Link>
+              )}
+              {pageWindow(result.page, result.totalPages).map((n, i) =>
+                n === "…" ? (
+                  <span key={`e${i}`} className="ellipsis">
+                    …
+                  </span>
+                ) : (
+                  <Link
+                    key={n}
+                    className={`chip page-num ${
+                      n === result.page ? "active" : ""
+                    }`}
+                    href={`/near-low?page=${n}`}
+                    style={{ textDecoration: "none" }}
+                    aria-current={n === result.page ? "page" : undefined}
+                  >
+                    {n}
+                  </Link>
+                )
+              )}
+              {result.page < result.totalPages && (
+                <Link
+                  className="chip"
+                  href={`/near-low?page=${result.page + 1}`}
+                  style={{ textDecoration: "none" }}
+                >
+                  下一頁 →
+                </Link>
+              )}
+            </nav>
+          )}
         </>
       )}
     </>
