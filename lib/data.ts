@@ -131,7 +131,8 @@ export interface GamesPageFilters {
   sort?: HomeSortKey;
   onlySale?: boolean;
   onlyMine?: boolean;
-  onlyPurchased?: boolean;
+  /** 排除已購買：登入時預設排除（undefined = 預設排除）；false = 顯示已購買。 */
+  excludePurchased?: boolean;
   page?: number;
   userId?: string | null;
 }
@@ -169,7 +170,7 @@ type GamesQueryBuilder = PostgrestFilterBuilder<any, any, any, any>;
  * headCount=true 時只取 count（不回資料列），給「總數」查詢用。
  * 注意：這個函式必須是同步的——PostgrestFilterBuilder 本身是 thenable，
  * 從 async 函式回傳它會被 await 再解一層，型別會變成 response。
- * onlyMine / onlyPurchased 的 id 清單由呼叫端先取好傳進來；
+ * onlyMine 的 id 清單由呼叫端先取好傳進來；
  * 清單為空陣列時回傳 null（結果為空），null 則不套用該篩選。
  */
 function buildFilteredGamesQuery(
@@ -179,7 +180,6 @@ function buildFilteredGamesQuery(
   useStats: boolean,
   headCount: boolean,
   mineIds: string[] | null,
-  purchasedIds: string[] | null,
   // 未具名遊戲（games.is_unnamed，見 migration 20261118_unnamed_games.sql）
   // 不出現在首頁遊戲牆／搜尋結果。filterUnnamed=false 只用在 migration
   // 尚未套用的短暫退回期間（此時根本還沒有未具名遊戲，因為匯入腳本也
@@ -220,10 +220,6 @@ function buildFilteredGamesQuery(
     if (!mineIds || mineIds.length === 0) return null;
     query.in("id", mineIds);
   }
-  if (opts.onlyPurchased) {
-    if (!purchasedIds || purchasedIds.length === 0) return null;
-    query.in("id", purchasedIds);
-  }
   return query;
 }
 
@@ -247,7 +243,6 @@ async function fetchGamesPageRows(
     useStats,
     false,
     lists.mineIds,
-    lists.purchasedIds,
     filterUnnamed,
     filterCountry
   );
@@ -319,7 +314,6 @@ async function fetchGamesPageRows(
       useStats,
       true,
       lists.mineIds,
-      lists.purchasedIds,
       filterUnnamed,
       filterCountry
     );
@@ -340,7 +334,6 @@ async function fetchGamesPageRows(
  *  不會拿到舊的排除結果）。 */
 export interface GamesPageListIds {
   mineIds: string[] | null;
-  purchasedIds: string[] | null;
   excludePurchasedIds: string[];
 }
 
@@ -356,10 +349,10 @@ export interface GamesPagePublicArgs {
   sort?: HomeSortKey;
   onlySale?: boolean;
   onlyMine?: boolean;
-  onlyPurchased?: boolean;
+  /** 排除已購買：undefined = 預設排除（登入時）；false = 顯示已購買。 */
+  excludePurchased?: boolean;
   page?: number;
   mineIds: string[] | null;
-  purchasedIds: string[] | null;
   excludePurchasedIds: string[];
 }
 
@@ -448,7 +441,6 @@ export async function fetchGamesPagePublicCore(
 
   const lists: GamesPageListIds = {
     mineIds: args.mineIds,
-    purchasedIds: args.purchasedIds,
     excludePurchasedIds: args.excludePurchasedIds,
   };
 
@@ -604,20 +596,17 @@ export async function getGamesPage(
   const empty: GamesPageResult = { games: [], total: 0, page, totalPages: 0 };
 
   if (opts.onlyMine && !opts.userId) return empty;
-  if (opts.onlyPurchased && !opts.userId) return empty;
 
   // 個人 id 清單即時取（小查詢，不快取；它們同時是快取鍵的一部分，
   // 所以收藏／購買一變，下次就是新的 key，不會拿到舊的排除結果）。
   let mineIds: string[] | null = null;
-  let purchasedIds: string[] | null = null;
   let excludePurchasedIds: string[] = [];
   if (opts.onlyMine) {
     mineIds = await getUserCollectionGameIds(db, opts.userId!);
   }
-  if (opts.onlyPurchased) {
-    purchasedIds = await getUserPurchaseGameIds(db, opts.userId!);
-  }
-  if (opts.userId && !opts.onlyMine && !opts.onlyPurchased) {
+  // 排除已購買：登入時預設排除（一般遊戲牆／搜尋）；只看我的收藏是
+  // 使用者自己的清單，不排除；excludePurchased=false 時不排除。
+  if (opts.userId && !opts.onlyMine && opts.excludePurchased !== false) {
     excludePurchasedIds = await getUserPurchaseGameIds(db, opts.userId);
   }
 
@@ -629,10 +618,9 @@ export async function getGamesPage(
     sort: opts.sort,
     onlySale: opts.onlySale,
     onlyMine: opts.onlyMine,
-    onlyPurchased: opts.onlyPurchased,
+    excludePurchased: opts.excludePurchased,
     page: opts.page,
     mineIds,
-    purchasedIds,
     excludePurchasedIds,
   });
   if (!opts.userId) return result;

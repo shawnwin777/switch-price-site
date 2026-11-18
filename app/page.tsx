@@ -67,7 +67,8 @@ function parseParams(searchParams: SearchParams) {
       : "deals",
     onlySale: first(searchParams.sale) === "1",
     onlyMine: first(searchParams.mine) === "1",
-    onlyPurchased: first(searchParams.purchased) === "1",
+    excludePurchased:
+      first(searchParams.showpurchased) === "1" ? false : undefined,
     page,
   };
 }
@@ -85,7 +86,7 @@ function toSearchParams(params: HomePageParams): URLSearchParams {
   if (params.sort !== "deals") sp.set("sort", params.sort);
   if (params.onlySale) sp.set("sale", "1");
   if (params.onlyMine) sp.set("mine", "1");
-  if (params.onlyPurchased) sp.set("purchased", "1");
+  if (params.excludePurchased === false) sp.set("showpurchased", "1");
   if (params.page > 1) sp.set("page", String(params.page));
   return sp;
 }
@@ -105,19 +106,14 @@ export default async function HomePage({
   // 個人 id 清單即時取（小查詢，不快取；同時是快取鍵的一部分，
   // 所以收藏／購買一變，下次就是新的 key，不會拿到舊的排除結果）。
   let mineIds: string[] | null = null;
-  let purchasedIds: string[] | null = null;
   let excludePurchasedIds: string[] = [];
   if (params.onlyMine) {
     mineIds = userId
       ? await getUserCollectionGameIds(db, userId)
       : [];
   }
-  if (params.onlyPurchased) {
-    purchasedIds = userId
-      ? await getUserPurchaseGameIds(db, userId)
-      : [];
-  }
-  if (userId && !params.onlyMine && !params.onlyPurchased) {
+  // 排除已購買：登入時預設排除；showpurchased=1 時不排除。
+  if (userId && !params.onlyMine && params.excludePurchased !== false) {
     excludePurchasedIds = await getUserPurchaseGameIds(db, userId);
   }
 
@@ -126,7 +122,6 @@ export default async function HomePage({
       getCachedGamesPagePublic({
         ...params,
         mineIds,
-        purchasedIds,
         excludePurchasedIds,
       }),
       getCachedLatestFx(),
@@ -152,8 +147,7 @@ export default async function HomePage({
     params.demo != null ||
     Boolean(params.country) ||
     params.onlySale ||
-    params.onlyMine ||
-    params.onlyPurchased;
+    params.onlyMine;
 
   return (
     <>

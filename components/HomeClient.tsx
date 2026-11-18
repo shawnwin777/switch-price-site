@@ -108,7 +108,7 @@ export default function HomeClient({
     if (f.sort && f.sort !== "deals") sp.set("sort", f.sort);
     if (f.onlySale) sp.set("sale", "1");
     if (f.onlyMine) sp.set("mine", "1");
-    if (f.onlyPurchased) sp.set("purchased", "1");
+    if (f.excludePurchased === false) sp.set("showpurchased", "1");
     if (f.page > 1) sp.set("page", String(f.page));
     const qs = sp.toString();
     return qs ? `${pathname}?${qs}` : pathname;
@@ -273,11 +273,15 @@ export default function HomeClient({
           <label title={userId ? "" : "需先登入"}>
             <input
               type="checkbox"
-              checked={filters.onlyPurchased ?? false}
+              checked={filters.excludePurchased !== false}
               disabled={!userId}
-              onChange={(e) => applyFilter({ onlyPurchased: e.target.checked })}
+              onChange={(e) =>
+                applyFilter({
+                  excludePurchased: e.target.checked ? undefined : false,
+                })
+              }
             />
-            只看已購買{userId ? "" : "（需登入）"}
+            排除已購買{userId ? "" : "（需登入）"}
           </label>
           <span className="muted">
             共 {total} 款
