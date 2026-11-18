@@ -1,20 +1,29 @@
 import Link from "next/link";
 import { getCachedNearLowPage } from "@/lib/cached-data";
 import { cheapestPrice, NEAR_LOW_PAGE_SIZE } from "@/lib/data";
+import { COUNTRY_MAP } from "@/lib/countries";
 import { pageWindow } from "@/lib/pagination";
 import { formatTwd } from "@/lib/format";
 import RankCover from "@/components/RankCover";
+import NearLowCountryFilter from "@/components/NearLowCountryFilter";
 
 export const dynamic = "force-dynamic";
 
 export default async function NearLowPage({
   searchParams,
 }: {
-  searchParams: { page?: string };
+  searchParams: { page?: string; country?: string };
 }) {
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
-  const result = await getCachedNearLowPage(page);
+  const country =
+    searchParams.country && COUNTRY_MAP[searchParams.country]
+      ? searchParams.country
+      : undefined;
+  const result = await getCachedNearLowPage(page, country);
   const offset = (result.page - 1) * NEAR_LOW_PAGE_SIZE;
+  // 分頁連結要帶著國家篩選，不然翻頁就回到全部國家。
+  const pageHref = (p: number) =>
+    country ? `/near-low?page=${p}&country=${country}` : `/near-low?page=${p}`;
 
   return (
     <>
@@ -23,7 +32,13 @@ export default async function NearLowPage({
         現在最低價只比歷史低價貴 0–10%（還沒等於歷史低價）的遊戲，
         越接近歷史低價越前面。最低價是全部國家換算台幣後的最低價，
         每小時更新一次。
+        {country && (
+          <>
+            目前只顯示最低價在{COUNTRY_MAP[country].name}的遊戲。
+          </>
+        )}
       </p>
+      <NearLowCountryFilter country={country} />
       {result.error ? (
         <div className="empty">
           <p>資料準備中，請稍後再試。</p>
@@ -92,7 +107,7 @@ export default async function NearLowPage({
               {result.page > 1 && (
                 <Link
                   className="chip"
-                  href={`/near-low?page=${result.page - 1}`}
+                  href={pageHref(result.page - 1)}
                   style={{ textDecoration: "none" }}
                 >
                   ← 上一頁
@@ -109,7 +124,7 @@ export default async function NearLowPage({
                     className={`chip page-num ${
                       n === result.page ? "active" : ""
                     }`}
-                    href={`/near-low?page=${n}`}
+                    href={pageHref(n as number)}
                     style={{ textDecoration: "none" }}
                     aria-current={n === result.page ? "page" : undefined}
                   >
@@ -120,7 +135,7 @@ export default async function NearLowPage({
               {result.page < result.totalPages && (
                 <Link
                   className="chip"
-                  href={`/near-low?page=${result.page + 1}`}
+                  href={pageHref(result.page + 1)}
                   style={{ textDecoration: "none" }}
                 >
                   下一頁 →

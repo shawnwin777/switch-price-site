@@ -973,6 +973,8 @@ export interface NearLowCandidate {
   id: string;
   /** 最低價 ÷ 歷史低價（>1 且 <= 1.1 才算接近）。 */
   ratio: number;
+  /** 目前最低價的國家（migration 20261120 未跑時為 null，國家篩選不生效）。 */
+  cheapestCountry: string | null;
 }
 
 /** 掃描全部有歷史低價與價格的遊戲，算出接近歷史低價的候選清單
@@ -985,13 +987,22 @@ export interface NearLowCandidate {
 export async function fetchNearLowCandidates(
   db: SupabaseClient
 ): Promise<{ candidates: NearLowCandidate[]; error: string | null }> {
-  const scan = async (filterUnnamed: boolean) => {
-    const rows: { id: string; cheapest: number; hist: number }[] = [];
+  const scan = async (filterUnnamed: boolean, withCountry: boolean) => {
+    const rows: {
+      id: string;
+      cheapest: number;
+      hist: number;
+      cheapestCountry: string | null;
+    }[] = [];
     let from = 0;
     for (;;) {
       let q = db
         .from("games_with_price_stats")
-        .select("id,cheapest_twd,historical_low_twd")
+        .select(
+          withCountry
+            ? "id,cheapest_twd,historical_low_twd,cheapest_country"
+            : "id,cheapest_twd,historical_low_twd"
+        )
         .not("cheapest_twd", "is", null)
         .not("historical_low_twd", "is", null);
       if (filterUnnamed) q = q.eq("is_unnamed", false);
@@ -1001,16 +1012,20 @@ export async function fetchNearLowCandidates(
       if (error || !data) {
         return { rows, error: error?.message ?? "讀取失敗" };
       }
-      for (const r of data as {
+      // select 是動態字串（有／無 cheapest_country 兩種），Supabase 的
+      // 型別推斷會算出聯集，先轉 unknown 再轉列型別。
+      for (const r of data as unknown as {
         id: string;
         cheapest_twd: number;
         historical_low_twd: number;
+        cheapest_country?: string | null;
       }[]) {
         if (r.historical_low_twd > 0) {
           rows.push({
             id: r.id,
             cheapest: r.cheapest_twd,
             hist: r.historical_low_twd,
+            cheapestCountry: withCountry ? (r.cheapest_country ?? null) : null,
           });
         }
       }
@@ -1020,31 +1035,53 @@ export async function fetchNearLowCandidates(
     return { rows, error: null as string | null };
   };
 
-  let result = await scan(true);
+  let filterUnnamed = true;
+  let withCountry = true;
+  let result = await scan(filterUnnamed, withCountry);
   if (result.error && /is_unnamed/i.test(result.error)) {
     console.warn(
       "[data] is_unnamed 欄位不存在，接近歷史低價暫時不過濾未具名遊戲；請套用 supabase/migrations/20261118_unnamed_games.sql。"
     );
-    result = await scan(false);
+    filterUnnamed = false;
+    result = await scan(filterUnnamed, withCountry);
+  }
+  if (result.error && /cheapest_country/i.test(result.error)) {
+    console.warn(
+      "[data] cheapest_country 欄位不存在，接近歷史低價暫時不支援國家篩選；請套用 supabase/migrations/20261120_add_cheapest_country.sql。"
+    );
+    withCountry = false;
+    result = await scan(filterUnnamed, withCountry);
   }
   if (result.error) return { candidates: [], error: result.error };
   const rows = result.rows;
   const candidates = rows
-    .map((r) => ({ id: r.id, ratio: r.cheapest / r.hist }))
+    .map((r) => ({
+      id: r.id,
+      ratio: r.cheapest / r.hist,
+      cheapestCountry: r.cheapestCountry,
+    }))
     .filter((c) => c.ratio > 1 && c.ratio <= NEAR_LOW_MAX_RATIO)
     .sort((a, b) => a.ratio - b.ratio || (a.id < b.id ? -1 : 1));
   return { candidates, error: null };
 }
 
-/** 候選清單切一頁（純函式；快取版與即時版共用）。 */
+/** 候選清單切一頁（純函式；快取版與即時版共用）。
+ *  country 有值時只留目前最低價在該國的遊戲；候選沒有國家資訊
+ *  （cheapest_country 欄位未建）時不篩選，顯示全部。 */
 export function paginateNearLow(
   candidates: NearLowCandidate[],
-  page: number
+  page: number,
+  country?: string
 ): { slice: NearLowCandidate[]; total: number; totalPages: number } {
   const p = Math.max(1, page);
-  const total = candidates.length;
+  const hasCountry = candidates.some((c) => c.cheapestCountry != null);
+  const filtered =
+    country && hasCountry
+      ? candidates.filter((c) => c.cheapestCountry === country)
+      : candidates;
+  const total = filtered.length;
   return {
-    slice: candidates.slice((p - 1) * NEAR_LOW_PAGE_SIZE, p * NEAR_LOW_PAGE_SIZE),
+    slice: filtered.slice((p - 1) * NEAR_LOW_PAGE_SIZE, p * NEAR_LOW_PAGE_SIZE),
     total,
     totalPages: total > 0 ? Math.ceil(total / NEAR_LOW_PAGE_SIZE) : 0,
   };
@@ -1063,7 +1100,8 @@ export interface NearLowPageResult {
 /** 接近歷史低價列表頁（即時版；頁面改走快取版，邏輯相同）。 */
 export async function fetchNearLowPagePublic(
   db: SupabaseClient,
-  page: number
+  page: number,
+  country?: string
 ): Promise<NearLowPageResult> {
   const p = Math.max(1, page);
   const { candidates, error } = await fetchNearLowCandidates(db);
@@ -1077,7 +1115,7 @@ export async function fetchNearLowPagePublic(
       error,
     };
   }
-  const { slice, total, totalPages } = paginateNearLow(candidates, p);
+  const { slice, total, totalPages } = paginateNearLow(candidates, p, country);
   const games = await fetchGamesByIdsPublic(
     db,
     slice.map((c) => c.id)

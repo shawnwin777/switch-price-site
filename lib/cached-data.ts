@@ -100,13 +100,16 @@ export const getCachedNearLowCandidates = unstable_cache(
     candidates: NearLowCandidate[];
     error: string | null;
   }> => fetchNearLowCandidates(createPublicClient()),
-  ["near-low-candidates"],
+  // v2：2026-11-18 候選改帶 cheapest_country（國家篩選用），舊 key 的
+  // 快取是沒有國家欄位的舊形狀，換 key 讓它立刻重算。
+  ["near-low-candidates-v2"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["near-low"] }
 );
 
-/** 接近歷史低價列表頁（候選清單本身已快取，分頁只抓當頁 12 款）。 */
+/** 接近歷史低價列表頁（候選清單本身已快取，分頁只抓當頁 12 款）。
+ *  country 有值時只留目前最低價在該國的遊戲（分頁前就先篩選）。 */
 export const getCachedNearLowPage = unstable_cache(
-  async (page: number): Promise<NearLowPageResult> => {
+  async (page: number, country?: string): Promise<NearLowPageResult> => {
     const p = Math.max(1, page);
     const { candidates, error } = await getCachedNearLowCandidates();
     if (error) {
@@ -119,7 +122,7 @@ export const getCachedNearLowPage = unstable_cache(
         error,
       };
     }
-    const { slice, total, totalPages } = paginateNearLow(candidates, p);
+    const { slice, total, totalPages } = paginateNearLow(candidates, p, country);
     const games = await fetchGamesByIdsPublic(
       createPublicClient(),
       slice.map((c) => c.id)
