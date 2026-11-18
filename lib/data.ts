@@ -103,6 +103,9 @@ export function saleEndOf(prices: Price[]): string | null {
 /** 首頁每頁筆數。 */
 export const PAGE_SIZE = 12;
 
+/** 接近歷史低價每頁筆數（兩欄呈現，一頁 50 款）。 */
+export const NEAR_LOW_PAGE_SIZE = 50;
+
 /** games / games_with_price_stats 查詢時明確選取的遊戲欄位（不含統計欄位）。 */
 const GAME_COLUMNS =
   "id,slug,title_zh,title_en,genre,publisher,platform,product_type,has_demo,cover_url,youtube_id,title_id,historical_low_twd,is_manual,created_by,created_at";
@@ -1050,9 +1053,9 @@ export function paginateNearLow(
   const p = Math.max(1, page);
   const total = candidates.length;
   return {
-    slice: candidates.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE),
+    slice: candidates.slice((p - 1) * NEAR_LOW_PAGE_SIZE, p * NEAR_LOW_PAGE_SIZE),
     total,
-    totalPages: total > 0 ? Math.ceil(total / PAGE_SIZE) : 0,
+    totalPages: total > 0 ? Math.ceil(total / NEAR_LOW_PAGE_SIZE) : 0,
   };
 }
 

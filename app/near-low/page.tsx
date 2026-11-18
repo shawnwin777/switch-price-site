@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getCachedNearLowPage } from "@/lib/cached-data";
-import { cheapestPrice } from "@/lib/data";
+import { cheapestPrice, NEAR_LOW_PAGE_SIZE } from "@/lib/data";
 import { formatTwd } from "@/lib/format";
 import RankCover from "@/components/RankCover";
 
@@ -13,7 +13,7 @@ export default async function NearLowPage({
 }) {
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const result = await getCachedNearLowPage(page);
-  const offset = (result.page - 1) * 12;
+  const offset = (result.page - 1) * NEAR_LOW_PAGE_SIZE;
 
   return (
     <>
@@ -40,7 +40,7 @@ export default async function NearLowPage({
       ) : (
         <>
           <p className="muted">共 {result.total} 款接近歷史低價。</p>
-          <div className="rank-list">
+          <div className="rank-list two-col">
             {result.games.map((game, i) => {
               const cheapest = cheapestPrice(game.prices);
               const ratio = result.ratios[game.id] ?? 1;
