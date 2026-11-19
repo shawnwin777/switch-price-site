@@ -137,10 +137,12 @@ export const getCachedNearLowPage = unstable_cache(
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["near-low"] }
 );
 
-/** 準備上市列表頁（單一索引查詢，快取整頁結果）。 */
+/** 準備上市列表頁（單一索引查詢，快取整頁結果）。
+ * 2026-11-19：每頁 12 款 → 100 款（跟接近歷史低價一樣），key 換 v2，
+ * 否則舊 12 款快取會用新頁碼切出錯的範圍（near-low 頁 2 曾因此重號）。 */
 export const getCachedUpcomingPage = unstable_cache(
   async (page: number): Promise<UpcomingPageResult> =>
     fetchUpcomingPagePublic(createPublicClient(), page),
-  ["upcoming-page"],
+  ["upcoming-page-v2"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["upcoming"] }
 );

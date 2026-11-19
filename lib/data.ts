@@ -108,6 +108,7 @@ export const HOME_PAGE_SIZE = 18;
 
 /** 接近歷史低價每頁筆數（四欄 × 25 排＝100 款）。 */
 export const NEAR_LOW_PAGE_SIZE = 100;
+export const UPCOMING_PAGE_SIZE = 100;
 
 /** games / games_with_price_stats 查詢時明確選取的遊戲欄位（不含統計欄位）。 */
 const GAME_COLUMNS =
@@ -1168,7 +1169,7 @@ export async function fetchUpcomingPagePublic(
     .gt("release_date", today)
     .order("release_date", { ascending: true })
     .order("id", { ascending: true })
-    .range((p - 1) * PAGE_SIZE, p * PAGE_SIZE - 1);
+    .range((p - 1) * UPCOMING_PAGE_SIZE, p * UPCOMING_PAGE_SIZE - 1);
   if (error || !data) {
     if (error) console.warn("[data] 準備上市查詢失敗：", error.message);
     return empty;
@@ -1185,7 +1186,7 @@ export async function fetchUpcomingPagePublic(
       games: [],
       total,
       page: p,
-      totalPages: total > 0 ? Math.ceil(total / PAGE_SIZE) : 0,
+      totalPages: total > 0 ? Math.ceil(total / UPCOMING_PAGE_SIZE) : 0,
       hasAnyReleaseDate: (datedCount ?? 0) > 0,
       unavailable: false,
     };
@@ -1204,7 +1205,7 @@ export async function fetchUpcomingPagePublic(
     games: result,
     total,
     page: p,
-    totalPages: Math.ceil(total / PAGE_SIZE),
+    totalPages: Math.ceil(total / UPCOMING_PAGE_SIZE),
     hasAnyReleaseDate: (datedCount ?? 0) > 0,
     unavailable: false,
   };

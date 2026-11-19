@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCachedUpcomingPage } from "@/lib/cached-data";
-import { cheapestPrice } from "@/lib/data";
+import { cheapestPrice, UPCOMING_PAGE_SIZE } from "@/lib/data";
+import { pageWindow } from "@/lib/pagination";
 import { formatTwd } from "@/lib/format";
 import RankCover from "@/components/RankCover";
 
@@ -20,7 +21,7 @@ export default async function UpcomingPage({
 }) {
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const result = await getCachedUpcomingPage(page);
-  const offset = (result.page - 1) * 12;
+  const offset = (result.page - 1) * UPCOMING_PAGE_SIZE;
 
   return (
     <>
@@ -50,18 +51,11 @@ export default async function UpcomingPage({
       ) : (
         <>
           <p className="muted">共 {result.total} 款即將上市。</p>
-          <div className="rank-list">
+          <div className="rank-list four-col">
             {result.games.map((game, i) => {
               const cheapest = cheapestPrice(game.prices);
               return (
                 <div key={game.id} className="rank-row">
-                  <div className="rank-num">{offset + i + 1}</div>
-                  <Link href={`/games/${game.slug}`}>
-                    <RankCover
-                      src={game.cover_url ?? "/covers/placeholder.svg"}
-                      alt={game.title_zh}
-                    />
-                  </Link>
                   <div className="rank-info">
                     <div className="t">
                       <Link
@@ -90,33 +84,58 @@ export default async function UpcomingPage({
                       </span>
                     </div>
                   </div>
+                  <Link href={`/games/${game.slug}`} className="rank-cover-link">
+                    <RankCover
+                      src={game.cover_url ?? "/covers/placeholder.svg"}
+                      alt={game.title_zh}
+                    />
+                    <div className="rank-num">{offset + i + 1}</div>
+                  </Link>
                 </div>
               );
             })}
           </div>
-          <div className="filter-row">
-            {result.page > 1 && (
-              <Link
-                className="chip"
-                href={`/upcoming?page=${result.page - 1}`}
-                style={{ textDecoration: "none" }}
-              >
-                ← 上一頁
-              </Link>
-            )}
-            <span className="muted">
-              第 {result.page} / {result.totalPages} 頁
-            </span>
-            {result.page < result.totalPages && (
-              <Link
-                className="chip"
-                href={`/upcoming?page=${result.page + 1}`}
-                style={{ textDecoration: "none" }}
-              >
-                下一頁 →
-              </Link>
-            )}
-          </div>
+          {result.totalPages > 1 && (
+            <nav className="pagination" aria-label="分頁">
+              {result.page > 1 && (
+                <Link
+                  className="chip"
+                  href={`/upcoming?page=${result.page - 1}`}
+                  style={{ textDecoration: "none" }}
+                >
+                  ← 上一頁
+                </Link>
+              )}
+              {pageWindow(result.page, result.totalPages).map((n, i) =>
+                n === "…" ? (
+                  <span key={`e${i}`} className="ellipsis">
+                    …
+                  </span>
+                ) : (
+                  <Link
+                    key={n}
+                    className={`chip page-num ${
+                      n === result.page ? "active" : ""
+                    }`}
+                    href={`/upcoming?page=${n as number}`}
+                    style={{ textDecoration: "none" }}
+                    aria-current={n === result.page ? "page" : undefined}
+                  >
+                    {n}
+                  </Link>
+                )
+              )}
+              {result.page < result.totalPages && (
+                <Link
+                  className="chip"
+                  href={`/upcoming?page=${result.page + 1}`}
+                  style={{ textDecoration: "none" }}
+                >
+                  下一頁 →
+                </Link>
+              )}
+            </nav>
+          )}
         </>
       )}
     </>
