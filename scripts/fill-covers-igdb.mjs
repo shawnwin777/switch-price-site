@@ -38,6 +38,18 @@
 //   node scripts/fill-covers-igdb.mjs --limit 200 --offset 50 --apply
 //   node scripts/fill-covers-igdb.mjs --limit 50 --apply --allow-portrait
 // 每次跑完把結果寫到 data/igdb-cover-fills.json（覆蓋，只留最新一次）。
+//
+// 跳過已知對不到的（data/igdb-no-match.json，累積式）：
+//   對不到的遊戲封面永遠是空的，所以永遠留在候選名單裡；候選名單按
+//   slug 排序，對不到的會一直卡在名單前頭。不跳過的話，每批重跑都要
+//   再查一次所有累積的對不到款，而且每批新處理的款會越來越少，最後
+//   整批都是對不到的、完全推不動。腳本每次跑會先讀這個檔跳過裡面的
+//   slug，跑完再把本次新對不到（含多個同名、只有直式封面）的 slug 補
+//   進去。想重查某款時，把它從檔案裡刪掉再跑即可。
+
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? '').replace(/\/$/, '');
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
@@ -48,6 +60,25 @@ const IGDB_CLIENT_SECRET = process.env.IGDB_CLIENT_SECRET ?? '';
 const PLACEHOLDER = '/covers/placeholder.svg';
 const IGDB_SLEEP_MS = 300; // 4 req/s 上限，留餘裕
 const MAX_RETRIES = 3;
+
+const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'data');
+const SKIP_PATH = join(DATA_DIR, 'igdb-no-match.json');
+
+/** 讀累積的對不到名單（不存在就當作空的）。 */
+async function loadSkipSet() {
+  try {
+    const raw = await readFile(SKIP_PATH, 'utf8');
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr.filter((s) => typeof s === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+async function saveSkipSet(set) {
+  await mkdir(DATA_DIR, { recursive: true });
+  await writeFile(SKIP_PATH, JSON.stringify([...set].sort(), null, 2));
+}
 
 function arg(name, def = null) {
   const i = process.argv.indexOf(name);
@@ -141,19 +172,39 @@ async function igdbSearch(token, query, attempt = 0) {
   return res.json();
 }
 
-/** 讀一批沒封面的具名遊戲（按 slug 排序，決定性分頁）。 */
-async function readCandidates(limit, offset) {
-  const url =
-    `${SUPABASE_URL}/rest/v1/games` +
-    `?select=id,slug,title_zh,title_en,cover_url` +
-    `&is_unnamed=eq.false` +
-    `&or=(cover_url.is.null,cover_url.eq.${encodeURIComponent(PLACEHOLDER)})` +
-    `&order=slug.asc&limit=${limit}&offset=${offset}`;
-  const res = await fetch(url, { headers: restHeaders(!!SERVICE_ROLE_KEY) });
-  if (!res.ok) {
-    throw new Error(`讀 games 失敗（HTTP ${res.status}）：${(await res.text()).slice(0, 300)}`);
+/** 讀一批沒封面的具名遊戲（按 slug 排序，決定性分頁），跳過已知對不到的。
+ * 候選名單按 slug 排序、對不到的永遠留在名單裡，所以直接用 limit/offset
+ * 切會越切越少新遊戲：改成分頁 500 筆往後掃，跳過 skipSet 裡的 slug，
+ * 湊滿 limit 款新遊戲為止。offset 是原始名單的位置（不是過濾後的位置）。 */
+async function readCandidates(limit, offset, skipSet) {
+  const collected = [];
+  let rawOffset = offset;
+  let skipped = 0;
+  for (;;) {
+    const url =
+      `${SUPABASE_URL}/rest/v1/games` +
+      `?select=id,slug,title_zh,title_en,cover_url` +
+      `&is_unnamed=eq.false` +
+      `&or=(cover_url.is.null,cover_url.eq.${encodeURIComponent(PLACEHOLDER)})` +
+      `&order=slug.asc&limit=500&offset=${rawOffset}`;
+    const res = await fetch(url, { headers: restHeaders(!!SERVICE_ROLE_KEY) });
+    if (!res.ok) {
+      throw new Error(`讀 games 失敗（HTTP ${res.status}）：${(await res.text()).slice(0, 300)}`);
+    }
+    const page = await res.json();
+    if (page.length === 0) break;
+    rawOffset += page.length;
+    for (const g of page) {
+      if (skipSet.has(g.slug)) {
+        skipped += 1;
+        continue;
+      }
+      collected.push(g);
+      if (collected.length >= limit) break;
+    }
+    if (collected.length >= limit || page.length < 500) break;
   }
-  return res.json();
+  return { games: collected, skipped };
 }
 
 async function writeCover(gameId, coverUrl) {
@@ -190,11 +241,14 @@ async function main() {
   const token = await getIgdbToken();
   console.log('[info] IGDB token 取得成功。');
 
-  const candidates = await readCandidates(LIMIT, OFFSET);
-  console.log(`[info] 讀到 ${candidates.length} 款沒封面的具名遊戲。`);
+  const skipSet = await loadSkipSet();
+  console.log(`[info] 已知對不到 ${skipSet.size} 款，本次會跳過。`);
+  const { games: candidates, skipped } = await readCandidates(LIMIT, OFFSET, skipSet);
+  console.log(`[info] 讀到 ${candidates.length} 款沒封面的具名遊戲（跳過已知對不到 ${skipped} 款）。`);
 
   const counts = {
     total: candidates.length,
+    skipped,
     matched: 0,
     written: 0,
     noMatch: 0,
@@ -269,13 +323,23 @@ async function main() {
   }
 
   console.log('[done]', JSON.stringify(counts, null, 2));
-  console.log(`[done] 命中 ${counts.matched} / ${counts.total}（artwork ${counts.bySource.artwork}、screenshot ${counts.bySource.screenshot}、cover ${counts.bySource.cover}）；寫入 ${counts.written}；無命中 ${counts.noMatch}；多個同名 ${counts.ambiguous}；直式封面跳過 ${counts.coverSkippedPortrait}。`);
+  console.log(`[done] 命中 ${counts.matched} / ${counts.total}（artwork ${counts.bySource.artwork}、screenshot ${counts.bySource.screenshot}、cover ${counts.bySource.cover}）；寫入 ${counts.written}；無命中 ${counts.noMatch}；多個同名 ${counts.ambiguous}；直式封面跳過 ${counts.coverSkippedPortrait}；跳過已知對不到 ${counts.skipped}。`);
 
-  const { mkdir, writeFile } = await import('node:fs/promises');
-  const { dirname, join } = await import('node:path');
-  const { fileURLToPath } = await import('node:url');
-  const outPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'data', 'igdb-cover-fills.json');
-  await mkdir(dirname(outPath), { recursive: true });
+  // 本次新對不到的（含多個同名）記進累積名單，下次不再重查。
+  let skipChanged = false;
+  for (const r of [...noMatch, ...ambiguous]) {
+    if (!skipSet.has(r.slug)) {
+      skipSet.add(r.slug);
+      skipChanged = true;
+    }
+  }
+  if (skipChanged) {
+    await saveSkipSet(skipSet);
+    console.log(`[info] 對不到名單已更新，共 ${skipSet.size} 款（data/igdb-no-match.json）。`);
+  }
+
+  const outPath = join(DATA_DIR, 'igdb-cover-fills.json');
+  await mkdir(DATA_DIR, { recursive: true });
   await writeFile(
     outPath,
     JSON.stringify(
