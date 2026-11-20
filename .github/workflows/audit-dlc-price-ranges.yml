@@ -1,0 +1,69 @@
+# 手動 DLC/升級包價格掃描（研究用途）
+# 不寫 Supabase、不同步 Vercel；先取得實際有效 NSUID 數量再決定匯入方案。
+name: Audit TW/HK DLC and Switch 2 prices
+
+on:
+  workflow_dispatch:
+    inputs:
+      region:
+        description: "掃描地區"
+        required: true
+        type: choice
+        options:
+          - TW
+          - HK
+      product_range:
+        description: "商品區段"
+        required: true
+        type: choice
+        options:
+          - dlc
+          - upgrade
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audit-dlc-${{ inputs.region }}-${{ inputs.product_range }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Scan selected product range (read only)
+        shell: bash
+        env:
+          REGION: ${{ inputs.region }}
+          PRODUCT_RANGE: ${{ inputs.product_range }}
+        run: |
+          set -euo pipefail
+          if [[ "$PRODUCT_RANGE" == "dlc" ]]; then
+            node scripts/scan-tw-hk-price-api.mjs --country "$REGION" --from 70050000000000 --to 70050000100000 --tag ext3 --concurrency 1
+          else
+            node scripts/scan-tw-hk-price-api.mjs --country "$REGION" --from 70070000000000 --to 70070000040000 --tag ext2 --concurrency 1
+          fi
+      - name: Create read-only scan report
+        shell: bash
+        env:
+          REGION: ${{ inputs.region }}
+          PRODUCT_RANGE: ${{ inputs.product_range }}
+        run: |
+          set -euo pipefail
+          TAG=ext2
+          if [[ "$PRODUCT_RANGE" == "dlc" ]]; then TAG=ext3; fi
+          node scripts/report-product-range-scan.mjs "data/.cache/scan-${REGION}-${TAG}.json" "reports/${REGION}-${PRODUCT_RANGE}.json"
+          cat "reports/${REGION}-${PRODUCT_RANGE}.json" | head -35 >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload results for inspection (no database writes)
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-${{ inputs.region }}-${{ inputs.product_range }}
+          path: |
+            reports/*.json
+            data/.cache/scan-*.json
+          retention-days: 14
