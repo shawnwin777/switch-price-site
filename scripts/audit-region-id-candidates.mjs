@@ -24,7 +24,7 @@ for (const [key, g] of entries) {
     ['HK', g.hkTitleId, g.hkPrice],
     ['JP', g.jpTitleId, null],
   ]) {
-    if (!id || !/^\\d{14}$/.test(String(id))) continue;
+    if (!id || !/^\d{14}$/.test(String(id))) continue;
     const rec = { key, country, nsuid: String(id), titleZh: g.titleZh ?? null,
       titleEn: g.titleEn ?? null, source: g.source ?? null,
       hasPrice: Boolean(price && price.sales_status === 'onsale') };
@@ -42,7 +42,8 @@ for (const u of unknown) {
   if (u.country !== 'TW' || !u.hasPrice) continue;
   const nearby = [];
   const n = BigInt(u.nsuid);
-  for (const k of known) {
+  const matches = byPrefix.get(u.nsuid.slice(0, 10)) ?? [];
+  for (const k of matches) {
     if (k.country === 'TW' || k.key === u.key || k.nsuid.slice(0, 10) !== u.nsuid.slice(0, 10)) continue;
     const delta = n > BigInt(k.nsuid) ? n - BigInt(k.nsuid) : BigInt(k.nsuid) - n;
     if (delta === 0n || delta > BigInt(maxDistance)) continue;
