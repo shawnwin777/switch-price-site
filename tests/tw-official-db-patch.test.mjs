@@ -37,10 +37,10 @@ test('does not overwrite a non-placeholder even when flagged unnamed',()=>{
   assert.equal(result.changes.length,0);
   assert.equal(result.skipped[0].reason,'existing_nonplaceholder_title');
 });
-test('converts placeholder English NSUID to empty, not duplicate Chinese translation',()=>{
+test('fills a non-null verified Chinese fallback in English column',()=>{
   const current=[{...games[0],title_en:id}];
   const result=buildTwBackfillChanges(plan,current,region);
-  assert.equal(result.changes[0].patch.title_en,null);
+  assert.equal(result.changes[0].patch.title_en,'官方中文遊戲名稱');
 });
 test('generates safe proposal from live TW IDs without old snapshot',()=>{
   const catalog={
