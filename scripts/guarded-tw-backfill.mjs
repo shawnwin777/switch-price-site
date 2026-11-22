@@ -16,10 +16,11 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
-import { buildTwBackfillChanges } from './lib/tw-official-db-patch.mjs';
+import { buildTwBackfillChanges, planLiveTwBackfill } from './lib/tw-official-db-patch.mjs';
 
 const arg = (key, fallback=null) => process.argv.find(x=>x.startsWith(key+'='))?.slice(key.length+1) ?? fallback;
 const apply=process.argv.includes('--apply');
+const indexPath=arg('--index');
 const planPath=arg('--plan','reports/tw-official-backfill-plan.json');
 const pricePath=arg('--prices','reports/tw-official-prices.json');
 const output=arg('--report','reports/tw-db-preview.json');
@@ -52,25 +53,26 @@ async function readAll(table,columns){
   }
   return rows;
 }
-const [plan,currentPrices]=await Promise.all([
-  readFile(planPath,'utf8'),readFile(pricePath,'utf8'),
+const [planOrIndex,currentPrices]=await Promise.all([
+  readFile(indexPath??planPath,'utf8'),readFile(pricePath,'utf8'),
 ]).then(x=>x.map(JSON.parse));
 const [games,regionIds]=await Promise.all([
   readAll('games','id,slug,title_zh,title_en,cover_url,is_unnamed,product_type'),
   readAll('game_region_ids','game_id,country,title_id'),
 ]);
+const plan=indexPath?planLiveTwBackfill(planOrIndex,currentPrices,games,regionIds):planOrIndex;
 const {changes,skipped}=buildTwBackfillChanges(plan,games,regionIds,maxWrites,currentPrices);
 const digest=createHash('sha256').update(JSON.stringify(changes)).digest('hex');
 const report={
   generatedAt:new Date().toISOString(),mode:apply?'APPLY':'PREVIEW',
-  input:{plan:planPath,prices:pricePath,sourceAt:plan.officialFetchedAt,priceAt:currentPrices.generatedAt},
+  input:{plan:indexPath??planPath,liveIndexMode:Boolean(indexPath),prices:pricePath,sourceAt:plan.officialFetchedAt,priceAt:currentPrices.generatedAt},
   databaseRows:{games:games.length,regionIds:regionIds.length},
   approvalSha256:digest,totalReviewedCandidates:plan.candidates.length,
   eligibleChanges:changes.length,skippedCount:skipped.length,skipped,
   beforeSnapshots:changes.map(({gameId,nsuid,slug,before})=>({gameId,nsuid,slug,...before})),
   changes:changes.map(({gameId,nsuid,slug,patch})=>({gameId,nsuid,slug,patch})),
   completed:0,appliedIds:[],error:null,
-  note:'Only protected existing unnamed TW 7001 rows. No create/delete/price change/cross-region match. Rollback snapshots exported.',
+  note:'Only protected existing TW 7001 placeholders plus named rows missing covers. No create/delete/price change/cross-region match. Rollback snapshots exported.',
 };
 async function writeReport(){
   await mkdir(path.dirname(output),{recursive:true});
@@ -85,7 +87,7 @@ for(const c of changes){
   const q=new URLSearchParams();
   q.set('id','eq.'+c.gameId);
   q.set('slug','eq.'+c.slug);
-  q.set('is_unnamed','eq.true');
+  q.set('is_unnamed',c.before.is_unnamed?'eq.true':'eq.false');
   q.set('title_zh',c.before.title_zh===null?'is.null':'eq.'+c.before.title_zh);
   if('cover_url' in c.patch)q.set('cover_url',c.before.cover_url===null?'is.null':'eq.'+c.before.cover_url);
   if('title_en' in c.patch)q.set('title_en',c.before.title_en===null?'is.null':'eq.'+c.before.title_en);
