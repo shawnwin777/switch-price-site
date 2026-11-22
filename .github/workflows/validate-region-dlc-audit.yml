@@ -30,3 +30,11 @@ jobs:
           node --check tests/audit-region-and-dlc.test.mjs
       - name: Run offline audit tests (no network or DB)
         run: node --test tests/audit-region-and-dlc.test.mjs
+      - name: Audit committed TW/HK catalog snapshot (read only)
+        run: node scripts/audit-region-id-candidates.mjs data/tw-hk-full-ids.json reports/region-id-candidates.json
+      - name: Archive candidate audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: tw-cross-region-candidates
+          path: reports/region-id-candidates.json
+          retention-days: 14
