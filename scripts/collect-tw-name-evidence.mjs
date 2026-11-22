@@ -17,12 +17,18 @@ for(const [key,g] of Object.entries(source.games??{})){
     knownPrices.get(id).push({key,named:Boolean(g.titleZh||g.titleEn)});
   }
 }
-const byId=new Map(),failures=[],sourceCounts={apiPages:0,apiItems:0,legacyItems:0};
+const byId=new Map(),failures=[],sourceCounts={apiPages:0,apiItems:0,apiReportedTotal:null,apiComplete:false,legacyItems:0};
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function getJson(url){
-  const r=await fetch(url,{headers:{'Accept':'application/json','User-Agent':'Mozilla/5.0'},signal:AbortSignal.timeout(16000)});
-  if(!r.ok)throw new Error('HTTP '+r.status+' '+url);
-  return await r.json();
+  let error;
+  for(let attempt=0;attempt<3;attempt++){
+    try{
+      const r=await fetch(url,{headers:{'Accept':'application/json','User-Agent':'Mozilla/5.0'},signal:AbortSignal.timeout(16000)});
+      if(!r.ok)throw new Error('HTTP '+r.status+' '+url);
+      return await r.json();
+    }catch(e){error=e;if(attempt<2)await sleep(1200*(attempt+1));}
+  }
+  throw error;
 }
 function add(id,title,publisher,sourceName){
   if(!/^7\d{13}$/.test(String(id)) || !title || typeof title!=='string')return;
@@ -34,16 +40,17 @@ function add(id,title,publisher,sourceName){
 }
 try{
   const seen=new Set();
-  for(let page=1;page<=15;page++){
-    const data=await getJson('https://www.nintendo.com/tw/api/software?spage='+page);
+  for(let page=1;page<=300;page++){
+    const data=await getJson('https://www.nintendo.com/tw/api/software?sftab=all&spage='+page);
     const items=Array.isArray(data.items)?data.items:[];
-    if(!items.length)break;
+    if(page===1)sourceCounts.apiReportedTotal=Number.isSafeInteger(data.total)?data.total:null;
+    if(!items.length){sourceCounts.apiComplete=sourceCounts.apiReportedTotal!==null && sourceCounts.apiItems>=sourceCounts.apiReportedTotal;break;}
     const sig=items.map(x=>x.nsuid).join(',');
     if(seen.has(sig))break;
     seen.add(sig);
     sourceCounts.apiPages++;sourceCounts.apiItems+=items.length;
     for(const item of items)add(item.nsuid,item.title,item.publisher,'tw-api-software');
-    if(Number.isSafeInteger(data.total) && sourceCounts.apiItems>=data.total)break;
+    if(Number.isSafeInteger(data.total) && sourceCounts.apiItems>=data.total){sourceCounts.apiComplete=true;break;}
     await sleep(150);
   }
 }catch(err){failures.push({source:'tw-api-software',error:String(err)});}
@@ -65,6 +72,7 @@ for(const [id,evidence] of byId){
   if(normalized.length>1)conflicts.push(record);
   else matched.push(record);
 }
+if(!sourceCounts.apiComplete)failures.push({source:'tw-api-software',error:'incomplete_catalog: report is partial; do not treat these counts as full coverage'});
 const report={generatedAt:new Date().toISOString(),snapshotGeneratedAt:source.generated_at??null,sourceCounts,
   pricedTwDistinctNsuid:knownPrices.size,officialDistinctNsuid:byId.size,
   safeExactNsuidNameMatches:matched.length,alreadyNamedMatches:matched.filter(x=>x.wasNamed).length,
