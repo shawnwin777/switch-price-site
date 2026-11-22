@@ -1,0 +1,32 @@
+name: Validate TW region and DLC audit tools
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/audit-region-id-candidates.mjs'
+      - 'scripts/report-product-range-scan.mjs'
+      - 'tests/audit-region-and-dlc.test.mjs'
+      - '.github/workflows/validate-region-dlc-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate JavaScript syntax
+        run: |
+          node --check scripts/audit-region-id-candidates.mjs
+          node --check scripts/report-product-range-scan.mjs
+          node --check tests/audit-region-and-dlc.test.mjs
+      - name: Run offline audit tests (no network or DB)
+        run: node --test tests/audit-region-and-dlc.test.mjs
