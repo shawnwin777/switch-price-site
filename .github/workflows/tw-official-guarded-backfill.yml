@@ -1,0 +1,88 @@
+# Two-step manual process. Must be merged and intentionally dispatched on main.
+# Never write without a SHA256 of a previously reviewed preview AND an explicit approval input.
+name: TW official title+cover guarded backfill
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/tw-official-guarded-backfill.yml'
+      - 'scripts/guarded-tw-backfill.mjs'
+      - 'scripts/lib/tw-official-db-patch.mjs'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'preview = DB read-only; apply = guarded production update (requires digest)'
+        type: choice
+        required: true
+        default: preview
+        options:
+          - preview
+          - apply
+      approval_sha256:
+        description: 'Exact digest from reviewed preview; required for apply'
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tw-official-db-backfill
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Offline safety regression tests
+        run: |
+          node --test tests/tw-official-backfill.test.mjs tests/tw-official-db-patch.test.mjs
+          node --check scripts/guarded-tw-backfill.mjs
+      - name: Validate latest official catalog, names and images
+        run: |
+          node scripts/fetch-tw-official-index.mjs data/.cache/tw-official-index.json --force
+          node scripts/plan-tw-official-backfill.mjs data/tw-hk-full-ids.json data/.cache/tw-official-index.json reports/tw-official-backfill-plan.json
+      - name: Refresh all currently published Taiwan official game prices
+        run: node scripts/scan-tw-official-prices.mjs data/.cache/tw-official-index.json reports/tw-official-prices.json
+      - name: Preview protected existing placeholder updates
+        if: github.event_name == 'push' || inputs.mode == 'preview'
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node scripts/guarded-tw-backfill.mjs --plan=reports/tw-official-backfill-plan.json --prices=reports/tw-official-prices.json --report=reports/tw-db-preview.json --max-writes=3000
+      - name: Apply only the identical manually approved live plan
+        if: inputs.mode == 'apply'
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          APPROVAL_SHA256: ${{ inputs.approval_sha256 }}
+          TW_BACKFILL_WRITE_APPROVED: YES
+        run: |
+          set -euo pipefail
+          if [[ ! "$APPROVAL_SHA256" =~ ^[a-f0-9]{64}$ ]]; then
+            echo 'Approval digest missing or invalid' >&2
+            exit 1
+          fi
+          node scripts/guarded-tw-backfill.mjs --plan=reports/tw-official-backfill-plan.json --prices=reports/tw-official-prices.json --report=reports/tw-db-applied.json --max-writes=3000 --apply "--approval=$APPROVAL_SHA256"
+      - name: Upload audit and rollback snapshots even on error
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tw-official-backfill-preview-or-applied
+          path: |
+            reports/tw-official-backfill-plan.json
+            reports/tw-official-prices.json
+            reports/tw-db-preview.json
+            reports/tw-db-applied.json
+          retention-days: 30
+          if-no-files-found: warn
