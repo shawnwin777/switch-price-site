@@ -33,3 +33,11 @@ node --test tests/tw-official-backfill.test.mjs
 ```
 
 這些指令只讀取公開 API 與本機 JSON，不使用生產資料庫密鑰。
+
+## 全目錄已知 NSUID 的最新完整查價驗證（非生產資料寫入）
+
+- [GitHub Actions #45044510000](https://github.com/shawnwin777/switch-price-site/actions/runs/45044510000)：完整官方索引驗證 **4,251 個不重複 NSUID**；50 個編號／批，共 **86/86 批成功**，回傳 4,251 個狀態、沒有 API 錯誤。
+- 狀態分布：**在售 onsale 4,124**、**預購 preorder 38**、**未發售 unreleased 60**、**已停售 sales_termination 15**、**查無價格 not_found 14**；這是該次官方清單內的狀態，不是全台灣 eShop 的所有 DLC／升級包或獨立遊戲數。
+- 價格 API 實測約從 `2026-11-22T16:33:48Z` 到 `16:35:19Z`，約 92 秒；時間取決於任天堂伺服器、網路和限流，不能視為保證 SLA。
+- 已將 PR 的每次提交自動測試恢復為 **只查 50 個 NSUID 樣本**，避免反覆向 Nintendo API 發出 86 批；每日全量唯讀更新由獨立的 `.github/workflows/tw-official-readonly-daily.yml` 承擔，**排程仍待 PR 合併／核准後才會在 main 生效**。
+- 此次掃描**沒有**將 4,124 個狀態寫入正式 Supabase、沒有讓前端新增遊戲；真正的網站同步仍需通過 DB 保護式更新與顯示驗證後才可開啟。
