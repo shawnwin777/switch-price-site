@@ -81,7 +81,7 @@ jobs:
         run: node scripts/plan-tw-official-backfill.mjs data/tw-hk-full-ids.json data/.cache/tw-official-index.json reports/tw-official-backfill-plan.json
       - name: Sample official Taiwan price API by known NSUIDs (read only)
         continue-on-error: true
-        run: node scripts/scan-tw-official-prices.mjs data/.cache/tw-official-index.json reports/tw-official-prices-sample.json
+        run: node scripts/scan-tw-official-prices.mjs data/.cache/tw-official-index.json reports/tw-official-prices-sample.json --limit=50
       - name: Collect official Taiwan name evidence by exact NSUID
         env:
           TW_OFFICIAL_INDEX_PATH: data/.cache/tw-official-index.json
