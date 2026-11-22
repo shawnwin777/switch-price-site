@@ -5,6 +5,7 @@ on:
     paths:
       - 'scripts/audit-region-id-candidates.mjs'
       - 'scripts/report-product-range-scan.mjs'
+      - 'scripts/audit-tw-coverage.mjs'
       - 'tests/audit-region-and-dlc.test.mjs'
       - '.github/workflows/validate-region-dlc-audit.yml'
   workflow_dispatch:
@@ -27,14 +28,19 @@ jobs:
         run: |
           node --check scripts/audit-region-id-candidates.mjs
           node --check scripts/report-product-range-scan.mjs
+          node --check scripts/audit-tw-coverage.mjs
           node --check tests/audit-region-and-dlc.test.mjs
       - name: Run offline audit tests (no network or DB)
         run: node --test tests/audit-region-and-dlc.test.mjs
       - name: Audit committed TW/HK catalog snapshot (read only)
         run: node scripts/audit-region-id-candidates.mjs data/tw-hk-full-ids.json reports/region-id-candidates.json
+      - name: Audit Taiwan catalog coverage (read only)
+        run: node scripts/audit-tw-coverage.mjs data/tw-hk-full-ids.json reports/tw-coverage.json
       - name: Archive candidate audit report
         uses: actions/upload-artifact@v4
         with:
           name: tw-cross-region-candidates
-          path: reports/region-id-candidates.json
+          path: |
+            reports/region-id-candidates.json
+            reports/tw-coverage.json
           retention-days: 14
