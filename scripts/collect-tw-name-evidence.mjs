@@ -28,7 +28,7 @@ function mediaUrl(imageHero,imageHeroOrg){
       const u=new URL(raw,'https://www.nintendo.com/');
       if(u.protocol!=='https:')continue;
       const h=u.hostname.toLowerCase();
-      if(!(h==='nintendo.com'||h.endsWith('.nintendo.com')||h.endsWith('.nintendo.net')||h.endsWith('.nintendo.co.jp')||h.endsWith('.nintendo-europe.com')))continue;
+      if(!(h==='images.ctfassets.net'||h==='nintendo.com'||h.endsWith('.nintendo.com')||h.endsWith('.nintendo.net')||h.endsWith('.nintendo.co.jp')||h.endsWith('.nintendo-europe.com')))continue;
       return u.toString();
     } catch {}
   }
@@ -104,6 +104,13 @@ for(const [id,evidence] of byId){
   else matched.push(record);
 }
 if(!sourceCounts.apiComplete)failures.push({source:'tw-api-software',error:'incomplete_catalog: report is partial; do not treat these counts as full coverage'});
+const imageLiveChecks=[];
+for(const sample of officialImageProbeSamples.slice(0,8)){
+  try{
+    const res=await fetch(sample.url,{method:'HEAD',signal:AbortSignal.timeout(12000)});
+    imageLiveChecks.push({nsuid:sample.nsuid,status:res.status,contentType:res.headers.get('content-type'),isImage:res.ok && /^image\//i.test(res.headers.get('content-type')??'')});
+  }catch(err){imageLiveChecks.push({nsuid:sample.nsuid,error:String(err),isImage:false});}
+}
 const report={generatedAt:new Date().toISOString(),snapshotGeneratedAt:source.generated_at??null,sourceCounts,
   pricedTwDistinctNsuid:knownPrices.size,officialDistinctNsuid:byId.size,
   safeExactNsuidNameMatches:matched.length,alreadyNamedMatches:matched.filter(x=>x.wasNamed).length,
@@ -113,7 +120,7 @@ const report={generatedAt:new Date().toISOString(),snapshotGeneratedAt:source.ge
     matchedPricedWithOfficialImage:matched.filter(x=>x.officialCoverUrl).length,
     potentialNewNameAndCover:matched.filter(x=>!x.wasNamed && x.officialCoverUrl).length,
     conflictingNameWithOfficialImage:conflicts.filter(x=>x.officialCoverUrl).length,
-    imageUrlProbeSamples:officialImageProbeSamples},
+    imageUrlProbeSamples:officialImageProbeSamples,imageLiveChecks,imageLiveSuccess:imageLiveChecks.filter(x=>x.isImage).length},
 
   note:'Exact NSUID only; matching a name does NOT verify DLC/parent game or cross-region identity. No production writes.',
   matched,conflicts};
