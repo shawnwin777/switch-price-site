@@ -275,10 +275,11 @@ const asStr = (v: unknown): string => (typeof v === "string" ? v : String(v ?? "
 const asStrArray = (v: unknown): string[] =>
   Array.isArray(v) ? v.map((x) => asStr(x)).filter(Boolean) : [];
 
-/** NSUID 前綴 → 項目種類：7001 本體、7005 升級包、7007 DLC／組合包。 */
+/** NSUID 編號空間只提供初步類別：7001 一般商品、7005 DLC、7007 Bundle。
+ *  7007 不應直接斷定是 Switch 2 升級包；母遊戲、版本及商店實際類型仍需確認。 */
 export function kindFromNsuid(nsuid: string): "game" | "dlc" | "bundle" | "upgrade" {
-  if (nsuid.startsWith("7005")) return "upgrade";
-  if (nsuid.startsWith("7007")) return "dlc";
+  if (nsuid.startsWith("7005")) return "dlc";
+  if (nsuid.startsWith("7007")) return "bundle";
   return "game";
 }
 
