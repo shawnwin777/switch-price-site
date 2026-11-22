@@ -54,34 +54,50 @@ function add(id,title,publisher,sourceName){
   if(!byId.get(key).some(e=>e.title===t&&e.source===sourceName))
     byId.get(key).push({title:t,publisher:publisher||null,source:sourceName});
 }
+function addOfficial(item){
+  add(item.nsuid,item.title,item.publisher,'tw-api-software');
+  const nsuid=String(item.nsuid??'');
+  if(!/^7\d{13}$/.test(nsuid))return;
+  const prefix=nsuid.slice(0,4);
+  officialPrefixes[prefix]=(officialPrefixes[prefix]??0)+1;
+  const hw=String(item.hardwareCategory??'unknown');
+  hardwareCategories[hw]=(hardwareCategories[hw]??0)+1;
+  const url=item.imageUrl || mediaUrl(item.imageHero,item.imageHeroOrg);
+  if(url){
+    officialMediaById.set(nsuid,{url,title:item.title??null,hardwareCategory:hw});
+    try{const host=new URL(url).hostname;imageUrlHosts[host]=(imageUrlHosts[host]??0)+1;}catch{}
+    if(officialImageProbeSamples.length<12)officialImageProbeSamples.push({nsuid,url});
+  }
+}
 try{
-  const seen=new Set();
-  for(let page=1;page<=300;page++){
-    const data=await getJson('https://www.nintendo.com/tw/api/software?sftab=all&spage='+page);
-    const items=Array.isArray(data.items)?data.items:[];
-    if(page===1)sourceCounts.apiReportedTotal=Number.isSafeInteger(data.total)?data.total:null;
-    if(!items.length){sourceCounts.apiComplete=sourceCounts.apiReportedTotal!==null && sourceCounts.apiItems>=sourceCounts.apiReportedTotal;break;}
-    const sig=items.map(x=>x.nsuid).join(',');
-    if(seen.has(sig))break;
-    seen.add(sig);
-    sourceCounts.apiPages++;sourceCounts.apiItems+=items.length;
-    for(const item of items){
-      add(item.nsuid,item.title,item.publisher,'tw-api-software');
-      const nsuid=String(item.nsuid??'');
-      if(!/^7\d{13}$/.test(nsuid))continue;
-      const prefix=nsuid.slice(0,4);
-      officialPrefixes[prefix]=(officialPrefixes[prefix]??0)+1;
-      const hw=String(item.hardwareCategory??'unknown');
-      hardwareCategories[hw]=(hardwareCategories[hw]??0)+1;
-      const url=mediaUrl(item.imageHero,item.imageHeroOrg);
-      if(url){
-        officialMediaById.set(nsuid,{url,title:item.title??null,hardwareCategory:hw});
-        try{const host=new URL(url).hostname;imageUrlHosts[host]=(imageUrlHosts[host]??0)+1;}catch{}
-        if(officialImageProbeSamples.length<12)officialImageProbeSamples.push({nsuid,url});
-      }
+  const cachedPath=process.env.TW_OFFICIAL_INDEX_PATH;
+  if(cachedPath){
+    const index=JSON.parse(await readFile(cachedPath,'utf8'));
+    if(!index.complete || index.schemaVersion!==1 || !index.records ||
+       !Number.isInteger(index.officialTotal) || index.pages!==Math.ceil(index.officialTotal/24))
+      throw new Error('TW official cache incomplete or invalid');
+    sourceCounts.apiPages=index.pages;
+    sourceCounts.apiItems=index.rows;
+    sourceCounts.apiReportedTotal=index.officialTotal;
+    sourceCounts.apiComplete=true;
+    for(const item of Object.values(index.records))addOfficial(item);
+    for(const group of Object.values(index.conflicts??{}))for(const item of group)addOfficial(item);
+    console.log('[cache] Reusing validated TW official catalog index without another 195-page fetch');
+  }else{
+    const seen=new Set();
+    for(let page=1;page<=300;page++){
+      const data=await getJson('https://www.nintendo.com/tw/api/software?sftab=all&spage='+page);
+      const items=Array.isArray(data.items)?data.items:[];
+      if(page===1)sourceCounts.apiReportedTotal=Number.isSafeInteger(data.total)?data.total:null;
+      if(!items.length){sourceCounts.apiComplete=sourceCounts.apiReportedTotal!==null && sourceCounts.apiItems>=sourceCounts.apiReportedTotal;break;}
+      const sig=items.map(x=>x.nsuid).join(',');
+      if(seen.has(sig))break;
+      seen.add(sig);
+      sourceCounts.apiPages++;sourceCounts.apiItems+=items.length;
+      for(const item of items)addOfficial(item);
+      if(Number.isSafeInteger(data.total) && sourceCounts.apiItems>=data.total){sourceCounts.apiComplete=true;break;}
+      await sleep(150);
     }
-    if(Number.isSafeInteger(data.total) && sourceCounts.apiItems>=data.total){sourceCounts.apiComplete=true;break;}
-    await sleep(150);
   }
 }catch(err){failures.push({source:'tw-api-software',error:String(err)});}
 try{
