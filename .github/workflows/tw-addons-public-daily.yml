@@ -1,0 +1,68 @@
+name: Refresh published Taiwan DLC and bundle catalog
+
+on:
+  schedule:
+    # Every day 05:00 UTC / 13:00 Asia-Taipei
+    - cron: '0 5 * * *'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tw-addons-public-daily.yml'
+      - 'scripts/scan-tw-known-addons.mjs'
+      - 'scripts/enrich-tw-addons-titledb.mjs'
+      - 'scripts/build-public-tw-addons.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tw-public-addons-refresh
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Read-only TW official addon price check
+        run: node scripts/scan-tw-known-addons.mjs data/tw-hk-full-ids.json reports/tw-addons-current-status.json
+      - name: Supplement names and artwork by the same NSUID (no parent inference)
+        run: node scripts/enrich-tw-addons-titledb.mjs reports/tw-addons-current-status.json reports/tw-addon-metadata-evidence.json
+      - name: Validate and prepare public catalog snapshot
+        run: node scripts/build-public-tw-addons.mjs reports/tw-addons-current-status.json reports/tw-addon-metadata-evidence.json public/data/tw-addons.json
+      - name: Build website before publishing catalog changes
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Commit validated PUBLIC snapshot only
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data/tw-addons.json
+          if ! git diff --cached --quiet; then
+            git commit -m "data: refresh verified Taiwan DLC and bundle catalog"
+            git push origin HEAD:main
+          else
+            echo "Public catalog unchanged"
+          fi
+      - name: Archive complete read-only source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tw-addon-public-refresh-evidence
+          path: |
+            reports/tw-addons-current-status.json
+            reports/tw-addon-metadata-evidence.json
+            public/data/tw-addons.json
+          retention-days: 14
+          if-no-files-found: warn
