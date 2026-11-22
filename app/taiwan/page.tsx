@@ -55,6 +55,7 @@ export default async function TaiwanOfficialPage({searchParams}: {searchParams:P
       <h1>台灣 Nintendo Switch／Switch 2</h1>
       <p>直接比對台灣任天堂官方 NSUID、商品名稱與官方圖片；每個商品可查看最近取得的台灣價格。</p>
       <p className={styles.note}>這是官方軟體目錄，並非完整 DLC／Bundle 清單；目錄筆數也不等於目前在售的獨立遊戲數。價格以 Nintendo eShop 實際結帳為準。</p>
+      <p><Link href="/taiwan/addons">查看台灣 DLC／組合包商品目錄</Link></p>
     </div>
     <form method="GET" action="/taiwan" className={styles.filters}>
       <input name="q" type="search" placeholder="搜尋遊戲名稱、發行商或 NSUID" defaultValue={q} maxLength={100} aria-label="搜尋台灣官方商品"/>
