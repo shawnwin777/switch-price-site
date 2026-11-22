@@ -14,6 +14,8 @@ on:
       - 'scripts/plan-tw-official-backfill.mjs'
       - 'scripts/scan-tw-official-prices.mjs'
       - 'scripts/scan-tw-known-addons.mjs'
+      - 'scripts/enrich-tw-addons-titledb.mjs'
+      - '.github/workflows/tw-official-guarded-backfill.yml'
       - 'scripts/guarded-tw-backfill.mjs'
       - 'scripts/lib/tw-official-db-patch.mjs'
       - 'tests/tw-official-db-patch.test.mjs'
@@ -38,7 +40,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -59,6 +61,7 @@ jobs:
           node --check scripts/plan-tw-official-backfill.mjs
           node --check scripts/scan-tw-official-prices.mjs
           node --check scripts/scan-tw-known-addons.mjs
+          node --check scripts/enrich-tw-addons-titledb.mjs
           node --check scripts/guarded-tw-backfill.mjs
           node --check scripts/lib/tw-official-db-patch.mjs
           node --check tests/tw-official-db-patch.test.mjs
@@ -94,6 +97,9 @@ jobs:
         run: node scripts/scan-tw-official-prices.mjs data/.cache/tw-official-index.json reports/tw-official-prices-sample.json --limit=50
       - name: Check all historically known Taiwan DLC and bundle prices (read only)
         run: node scripts/scan-tw-known-addons.mjs data/tw-hk-full-ids.json reports/tw-addons-current-status.json
+      - name: Enrich Taiwan-priced DLC from TitleDB HK exact NSUIDs (read only)
+        continue-on-error: true
+        run: node scripts/enrich-tw-addons-titledb.mjs reports/tw-addons-current-status.json reports/tw-addon-metadata-evidence.json
       - name: Collect official Taiwan name evidence by exact NSUID
         env:
           TW_OFFICIAL_INDEX_PATH: data/.cache/tw-official-index.json
@@ -106,6 +112,10 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         continue-on-error: true
         run: node scripts/audit-titledb-hk-tw.mjs data/tw-hk-full-ids.json reports/tw-name-evidence.json reports/titledb-hk-tw.json
+      - name: Verify Next.js production bundle
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
       - name: Archive candidate audit report
         uses: actions/upload-artifact@v4
         with:
@@ -118,6 +128,7 @@ jobs:
             reports/tw-name-evidence.json
             reports/tw-official-backfill-plan.json
             reports/tw-addons-current-status.json
+            reports/tw-addon-metadata-evidence.json
             reports/tw-official-prices-sample.json
             reports/hk-supplement-for-tw.json
             reports/titledb-hk-tw.json
