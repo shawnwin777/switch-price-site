@@ -72,7 +72,8 @@ jobs:
       - name: Build exact NSUID Taiwan title and image backfill plan (read only)
         run: node scripts/plan-tw-official-backfill.mjs data/tw-hk-full-ids.json data/.cache/tw-official-index.json reports/tw-official-backfill-plan.json
       - name: Collect official Taiwan name evidence by exact NSUID
-        continue-on-error: true
+        env:
+          TW_OFFICIAL_INDEX_PATH: data/.cache/tw-official-index.json
         run: node scripts/collect-tw-name-evidence.mjs data/tw-hk-full-ids.json reports/tw-name-evidence.json
       - name: Audit HK official supplement for priced Taiwan items (read only)
         continue-on-error: true
