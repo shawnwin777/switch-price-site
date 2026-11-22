@@ -68,7 +68,7 @@ try{
     for(const item of items){
       add(item.nsuid,item.title,item.publisher,'tw-api-software');
       const nsuid=String(item.nsuid??'');
-      if(!/^7\\d{13}$/.test(nsuid))continue;
+      if(!/^7\d{13}$/.test(nsuid))continue;
       const prefix=nsuid.slice(0,4);
       officialPrefixes[prefix]=(officialPrefixes[prefix]??0)+1;
       const hw=String(item.hardwareCategory??'unknown');
