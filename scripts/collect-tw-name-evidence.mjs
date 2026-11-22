@@ -1,0 +1,77 @@
+#!/usr/bin/env node
+/**
+ * Collect authoritative TW product-name evidence by exact NSUID only.
+ * Sources: TW /api/software?spage=N and legacy TW JSON thumbnails.
+ * Read-only. This script NEVER changes games, price records, or Supabase.
+ */
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import path from 'node:path';
+const input=process.argv[2]??'data/tw-hk-full-ids.json';
+const output=process.argv[3]??'reports/tw-name-evidence.json';
+const source=JSON.parse(await readFile(input,'utf8'));
+const knownPrices=new Map();
+for(const [key,g] of Object.entries(source.games??{})){
+  if(g.twTitleId && g.twPrice?.sales_status==='onsale'){
+    const id=String(g.twTitleId);
+    if(!knownPrices.has(id))knownPrices.set(id,[]);
+    knownPrices.get(id).push({key,named:Boolean(g.titleZh||g.titleEn)});
+  }
+}
+const byId=new Map(),failures=[],sourceCounts={apiPages:0,apiItems:0,legacyItems:0};
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function getJson(url){
+  const r=await fetch(url,{headers:{'Accept':'application/json','User-Agent':'Mozilla/5.0'},signal:AbortSignal.timeout(16000)});
+  if(!r.ok)throw new Error('HTTP '+r.status+' '+url);
+  return await r.json();
+}
+function add(id,title,publisher,sourceName){
+  if(!/^7\d{13}$/.test(String(id)) || !title || typeof title!=='string')return;
+  const key=String(id),t=title.trim();
+  if(!t)return;
+  if(!byId.has(key))byId.set(key,[]);
+  if(!byId.get(key).some(e=>e.title===t&&e.source===sourceName))
+    byId.get(key).push({title:t,publisher:publisher||null,source:sourceName});
+}
+try{
+  const seen=new Set();
+  for(let page=1;page<=15;page++){
+    const data=await getJson('https://www.nintendo.com/tw/api/software?spage='+page);
+    const items=Array.isArray(data.items)?data.items:[];
+    if(!items.length)break;
+    const sig=items.map(x=>x.nsuid).join(',');
+    if(seen.has(sig))break;
+    seen.add(sig);
+    sourceCounts.apiPages++;sourceCounts.apiItems+=items.length;
+    for(const item of items)add(item.nsuid,item.title,item.publisher,'tw-api-software');
+    if(Number.isSafeInteger(data.total) && sourceCounts.apiItems>=data.total)break;
+    await sleep(150);
+  }
+}catch(err){failures.push({source:'tw-api-software',error:String(err)});}
+try{
+  const items=await getJson('https://www.nintendo.com/tw/data/json/switch_software.json');
+  if(!Array.isArray(items))throw new Error('unexpected legacy JSON shape');
+  sourceCounts.legacyItems=items.length;
+  for(const x of items){
+    const ids=[x.thumb_img,x.thumb_img_tw].map(y=>String(y??'').match(/^(7\d{13})\.(?:jpe?g|png)$/i)?.[1]).filter(Boolean);
+    for(const id of ids)add(id,x.title,x.maker_publisher,'tw-legacy-json');
+  }
+}catch(err){failures.push({source:'tw-legacy-json',error:String(err)});}
+const matched=[],conflicts=[],unmatchedNamed=0;
+for(const [id,evidence] of byId){
+  const priced=knownPrices.get(id);
+  if(!priced)continue;
+  const normalized=[...new Set(evidence.map(x=>x.title.normalize('NFKC').trim().toLowerCase()))];
+  const record={nsuid:id,evidence,existingKeys:priced.map(x=>x.key),wasNamed:priced.some(x=>x.named)};
+  if(normalized.length>1)conflicts.push(record);
+  else matched.push(record);
+}
+const report={generatedAt:new Date().toISOString(),snapshotGeneratedAt:source.generated_at??null,sourceCounts,
+  pricedTwDistinctNsuid:knownPrices.size,officialDistinctNsuid:byId.size,
+  safeExactNsuidNameMatches:matched.length,alreadyNamedMatches:matched.filter(x=>x.wasNamed).length,
+  potentiallyNewNames:matched.filter(x=>!x.wasNamed).length,
+  conflictingNameMatches:conflicts.length,failures,
+  note:'Exact NSUID only; matching a name does NOT verify DLC/parent game or cross-region identity. No production writes.',
+  matched,conflicts};
+await mkdir(path.dirname(output),{recursive:true});
+await writeFile(output,JSON.stringify(report,null,2)+'\n');
+console.log(JSON.stringify({sourceCounts,pricedTwDistinctNsuid:report.pricedTwDistinctNsuid,officialDistinctNsuid:report.officialDistinctNsuid,safeExactNsuidNameMatches:report.safeExactNsuidNameMatches,potentiallyNewNames:report.potentiallyNewNames,conflictingNameMatches:report.conflictingNameMatches,failures},null,2));
