@@ -46,11 +46,13 @@ async function request(table,query,method='GET',body){
 async function readAll(table,columns){
   const rows=[];
   for(let offset=0;offset<500000;offset+=1000){
-    const page=await request(table,'select='+encodeURIComponent(columns)+'&limit=1000&offset='+offset);
+    const page=await request(table,'select='+encodeURIComponent(columns)+'&order=id.asc&limit=1000&offset='+offset);
     if(!Array.isArray(page))throw new Error('Unexpected DB response');
     rows.push(...page);
     if(page.length<1000)break;
   }
+  if (rows.length && new Set(rows.map(row=>row.id)).size!==rows.length)
+    throw new Error('Duplicate database row IDs during paginated read');
   return rows;
 }
 const [planOrIndex,currentPrices]=await Promise.all([
