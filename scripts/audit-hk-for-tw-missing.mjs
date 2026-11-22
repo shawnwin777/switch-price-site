@@ -38,7 +38,7 @@ async function json(url){
 }
 try{
   const pageSignatures=new Set();
-  for(let page=1;page<=300;page++){
+  for(let page=1;page<=600;page++){
     const response=await json('https://www.nintendo.com/hk/api/software?sftab=all&spage='+page);
     const items=Array.isArray(response.items)?response.items:[];
     if(page===1)stats.total=Number.isInteger(response.total)?response.total:null;
