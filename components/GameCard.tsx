@@ -43,7 +43,7 @@ export default function GameCard({
         <h3 className="game-card-title">
           <Link href={`/games/${game.slug}`}>{game.title_zh}</Link>
         </h3>
-        {game.title_en && game.title_en !== game.title_zh && !/^\\d{14}$/.test(game.title_en) && <div className="game-card-en">{game.title_en}</div>}
+        {game.title_en && game.title_en !== game.title_zh && !/^\d{14}$/.test(game.title_en) && <div className="game-card-en">{game.title_en}</div>}
         <div className="game-card-badges">
           <span className="badge badge-platform">{game.platform ?? "Switch"}</span>
           {game.genre && <span className="badge badge-gray">{game.genre}</span>}
