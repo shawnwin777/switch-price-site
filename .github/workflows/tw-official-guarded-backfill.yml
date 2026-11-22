@@ -1,5 +1,7 @@
-# Two-step manual process. Must be merged and intentionally dispatched on main.
-# Never write without a SHA256 of a previously reviewed preview AND an explicit approval input.
+# Exact official TW metadata only. Auto mode is enabled AFTER a successful live preview.
+# A daily job always rechecks all TW official prices, verifies the preview and
+# applies only an identical SHA256-approved, per-row guarded update batch.
+# Pushes are preview-only except this initial explicitly reviewed activation.
 name: TW official title+cover guarded backfill
 
 on:
@@ -11,6 +13,9 @@ on:
       - 'scripts/guarded-tw-backfill.mjs'
       - 'scripts/lib/tw-official-db-patch.mjs'
       - 'scripts/lib/tw-official-catalog.mjs'
+  schedule:
+    # Every day 04:20 UTC / 12:20 Taipei, after official read-only source refresh
+    - cron: '20 4 * * *'
   workflow_dispatch:
     inputs:
       mode:
@@ -48,19 +53,38 @@ jobs:
         run: |
           node --test tests/tw-official-backfill.test.mjs tests/tw-official-db-patch.test.mjs
           node --check scripts/guarded-tw-backfill.mjs
+          node --check scripts/verify-tw-backfill-preview.mjs
       - name: Validate latest complete Taiwan official catalog with images
         run: node scripts/fetch-tw-official-index.mjs data/.cache/tw-official-index.json --force
       - name: Refresh all currently published Taiwan official game prices
         run: node scripts/scan-tw-official-prices.mjs data/.cache/tw-official-index.json reports/tw-official-prices.json
       - name: Preview exact-NSUID live TW placeholders and missing official art
-        if: github.event_name == 'push' || inputs.mode == 'preview'
+        if: github.event_name != 'workflow_dispatch' || inputs.mode == 'preview'
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           node scripts/guarded-tw-backfill.mjs --index=data/.cache/tw-official-index.json --prices=reports/tw-official-prices.json --report=reports/tw-db-preview.json --max-writes=3000
-      # No production writes run from a PR or from a push to main; manual apply
-      # still requires a previously reviewed SHA256 digest from preview.
+      # User-approved exact TW-NSUID automation, after successful offline tests
+      # and a live DB PREVIEW on the current Supabase rows. Every run re-verifies
+      # its SHA256 before the first write; per-row compare-and-swap prevents clobbers.
+      # Ordinary pushes remain PREVIEW ONLY; approved activation marker is one-time.
+      - name: Auto-apply only a fully validated and identical protected batch
+        if: github.event_name == 'schedule' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[tw-autofill-approved]'))
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TW_BACKFILL_WRITE_APPROVED: YES
+        run: |
+          set -euo pipefail
+          node scripts/verify-tw-backfill-preview.mjs reports/tw-db-preview.json
+          APPROVAL_DIGEST="$(node scripts/verify-tw-backfill-preview.mjs reports/tw-db-preview.json --digest-only)"
+          if [[ "$APPROVAL_DIGEST" == "NONE" ]]; then
+            echo 'No safe Taiwan metadata changes; nothing to apply'
+            exit 0
+          fi
+          node scripts/guarded-tw-backfill.mjs --index=data/.cache/tw-official-index.json --prices=reports/tw-official-prices.json --report=reports/tw-db-applied.json --max-writes=3000 --apply "--approval=$APPROVAL_DIGEST"
+      # A separate manual mode is retained for fully reviewed custom runs.
       - name: Apply only the identical manually approved live plan
         if: inputs.mode == 'apply'
         env:
