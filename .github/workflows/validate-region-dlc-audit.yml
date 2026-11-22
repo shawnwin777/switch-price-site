@@ -8,6 +8,7 @@ on:
       - 'scripts/audit-tw-coverage.mjs'
       - 'scripts/probe-tw-official-catalog.mjs'
       - 'scripts/probe-tw-catalog-pagination.mjs'
+      - 'scripts/collect-tw-name-evidence.mjs'
       - 'tests/audit-region-and-dlc.test.mjs'
       - '.github/workflows/validate-region-dlc-audit.yml'
   workflow_dispatch:
@@ -33,6 +34,7 @@ jobs:
           node --check scripts/audit-tw-coverage.mjs
           node --check scripts/probe-tw-official-catalog.mjs
           node --check scripts/probe-tw-catalog-pagination.mjs
+          node --check scripts/collect-tw-name-evidence.mjs
           node --check tests/audit-region-and-dlc.test.mjs
       - name: Run offline audit tests (no network or DB)
         run: node --test tests/audit-region-and-dlc.test.mjs
@@ -46,6 +48,9 @@ jobs:
       - name: Probe Taiwan official catalog pagination (best effort)
         continue-on-error: true
         run: node scripts/probe-tw-catalog-pagination.mjs
+      - name: Collect official Taiwan name evidence by exact NSUID
+        continue-on-error: true
+        run: node scripts/collect-tw-name-evidence.mjs data/tw-hk-full-ids.json reports/tw-name-evidence.json
       - name: Archive candidate audit report
         uses: actions/upload-artifact@v4
         with:
@@ -55,4 +60,5 @@ jobs:
             reports/tw-coverage.json
             reports/tw-official-sources.json
             reports/tw-api-pagination.json
+            reports/tw-name-evidence.json
           retention-days: 14
