@@ -69,7 +69,7 @@ export function buildTwBackfillChanges(plan, games, regionIds, maxWrites = 3000,
     if (!coverOnly) {
       const english=String(game.title_en??'').trim();
       if (english===nsuid || !english || /^(?:未命名|未知商品|unknown|unnamed|untitled)/i.test(english))
-        patch.title_en=null;
+        patch.title_en=entry.proposedTitleZh.trim(); // games.title_en is NOT NULL; front-end hides duplicate translation
       if (canFillCover && url)patch.cover_url=url;
     }
     changes.push({
