@@ -51,6 +51,10 @@ jobs:
           git add public/data/tw-addons.json
           if ! git diff --cached --quiet; then
             git commit -m "data: refresh verified Taiwan DLC and bundle catalog"
+            # Rebase the PUBLIC snapshot-only commit if another reviewed fix landed
+            # while the read-only price scan was running. No force pushes.
+            git fetch --no-tags origin main
+            git rebase origin/main
             git push origin HEAD:main
           else
             echo "Public catalog unchanged"
