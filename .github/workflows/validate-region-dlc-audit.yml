@@ -10,6 +10,7 @@ on:
       - 'scripts/probe-tw-catalog-pagination.mjs'
       - 'scripts/collect-tw-name-evidence.mjs'
       - 'scripts/audit-hk-for-tw-missing.mjs'
+      - 'scripts/audit-titledb-hk-tw.mjs'
       - 'tests/audit-region-and-dlc.test.mjs'
       - '.github/workflows/validate-region-dlc-audit.yml'
   workflow_dispatch:
@@ -37,6 +38,7 @@ jobs:
           node --check scripts/probe-tw-catalog-pagination.mjs
           node --check scripts/collect-tw-name-evidence.mjs
           node --check scripts/audit-hk-for-tw-missing.mjs
+          node --check scripts/audit-titledb-hk-tw.mjs
           node --check tests/audit-region-and-dlc.test.mjs
       - name: Run offline audit tests (no network or DB)
         run: node --test tests/audit-region-and-dlc.test.mjs
@@ -56,6 +58,9 @@ jobs:
       - name: Audit HK official supplement for priced Taiwan items (read only)
         continue-on-error: true
         run: node scripts/audit-hk-for-tw-missing.mjs data/tw-hk-full-ids.json reports/tw-name-evidence.json reports/hk-supplement-for-tw.json
+      - name: Audit TitleDB HK metadata against Taiwan on-sale NSUIDs (read only)
+        continue-on-error: true
+        run: node scripts/audit-titledb-hk-tw.mjs data/tw-hk-full-ids.json reports/tw-name-evidence.json reports/titledb-hk-tw.json
       - name: Archive candidate audit report
         uses: actions/upload-artifact@v4
         with:
@@ -67,4 +72,5 @@ jobs:
             reports/tw-api-pagination.json
             reports/tw-name-evidence.json
             reports/hk-supplement-for-tw.json
+            reports/titledb-hk-tw.json
           retention-days: 14
