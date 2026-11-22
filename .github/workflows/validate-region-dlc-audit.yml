@@ -1,0 +1,138 @@
+name: Validate TW region and DLC audit tools
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/audit-region-id-candidates.mjs'
+      - 'scripts/report-product-range-scan.mjs'
+      - 'scripts/audit-tw-coverage.mjs'
+      - 'scripts/probe-tw-official-catalog.mjs'
+      - 'scripts/probe-tw-catalog-pagination.mjs'
+      - 'scripts/collect-tw-name-evidence.mjs'
+      - 'scripts/lib/tw-official-catalog.mjs'
+      - 'scripts/fetch-tw-official-index.mjs'
+      - 'scripts/plan-tw-official-backfill.mjs'
+      - 'scripts/scan-tw-official-prices.mjs'
+      - 'scripts/scan-tw-known-addons.mjs'
+      - 'scripts/enrich-tw-addons-titledb.mjs'
+      - '.github/workflows/tw-official-guarded-backfill.yml'
+      - 'scripts/guarded-tw-backfill.mjs'
+      - 'scripts/lib/tw-official-db-patch.mjs'
+      - 'tests/tw-official-db-patch.test.mjs'
+      - 'lib/catalog-sources.ts'
+      - 'app/globals.css'
+      - 'app/taiwan/**'
+      - 'lib/tw-official-public.ts'
+      - 'components/SiteHeader.tsx'
+      - '.github/workflows/tw-official-readonly-daily.yml'
+      - 'tests/tw-official-backfill.test.mjs'
+      - 'scripts/audit-hk-for-tw-missing.mjs'
+      - 'scripts/audit-titledb-hk-tw.mjs'
+      - 'tests/audit-region-and-dlc.test.mjs'
+      - '.github/workflows/validate-region-dlc-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Avoid repeated Nintendo API calls from rapid PR commits.
+concurrency:
+  group: tw-catalog-audit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate JavaScript syntax
+        run: |
+          node --check scripts/audit-region-id-candidates.mjs
+          node --check scripts/report-product-range-scan.mjs
+          node --check scripts/audit-tw-coverage.mjs
+          node --check scripts/probe-tw-official-catalog.mjs
+          node --check scripts/probe-tw-catalog-pagination.mjs
+          node --check scripts/collect-tw-name-evidence.mjs
+          node --check scripts/lib/tw-official-catalog.mjs
+          node --check scripts/fetch-tw-official-index.mjs
+          node --check scripts/plan-tw-official-backfill.mjs
+          node --check scripts/scan-tw-official-prices.mjs
+          node --check scripts/scan-tw-known-addons.mjs
+          node --check scripts/enrich-tw-addons-titledb.mjs
+          node --check scripts/guarded-tw-backfill.mjs
+          node --check scripts/lib/tw-official-db-patch.mjs
+          node --check tests/tw-official-db-patch.test.mjs
+          node --check tests/tw-official-backfill.test.mjs
+          node --check scripts/audit-hk-for-tw-missing.mjs
+          node --check scripts/audit-titledb-hk-tw.mjs
+          node --check tests/audit-region-and-dlc.test.mjs
+      - name: Run offline audit tests (no network or DB)
+        run: node --test tests/audit-region-and-dlc.test.mjs tests/tw-official-backfill.test.mjs tests/tw-official-db-patch.test.mjs
+      - name: Audit committed TW/HK catalog snapshot (read only)
+        run: node scripts/audit-region-id-candidates.mjs data/tw-hk-full-ids.json reports/region-id-candidates.json
+      - name: Audit Taiwan catalog coverage (read only)
+        run: node scripts/audit-tw-coverage.mjs data/tw-hk-full-ids.json reports/tw-coverage.json
+      - name: Probe Taiwan official catalog sources (best effort)
+        continue-on-error: true
+        run: node scripts/probe-tw-official-catalog.mjs reports/tw-official-sources.json
+      - name: Probe Taiwan official catalog pagination (best effort)
+        continue-on-error: true
+        run: node scripts/probe-tw-catalog-pagination.mjs
+      - name: Restore previously validated TW catalog index
+        uses: actions/cache@v4
+        with:
+          path: data/.cache/tw-official-index.json
+          key: tw-official-index-${{ github.run_id }}
+          restore-keys: |
+            tw-official-index-
+      - name: Fetch and validate complete TW official catalog (no DB)
+        run: node scripts/fetch-tw-official-index.mjs data/.cache/tw-official-index.json --fresh-hours=20
+      - name: Build exact NSUID Taiwan title and image backfill plan (read only)
+        run: node scripts/plan-tw-official-backfill.mjs data/tw-hk-full-ids.json data/.cache/tw-official-index.json reports/tw-official-backfill-plan.json
+      - name: Sample official Taiwan price API by known NSUIDs (read only)
+        continue-on-error: true
+        run: node scripts/scan-tw-official-prices.mjs data/.cache/tw-official-index.json reports/tw-official-prices-sample.json --limit=50
+      - name: Check all historically known Taiwan DLC and bundle prices (read only)
+        run: node scripts/scan-tw-known-addons.mjs data/tw-hk-full-ids.json reports/tw-addons-current-status.json
+      - name: Enrich Taiwan-priced DLC from TitleDB HK exact NSUIDs (read only)
+        continue-on-error: true
+        run: node scripts/enrich-tw-addons-titledb.mjs reports/tw-addons-current-status.json reports/tw-addon-metadata-evidence.json
+      - name: Collect official Taiwan name evidence by exact NSUID
+        env:
+          TW_OFFICIAL_INDEX_PATH: data/.cache/tw-official-index.json
+        run: node scripts/collect-tw-name-evidence.mjs data/tw-hk-full-ids.json reports/tw-name-evidence.json
+      - name: Audit HK official supplement for priced Taiwan items (read only)
+        if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        run: node scripts/audit-hk-for-tw-missing.mjs data/tw-hk-full-ids.json reports/tw-name-evidence.json reports/hk-supplement-for-tw.json
+      - name: Audit TitleDB HK metadata against Taiwan on-sale NSUIDs (read only)
+        if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        run: node scripts/audit-titledb-hk-tw.mjs data/tw-hk-full-ids.json reports/tw-name-evidence.json reports/titledb-hk-tw.json
+      - name: Verify Next.js production bundle
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Archive candidate audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: tw-cross-region-candidates
+          path: |
+            reports/region-id-candidates.json
+            reports/tw-coverage.json
+            reports/tw-official-sources.json
+            reports/tw-api-pagination.json
+            reports/tw-name-evidence.json
+            reports/tw-official-backfill-plan.json
+            reports/tw-addons-current-status.json
+            reports/tw-addon-metadata-evidence.json
+            reports/tw-official-prices-sample.json
+            reports/hk-supplement-for-tw.json
+            reports/titledb-hk-tw.json
+          retention-days: 14

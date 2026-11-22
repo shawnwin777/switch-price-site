@@ -1,0 +1,51 @@
+# Taiwan official catalog daily index & prices — READ ONLY.
+# IMPORTANT: GitHub schedule only runs workflows on default branch.
+# Keep PR draft until tests + explicit approval. This workflow never writes Supabase.
+name: TW official catalog daily read-only probe
+
+on:
+  schedule:
+    # 03:30 UTC = 11:30 Taipei
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tw-official-catalog-readonly
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Restore official TW index cache
+        uses: actions/cache@v4
+        with:
+          path: data/.cache/tw-official-index.json
+          key: tw-official-index-${{ github.run_id }}
+          restore-keys: |
+            tw-official-index-
+      - name: Verify and refresh complete official Taiwan index (no DB)
+        run: node scripts/fetch-tw-official-index.mjs data/.cache/tw-official-index.json --fresh-hours=20
+      - name: Daily targeted TW price probe by known NSUIDs (no DB)
+        run: node scripts/scan-tw-official-prices.mjs data/.cache/tw-official-index.json reports/tw-official-prices.json
+      - name: Compare with repository snapshot for naming and cover candidates
+        run: node scripts/plan-tw-official-backfill.mjs data/tw-hk-full-ids.json data/.cache/tw-official-index.json reports/tw-official-backfill-plan.json
+      - name: Upload read-only outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tw-official-index-and-prices
+          path: |
+            data/.cache/tw-official-index.json
+            reports/tw-official-prices.json
+            reports/tw-official-backfill-plan.json
+          retention-days: 14
+          if-no-files-found: warn
