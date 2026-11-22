@@ -60,7 +60,7 @@ const [planOrIndex,currentPrices]=await Promise.all([
 ]).then(x=>x.map(JSON.parse));
 const [games,regionIds]=await Promise.all([
   readAll('games','id,slug,title_zh,title_en,cover_url,is_unnamed,product_type'),
-  readAll('game_region_ids','game_id,country,title_id'),
+  readAll('game_region_ids','id,game_id,country,title_id'),
 ]);
 const plan=indexPath?planLiveTwBackfill(planOrIndex,currentPrices,games,regionIds):planOrIndex;
 const {changes,skipped}=buildTwBackfillChanges(plan,games,regionIds,maxWrites,currentPrices);
