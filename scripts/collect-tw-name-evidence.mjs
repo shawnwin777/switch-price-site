@@ -18,6 +18,22 @@ for(const [key,g] of Object.entries(source.games??{})){
   }
 }
 const byId=new Map(),failures=[],sourceCounts={apiPages:0,apiItems:0,apiReportedTotal:null,apiComplete:false,legacyItems:0};
+const officialMediaById=new Map(), officialPrefixes={}, hardwareCategories={}, imageUrlHosts={};
+const officialImageProbeSamples=[];
+function mediaUrl(imageHero,imageHeroOrg){
+  const candidates=[imageHero?.url, imageHeroOrg];
+  for(const raw of candidates){
+    if(typeof raw!=='string' || !raw.trim())continue;
+    try {
+      const u=new URL(raw,'https://www.nintendo.com/');
+      if(u.protocol!=='https:')continue;
+      const h=u.hostname.toLowerCase();
+      if(!(h==='nintendo.com'||h.endsWith('.nintendo.com')||h.endsWith('.nintendo.net')||h.endsWith('.nintendo.co.jp')||h.endsWith('.nintendo-europe.com')))continue;
+      return u.toString();
+    } catch {}
+  }
+  return null;
+}
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function getJson(url){
   let error;
@@ -49,7 +65,21 @@ try{
     if(seen.has(sig))break;
     seen.add(sig);
     sourceCounts.apiPages++;sourceCounts.apiItems+=items.length;
-    for(const item of items)add(item.nsuid,item.title,item.publisher,'tw-api-software');
+    for(const item of items){
+      add(item.nsuid,item.title,item.publisher,'tw-api-software');
+      const nsuid=String(item.nsuid??'');
+      if(!/^7\\d{13}$/.test(nsuid))continue;
+      const prefix=nsuid.slice(0,4);
+      officialPrefixes[prefix]=(officialPrefixes[prefix]??0)+1;
+      const hw=String(item.hardwareCategory??'unknown');
+      hardwareCategories[hw]=(hardwareCategories[hw]??0)+1;
+      const url=mediaUrl(item.imageHero,item.imageHeroOrg);
+      if(url){
+        officialMediaById.set(nsuid,{url,title:item.title??null,hardwareCategory:hw});
+        try{const host=new URL(url).hostname;imageUrlHosts[host]=(imageUrlHosts[host]??0)+1;}catch{}
+        if(officialImageProbeSamples.length<12)officialImageProbeSamples.push({nsuid,url});
+      }
+    }
     if(Number.isSafeInteger(data.total) && sourceCounts.apiItems>=data.total){sourceCounts.apiComplete=true;break;}
     await sleep(150);
   }
@@ -68,7 +98,8 @@ for(const [id,evidence] of byId){
   const priced=knownPrices.get(id);
   if(!priced)continue;
   const normalized=[...new Set(evidence.map(x=>x.title.normalize('NFKC').trim().toLowerCase()))];
-  const record={nsuid:id,evidence,existingKeys:priced.map(x=>x.key),wasNamed:priced.some(x=>x.named)};
+  const record={nsuid:id,evidence,existingKeys:priced.map(x=>x.key),wasNamed:priced.some(x=>x.named),
+    officialCoverUrl:officialMediaById.get(id)?.url??null};
   if(normalized.length>1)conflicts.push(record);
   else matched.push(record);
 }
@@ -78,8 +109,14 @@ const report={generatedAt:new Date().toISOString(),snapshotGeneratedAt:source.ge
   safeExactNsuidNameMatches:matched.length,alreadyNamedMatches:matched.filter(x=>x.wasNamed).length,
   potentiallyNewNames:matched.filter(x=>!x.wasNamed).length,
   conflictingNameMatches:conflicts.length,failures,
+  officialProductStats:{nsuidPrefixes:officialPrefixes,hardwareCategories,officialItemsWithAcceptedImageUrl:officialMediaById.size,imageUrlHosts,
+    matchedPricedWithOfficialImage:matched.filter(x=>x.officialCoverUrl).length,
+    potentialNewNameAndCover:matched.filter(x=>!x.wasNamed && x.officialCoverUrl).length,
+    conflictingNameWithOfficialImage:conflicts.filter(x=>x.officialCoverUrl).length,
+    imageUrlProbeSamples:officialImageProbeSamples},
+
   note:'Exact NSUID only; matching a name does NOT verify DLC/parent game or cross-region identity. No production writes.',
   matched,conflicts};
 await mkdir(path.dirname(output),{recursive:true});
 await writeFile(output,JSON.stringify(report,null,2)+'\n');
-console.log(JSON.stringify({sourceCounts,pricedTwDistinctNsuid:report.pricedTwDistinctNsuid,officialDistinctNsuid:report.officialDistinctNsuid,safeExactNsuidNameMatches:report.safeExactNsuidNameMatches,potentiallyNewNames:report.potentiallyNewNames,conflictingNameMatches:report.conflictingNameMatches,failures},null,2));
+console.log(JSON.stringify({sourceCounts,pricedTwDistinctNsuid:report.pricedTwDistinctNsuid,officialDistinctNsuid:report.officialDistinctNsuid,safeExactNsuidNameMatches:report.safeExactNsuidNameMatches,potentiallyNewNames:report.potentiallyNewNames,conflictingNameMatches:report.conflictingNameMatches,officialProductStats:report.officialProductStats,failures},null,2));
