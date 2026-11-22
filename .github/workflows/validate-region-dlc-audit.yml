@@ -7,6 +7,7 @@ on:
       - 'scripts/report-product-range-scan.mjs'
       - 'scripts/audit-tw-coverage.mjs'
       - 'scripts/probe-tw-official-catalog.mjs'
+      - 'scripts/probe-tw-catalog-pagination.mjs'
       - 'tests/audit-region-and-dlc.test.mjs'
       - '.github/workflows/validate-region-dlc-audit.yml'
   workflow_dispatch:
@@ -31,6 +32,7 @@ jobs:
           node --check scripts/report-product-range-scan.mjs
           node --check scripts/audit-tw-coverage.mjs
           node --check scripts/probe-tw-official-catalog.mjs
+          node --check scripts/probe-tw-catalog-pagination.mjs
           node --check tests/audit-region-and-dlc.test.mjs
       - name: Run offline audit tests (no network or DB)
         run: node --test tests/audit-region-and-dlc.test.mjs
@@ -41,6 +43,9 @@ jobs:
       - name: Probe Taiwan official catalog sources (best effort)
         continue-on-error: true
         run: node scripts/probe-tw-official-catalog.mjs reports/tw-official-sources.json
+      - name: Probe Taiwan official catalog pagination (best effort)
+        continue-on-error: true
+        run: node scripts/probe-tw-catalog-pagination.mjs
       - name: Archive candidate audit report
         uses: actions/upload-artifact@v4
         with:
@@ -49,4 +54,5 @@ jobs:
             reports/region-id-candidates.json
             reports/tw-coverage.json
             reports/tw-official-sources.json
+            reports/tw-api-pagination.json
           retention-days: 14
