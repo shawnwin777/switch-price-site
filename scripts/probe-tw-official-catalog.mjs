@@ -30,6 +30,14 @@ for(const url of endpoints) {
         const item=Array.isArray(json)?json[0]:Object.values(json).find(v=>Array.isArray(v))?.[0];
         record.firstItemKeys=item && typeof item==='object'?Object.keys(item).slice(0,40):[];
         record.publicSample=item && typeof item==='object'?Object.fromEntries(Object.entries(item).filter(([k,v])=>/title|name|nsuid|product|id|code|thumb/i.test(k)&&['string','number'].includes(typeof v)).slice(0,12)):null;
+        const sample=items=>items.filter(x=>x && typeof x==='object').slice(0,5).map(x=>({
+          nsuid:x.nsuid??null,
+          imageHeroType:typeof x.imageHero,
+          imageHero:x.imageHero&&typeof x.imageHero==='object'?Object.fromEntries(Object.entries(x.imageHero).slice(0,5)):x.imageHero??null,
+          imageHeroOrg:x.imageHeroOrg??null,
+          contentfulMetadataKeys:x.contentfulMetadata&&typeof x.contentfulMetadata==='object'?Object.keys(x.contentfulMetadata).slice(0,12):[]
+        }));
+        record.publicImages=Array.isArray(json.items)?sample(json.items):[];
       }catch{record.jsonParse='unavailable_or_truncated';}
     }
     results.push(record);
@@ -38,4 +46,4 @@ for(const url of endpoints) {
 const report={generatedAt:new Date().toISOString(),note:'Probe only: endpoint existence or sample NSUID count does not establish a complete Taiwan catalog. No production writes.',results};
 await mkdir(path.dirname(output),{recursive:true});
 await writeFile(output,JSON.stringify(report,null,2)+'\n');
-for(const x of results) console.log(JSON.stringify({url:x.url,status:x.status,error:x.error,distinctNsuidsInSample:x.distinctNsuidsInSample,jsonTopLevelLength:x.jsonTopLevelLength,jsonTopLevelKeys:x.jsonTopLevelKeys,firstItemKeys:x.firstItemKeys,publicSample:x.publicSample}));
+for(const x of results) console.log(JSON.stringify({url:x.url,status:x.status,error:x.error,distinctNsuidsInSample:x.distinctNsuidsInSample,jsonTopLevelLength:x.jsonTopLevelLength,jsonTopLevelKeys:x.jsonTopLevelKeys,firstItemKeys:x.firstItemKeys,publicSample:x.publicSample,publicImages:x.publicImages}));
