@@ -4,7 +4,7 @@
 import { writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 const base='https://www.nintendo.com/tw/api/software';
-const qs=['','?page=2','?spage=2','?page=2&limit=50','?offset=50&limit=50','?page=2&per_page=50','?limit=100'];
+const qs=['','?page=2','?spage=2','?page=2&limit=50','?offset=50&limit=50','?page=2&per_page=50','?limit=100','?sftab=all','?sftab=all&spage=2','?sftab=all&spage=10'];
 const results=[];
 for(const q of qs){
   try{
