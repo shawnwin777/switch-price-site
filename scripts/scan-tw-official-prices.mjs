@@ -63,9 +63,11 @@ for(const batch of batches){
   try{
     const rows=await query(batch);
     const batchIds=new Set(batch);
+    const seenInBatch=new Set();
     for(const row of rows){
       const nsuid=String(row?.title_id??'');
-      if(!batchIds.has(nsuid))throw new Error('Price API response contains unexpected NSUID');
+      if(!batchIds.has(nsuid) || seenInBatch.has(nsuid))throw new Error('Unexpected or duplicate NSUID in price API response');
+      seenInBatch.add(nsuid);
       const status=typeof row.sales_status==='string'?row.sales_status:'unknown';
       statusCounts[status]=(statusCounts[status]??0)+1;
       const regular=priceNumber(row.regular_price?.raw_value);
@@ -76,6 +78,7 @@ for(const batch of batches){
         saleEnd:row.discount_price?.end_datetime??null,
       };
     }
+    if(seenInBatch.size!==batch.length)throw new Error('Incomplete price batch: '+seenInBatch.size+'/'+batch.length);
     finished++;
   }catch(e){error=String(e);break;}
   await sleep(800);
