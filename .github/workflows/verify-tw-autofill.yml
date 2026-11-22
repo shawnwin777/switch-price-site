@@ -1,0 +1,41 @@
+name: Verify guarded Taiwan metadata backfill
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/lib/tw-official-catalog.mjs'
+      - 'scripts/lib/tw-official-db-patch.mjs'
+      - 'scripts/fetch-tw-official-index.mjs'
+      - 'scripts/plan-tw-official-backfill.mjs'
+      - 'scripts/scan-tw-official-prices.mjs'
+      - 'scripts/guarded-tw-backfill.mjs'
+      - 'tests/tw-official-backfill.test.mjs'
+      - 'tests/tw-official-db-patch.test.mjs'
+      - '.github/workflows/tw-official-guarded-backfill.yml'
+      - '.github/workflows/verify-tw-autofill.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-tw-autofill-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax and exact-NSUID safety regression tests
+        run: |
+          node --check scripts/lib/tw-official-catalog.mjs
+          node --check scripts/lib/tw-official-db-patch.mjs
+          node --check scripts/fetch-tw-official-index.mjs
+          node --check scripts/scan-tw-official-prices.mjs
+          node --check scripts/guarded-tw-backfill.mjs
+          node --test tests/tw-official-backfill.test.mjs tests/tw-official-db-patch.test.mjs
