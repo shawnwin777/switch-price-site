@@ -1,0 +1,52 @@
+name: Verify Taiwan addon public catalog
+
+on:
+  pull_request:
+    paths:
+      - 'app/taiwan/**'
+      - 'scripts/scan-tw-known-addons.mjs'
+      - 'scripts/enrich-tw-addons-titledb.mjs'
+      - 'scripts/build-public-tw-addons.mjs'
+      - 'public/data/tw-addons.json'
+      - '.github/workflows/tw-addons-public-daily.yml'
+      - '.github/workflows/verify-tw-addons-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Validate read-only scripts
+        run: |
+          node --check scripts/scan-tw-known-addons.mjs
+          node --check scripts/enrich-tw-addons-titledb.mjs
+          node --check scripts/build-public-tw-addons.mjs
+      - name: Verify EVERY historically known Taiwan addon price
+        run: node scripts/scan-tw-known-addons.mjs data/tw-hk-full-ids.json reports/tw-addons-current-status.json
+      - name: Add only exact-NSUID third-party supplemental names
+        run: node scripts/enrich-tw-addons-titledb.mjs reports/tw-addons-current-status.json reports/tw-addon-metadata-evidence.json
+      - name: Validate safe public preview
+        run: node scripts/build-public-tw-addons.mjs reports/tw-addons-current-status.json reports/tw-addon-metadata-evidence.json public/data/tw-addons.json
+      - name: Compile production Next.js
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Save evidence, do not commit or deploy
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tw-public-addon-verified-preview
+          path: |
+            reports/tw-addons-current-status.json
+            reports/tw-addon-metadata-evidence.json
+            public/data/tw-addons.json
+          retention-days: 14
