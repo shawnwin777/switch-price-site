@@ -3,6 +3,13 @@
 name: TW official title+cover guarded backfill
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/tw-official-guarded-backfill.yml'
+      - 'scripts/guarded-tw-backfill.mjs'
+      - 'scripts/lib/tw-official-db-patch.mjs'
   workflow_dispatch:
     inputs:
       mode:
@@ -47,7 +54,7 @@ jobs:
       - name: Refresh all currently published Taiwan official game prices
         run: node scripts/scan-tw-official-prices.mjs data/.cache/tw-official-index.json reports/tw-official-prices.json
       - name: Preview protected existing placeholder updates
-        if: inputs.mode == 'preview'
+        if: github.event_name == 'push' || inputs.mode == 'preview'
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
