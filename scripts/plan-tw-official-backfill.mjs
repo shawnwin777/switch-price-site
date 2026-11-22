@@ -11,6 +11,8 @@ const snapshotPath = process.argv[2] || 'data/tw-hk-full-ids.json';
 const indexPath = process.argv[3] || 'data/.cache/tw-official-index.json';
 const output = process.argv[4] || 'reports/tw-official-backfill-plan.json';
 const [scan,index] = await Promise.all([readFile(snapshotPath,'utf8'),readFile(indexPath,'utf8')]).then(x=>x.map(JSON.parse));
+const ageMs = Date.now() - Date.parse(index.fetchedAt);
+if (!Number.isFinite(ageMs) || ageMs < 0 || ageMs > 48 * 3600_000) throw new Error('Official TW catalog evidence is stale (>48 hours)');
 const plan = planTwExactBackfill(scan,index);
 await mkdir(path.dirname(output),{recursive:true});
 await writeFile(output,JSON.stringify(plan,null,2)+'\n','utf8');
