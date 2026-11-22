@@ -13,6 +13,12 @@ on:
       - 'scripts/fetch-tw-official-index.mjs'
       - 'scripts/plan-tw-official-backfill.mjs'
       - 'scripts/scan-tw-official-prices.mjs'
+      - 'scripts/scan-tw-known-addons.mjs'
+      - 'scripts/guarded-tw-backfill.mjs'
+      - 'scripts/lib/tw-official-db-patch.mjs'
+      - 'tests/tw-official-db-patch.test.mjs'
+      - 'lib/catalog-sources.ts'
+      - 'app/globals.css'
       - '.github/workflows/tw-official-readonly-daily.yml'
       - 'tests/tw-official-backfill.test.mjs'
       - 'scripts/audit-hk-for-tw-missing.mjs'
@@ -32,7 +38,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,12 +58,16 @@ jobs:
           node --check scripts/fetch-tw-official-index.mjs
           node --check scripts/plan-tw-official-backfill.mjs
           node --check scripts/scan-tw-official-prices.mjs
+          node --check scripts/scan-tw-known-addons.mjs
+          node --check scripts/guarded-tw-backfill.mjs
+          node --check scripts/lib/tw-official-db-patch.mjs
+          node --check tests/tw-official-db-patch.test.mjs
           node --check tests/tw-official-backfill.test.mjs
           node --check scripts/audit-hk-for-tw-missing.mjs
           node --check scripts/audit-titledb-hk-tw.mjs
           node --check tests/audit-region-and-dlc.test.mjs
       - name: Run offline audit tests (no network or DB)
-        run: node --test tests/audit-region-and-dlc.test.mjs tests/tw-official-backfill.test.mjs
+        run: node --test tests/audit-region-and-dlc.test.mjs tests/tw-official-backfill.test.mjs tests/tw-official-db-patch.test.mjs
       - name: Audit committed TW/HK catalog snapshot (read only)
         run: node scripts/audit-region-id-candidates.mjs data/tw-hk-full-ids.json reports/region-id-candidates.json
       - name: Audit Taiwan catalog coverage (read only)
@@ -82,6 +92,8 @@ jobs:
       - name: Sample official Taiwan price API by known NSUIDs (read only)
         continue-on-error: true
         run: node scripts/scan-tw-official-prices.mjs data/.cache/tw-official-index.json reports/tw-official-prices-sample.json --limit=50
+      - name: Check all historically known Taiwan DLC and bundle prices (read only)
+        run: node scripts/scan-tw-known-addons.mjs data/tw-hk-full-ids.json reports/tw-addons-current-status.json
       - name: Collect official Taiwan name evidence by exact NSUID
         env:
           TW_OFFICIAL_INDEX_PATH: data/.cache/tw-official-index.json
@@ -105,6 +117,7 @@ jobs:
             reports/tw-api-pagination.json
             reports/tw-name-evidence.json
             reports/tw-official-backfill-plan.json
+            reports/tw-addons-current-status.json
             reports/tw-official-prices-sample.json
             reports/hk-supplement-for-tw.json
             reports/titledb-hk-tw.json
