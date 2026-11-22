@@ -62,14 +62,24 @@ const [games,regionIds]=await Promise.all([
   readAll('games','id,slug,title_zh,title_en,cover_url,is_unnamed,product_type'),
   readAll('game_region_ids','id,game_id,country,title_id'),
 ]);
-const plan=indexPath?planLiveTwBackfill(planOrIndex,currentPrices,games,regionIds):planOrIndex;
+const fullPlan=indexPath?planLiveTwBackfill(planOrIndex,currentPrices,games,regionIds):planOrIndex;
+// Keep the hard 3000-write limit. The live plan may contain more than 3000
+// verified changes; process a bounded batch, name-first and cover-only second.
+// Remaining candidates are NOT lost: next run rebuilds the plan from live DB.
+const priority={exact_nsuid_pending_review:0,exact_nsuid_cover_only_review:1};
+const ordered=[...fullPlan.candidates].sort((a,b)=>
+  (priority[a.status]??9)-(priority[b.status]??9) ||
+  String(a.nsuid).localeCompare(String(b.nsuid)));
+const plan=indexPath?{...fullPlan,candidates:ordered.slice(0,maxWrites)}:fullPlan;
+const deferredCandidates=fullPlan.candidates.length-plan.candidates.length;
 const {changes,skipped}=buildTwBackfillChanges(plan,games,regionIds,maxWrites,currentPrices);
 const digest=createHash('sha256').update(JSON.stringify(changes)).digest('hex');
 const report={
   generatedAt:new Date().toISOString(),mode:apply?'APPLY':'PREVIEW',
   input:{plan:indexPath??planPath,liveIndexMode:Boolean(indexPath),prices:pricePath,sourceAt:plan.officialFetchedAt,priceAt:currentPrices.generatedAt},
   databaseRows:{games:games.length,regionIds:regionIds.length},
-  approvalSha256:digest,totalReviewedCandidates:plan.candidates.length,
+  approvalSha256:digest,totalReviewedCandidates:fullPlan.candidates.length,
+  batchReviewedCandidates:plan.candidates.length,deferredCandidates,
   eligibleChanges:changes.length,skippedCount:skipped.length,skipped,
   beforeSnapshots:changes.map(({gameId,nsuid,slug,before})=>({gameId,nsuid,slug,...before})),
   changes:changes.map(({gameId,nsuid,slug,patch})=>({gameId,nsuid,slug,patch})),
@@ -82,7 +92,7 @@ async function writeReport(){
 }
 await writeReport();
 console.log(JSON.stringify({mode:report.mode,eligibleChanges:changes.length,
-  skipped:skipped.length,approvalSha256:digest,output}));
+  skipped:skipped.length,deferredCandidates,approvalSha256:digest,output}));
 if(!apply)process.exit(0);
 if(digest!==approval)throw new Error('Approval SHA256 mismatch; dry-run preview must be reviewed and accepted first');
 for(const c of changes){
