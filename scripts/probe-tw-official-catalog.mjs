@@ -27,6 +27,9 @@ for(const url of endpoints) {
         record.jsonTopLevelKind=Array.isArray(json)?'array':typeof json;
         record.jsonTopLevelKeys=Array.isArray(json)?[]:Object.keys(json).slice(0,30);
         record.jsonTopLevelLength=Array.isArray(json)?json.length:null;
+        const item=Array.isArray(json)?json[0]:Object.values(json).find(v=>Array.isArray(v))?.[0];
+        record.firstItemKeys=item && typeof item==='object'?Object.keys(item).slice(0,40):[];
+        record.publicSample=item && typeof item==='object'?Object.fromEntries(Object.entries(item).filter(([k,v])=>/title|name|nsuid|product|id|code|thumb/i.test(k)&&['string','number'].includes(typeof v)).slice(0,12)):null;
       }catch{record.jsonParse='unavailable_or_truncated';}
     }
     results.push(record);
@@ -35,4 +38,4 @@ for(const url of endpoints) {
 const report={generatedAt:new Date().toISOString(),note:'Probe only: endpoint existence or sample NSUID count does not establish a complete Taiwan catalog. No production writes.',results};
 await mkdir(path.dirname(output),{recursive:true});
 await writeFile(output,JSON.stringify(report,null,2)+'\n');
-for(const x of results) console.log(JSON.stringify({url:x.url,status:x.status,error:x.error,distinctNsuidsInSample:x.distinctNsuidsInSample,jsonTopLevelLength:x.jsonTopLevelLength}));
+for(const x of results) console.log(JSON.stringify({url:x.url,status:x.status,error:x.error,distinctNsuidsInSample:x.distinctNsuidsInSample,jsonTopLevelLength:x.jsonTopLevelLength,jsonTopLevelKeys:x.jsonTopLevelKeys,firstItemKeys:x.firstItemKeys,publicSample:x.publicSample}));
