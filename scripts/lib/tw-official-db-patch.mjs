@@ -6,12 +6,18 @@
 import { officialImageUrl, NSUID_PATTERN } from './tw-official-catalog.mjs';
 export const PLACEHOLDER = '/covers/placeholder.svg';
 
-export function buildTwBackfillChanges(plan, games, regionIds, maxWrites = 3000) {
+export function buildTwBackfillChanges(plan, games, regionIds, maxWrites = 3000, currentPrices = null) {
   if (plan?.mode !== 'READ_ONLY_NO_SUPABASE' || !plan.complete || !Array.isArray(plan.candidates))
     throw new Error('Expected a complete, audited TW exact-NSUID plan');
   if (!Array.isArray(games) || !Array.isArray(regionIds)) throw new Error('Missing live database records');
   if (!Number.isSafeInteger(maxWrites) || maxWrites < 1 || maxWrites > 3000)
     throw new Error('Invalid maxWrites');
+  if (currentPrices !== null) {
+    const age = Date.now() - Date.parse(currentPrices.generatedAt);
+    if (!currentPrices.complete || currentPrices.scope !== 'full_official_catalog' ||
+        !Number.isFinite(age) || age < 0 || age > 36 * 3600_000)
+      throw new Error('Fresh complete official TW price report is required');
+  }
   const byGame = new Map(games.map(g => [g.id, g]));
   const byNsuid = new Map();
   for (const r of regionIds) {
@@ -30,6 +36,8 @@ export function buildTwBackfillChanges(plan, games, regionIds, maxWrites = 3000)
         typeof entry.proposedTitleZh !== 'string' || !entry.proposedTitleZh.trim()) why='invalid_evidence';
     else if (seen.has(nsuid)) why='duplicate_candidate';
     seen.add(nsuid);
+    if (!why && currentPrices !== null &&
+        currentPrices.prices?.[nsuid]?.sales_status !== 'onsale') why='not_currently_onsale';
     const refIds = byNsuid.get(nsuid);
     if (!why && (!refIds || refIds.size !== 1)) why='missing_or_ambiguous_tw_region_id';
     const game = !why ? byGame.get([...refIds][0]) : null;
