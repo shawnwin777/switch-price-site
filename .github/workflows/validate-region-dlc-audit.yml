@@ -22,6 +22,11 @@ on:
 permissions:
   contents: read
 
+# Avoid repeated Nintendo API calls from rapid PR commits.
+concurrency:
+  group: tw-catalog-audit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -76,9 +81,11 @@ jobs:
           TW_OFFICIAL_INDEX_PATH: data/.cache/tw-official-index.json
         run: node scripts/collect-tw-name-evidence.mjs data/tw-hk-full-ids.json reports/tw-name-evidence.json
       - name: Audit HK official supplement for priced Taiwan items (read only)
+        if: github.event_name == 'workflow_dispatch'
         continue-on-error: true
         run: node scripts/audit-hk-for-tw-missing.mjs data/tw-hk-full-ids.json reports/tw-name-evidence.json reports/hk-supplement-for-tw.json
       - name: Audit TitleDB HK metadata against Taiwan on-sale NSUIDs (read only)
+        if: github.event_name == 'workflow_dispatch'
         continue-on-error: true
         run: node scripts/audit-titledb-hk-tw.mjs data/tw-hk-full-ids.json reports/tw-name-evidence.json reports/titledb-hk-tw.json
       - name: Archive candidate audit report
