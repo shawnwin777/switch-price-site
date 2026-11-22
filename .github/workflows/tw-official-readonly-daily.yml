@@ -29,7 +29,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: data/.cache/tw-official-index.json
-          key: tw-official-index-\${{ github.run_id }}
+          key: tw-official-index-${{ github.run_id }}
           restore-keys: |
             tw-official-index-
       - name: Verify and refresh complete official Taiwan index (no DB)
