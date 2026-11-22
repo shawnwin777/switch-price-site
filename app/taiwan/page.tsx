@@ -20,10 +20,11 @@ function priceLabel(p: Awaited<ReturnType<typeof getTwPublicPrices>>[string] | u
   if (p.salesStatus === "sales_termination") return "已停售";
   if (p.salesStatus !== "onsale") return "目前無在售價格";
   if (p.effective === null) return "目前價格未公開";
+  if (p.currency && p.currency !== "TWD")
+    return p.currency + " " + new Intl.NumberFormat("zh-TW").format(p.effective);
   return new Intl.NumberFormat("zh-TW", {
-    style:"currency",currency:p.currency === "TWD" ? "TWD" : "TWD",
-    maximumFractionDigits:0,
-  }).format(p.effective) + (p.currency && p.currency !== "TWD" ? " (" + p.currency + ")" : "");
+    style:"currency",currency:"TWD",maximumFractionDigits:0,
+  }).format(p.effective);
 }
 
 export default async function TaiwanOfficialPage({searchParams}: {searchParams:Params}) {
