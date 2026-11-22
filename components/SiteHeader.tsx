@@ -45,6 +45,7 @@ export default function SiteHeader() {
         </Link>
         <nav className="nav">
           <Link href="/">首頁</Link>
+          <Link href="/taiwan">台灣完整目錄</Link>
           <Link href="/ranking">收藏排行</Link>
           {email && isAdminEmail(email) && <Link href="/add">新增遊戲</Link>}
           {email ? (
