@@ -58,8 +58,10 @@ for(let i=0;i<p.changes.length;i++){
       die('Would rename an existing named or differently identified product');
     if(typeof patch.title_zh!=='string'||!patch.title_zh.trim()||patch.title_zh.length>500)
       die('Missing official title');
-    if(patch.title_en!==undefined&&patch.title_en!==null)
-      die('Title English cannot be replaced with unverified text');
+    // Supabase games.title_en is NOT NULL. For placeholders, mirror the
+    // exact same verified TW title; never introduce guessed English.
+    if(patch.title_en!==undefined && patch.title_en!==patch.title_zh)
+      die('English title may only mirror verified TW title for NOT NULL column');
     const oldTitle=String(before.title_zh??'').trim();
     if(oldTitle&&![
       '未命名商品 '+nsuid,'未命名遊戲 '+nsuid,'未知商品 '+nsuid,
