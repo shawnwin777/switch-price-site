@@ -66,7 +66,9 @@ jobs:
         run: |
           node scripts/guarded-tw-backfill.mjs --index=data/.cache/tw-official-index.json --prices=reports/tw-official-prices.json --report=reports/tw-db-preview.json --max-writes=3000
       # User-approved exact TW-NSUID automation, after successful offline tests
-      # and a live DB PREVIEW on the current Supabase rows. Every run re-verifies
+      # and a live DB PREVIEW on the current Supabase rows. The title_en field
+      # remains non-NULL as required by schema; duplicate display text is hidden.
+      # Every run re-verifies
       # its SHA256 before the first write; per-row compare-and-swap prevents clobbers.
       # Ordinary pushes remain PREVIEW ONLY; approved activation marker is one-time.
       - name: Auto-apply only a fully validated and identical protected batch
