@@ -51,10 +51,15 @@ export function buildTwBackfillChanges(plan, games, regionIds, maxWrites = 3000,
         typeof existingCover !== 'string') why='invalid_existing_cover';
     if (why) {skipped.push({nsuid,reason:why}); continue;}
     const patch={title_zh:entry.proposedTitleZh.trim(),is_unnamed:false};
+    // Existing unnamed games have non-null placeholder English titles. Do not display
+    // "Unknown game" as English after the official TW name is installed.
+    const english=String(game.title_en??'').trim();
+    if (!english || /^(?:未命名|未知商品|unknown|unnamed|untitled)/i.test(english))
+      patch.title_en=entry.proposedTitleZh.trim();
     if ((!existingCover || existingCover===PLACEHOLDER) && url)patch.cover_url=url;
     changes.push({
       nsuid,gameId:game.id,slug:game.slug,source:entry.source,
-      before:{title_zh:game.title_zh??null,is_unnamed:true,cover_url:existingCover??null},
+      before:{title_zh:game.title_zh??null,title_en:game.title_en??null,is_unnamed:true,cover_url:existingCover??null},
       patch,
     });
   }
