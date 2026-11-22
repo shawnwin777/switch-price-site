@@ -113,6 +113,34 @@ jobs:
           mkdir -p logs
           node scripts/merge-scan-into-full-ids.mjs 2>&1 | tee logs/merge.log
 
+      # Read-only metadata staging. This never feeds the seed steps or changes Supabase.
+      - name: Restore official TW index cache (read only)
+        uses: actions/cache@v4
+        with:
+          path: data/.cache/tw-official-index.json
+          key: tw-official-index-${{ github.run_id }}
+          restore-keys: |
+            tw-official-index-
+
+      - name: Refresh complete TW official title and cover index (read only)
+        continue-on-error: true
+        run: node scripts/fetch-tw-official-index.mjs data/.cache/tw-official-index.json --fresh-hours=20
+
+      - name: Stage TW exact-NSUID title and cover backfill plan (read only)
+        continue-on-error: true
+        run: node scripts/plan-tw-official-backfill.mjs data/tw-hk-full-ids.json data/.cache/tw-official-index.json reports/tw-official-backfill-plan.json
+
+      - name: Save latest TW metadata proposal, NOT a database update
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tw-metadata-review-only
+          path: |
+            reports/tw-official-backfill-plan.json
+            data/.cache/tw-official-index.json
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Seed region IDs (named entries)
         run: |
           set -eo pipefail
