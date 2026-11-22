@@ -59,3 +59,34 @@ test('generates safe proposal from live TW IDs without old snapshot',()=>{
   assert.throws(()=>planLiveTwBackfill({...catalog,complete:false},freshPrices,games,region),/complete/);
   assert.equal(planLiveTwBackfill(catalog,{...freshPrices,prices:{[id]:{sales_status:'not_found'}}},games,region).candidates.length,0);
 });
+
+test('cover-only live proposal never changes existing named title',()=>{
+  const catalog={
+    complete:true,schemaVersion:1,source:officialSource,
+    fetchedAt:new Date().toISOString(),records:{[id]:{
+      nsuid:id,title:'官方中文遊戲名稱',imageUrl:photo,
+      hardwareCategory:'Nintendo Switch',publisher:'任天堂',
+    }},conflicts:{}
+  };
+  const freshPrices={complete:true,scope:'full_official_catalog',
+    generatedAt:new Date().toISOString(),prices:{[id]:{sales_status:'onsale'}}};
+  const named=[{...games[0],is_unnamed:false,title_zh:'已翻譯的繁體中文名稱',cover_url:null}];
+  const plan=planLiveTwBackfill(catalog,freshPrices,named,region);
+  assert.equal(plan.candidates[0].status,'exact_nsuid_cover_only_review');
+  const patched=buildTwBackfillChanges(plan,named,region,10,freshPrices);
+  assert.equal(patched.changes.length,1);
+  assert.deepEqual(patched.changes[0].patch,{cover_url:photo});
+  assert.equal(patched.changes[0].before.is_unnamed,false);
+  const noOverwrite=planLiveTwBackfill(catalog,freshPrices,[{...named[0],cover_url:'/my/custom.png'}],region);
+  assert.equal(noOverwrite.candidates.length,0);
+});
+test('named-only cover update rejected without trustworthy Nintendo image',()=>{
+  const bad={
+    complete:true,mode:'READ_ONLY_NO_SUPABASE',candidates:[{
+      nsuid:id,proposedTitleZh:'官方中文遊戲名稱',officialImageUrl:'https://not-nintendo.example/x.jpg',
+      status:'exact_nsuid_cover_only_review',source:officialSource
+    }]
+  };
+  const named=[{...games[0],is_unnamed:false,title_zh:'既有名稱',cover_url:null}];
+  assert.equal(buildTwBackfillChanges(bad,named,region).changes.length,0);
+});
