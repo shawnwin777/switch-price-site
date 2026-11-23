@@ -177,6 +177,13 @@ export default function ConsoleTabs({
           )}
           {renderPager("xbox-console")}
           <p className="muted">
+            Xbox 家機特價取自微軟商店台灣區特價清單（Reco Deal 清單，台灣區共
+            {xboxConsoleTotalCount > 0
+              ? ` ${xboxConsoleTotalCount.toLocaleString("zh-Hant-TW")} 款`
+              : "約 500 款"}
+            ），只列有折扣的遊戲、折扣大→小、前 510 款；款數會隨檔期浮動。
+          </p>
+          <p className="muted">
             完整清單請看{" "}
             <a
               href="https://www.microsoft.com/zh-tw/store/top-paid/games/xbox?isdeal=true"
@@ -208,6 +215,10 @@ export default function ConsoleTabs({
             <p className="muted">目前 PlayStation 台灣區沒有特價資訊，請稍後再試。</p>
           )}
           {renderPager("ps")}
+          <p className="muted">
+            PlayStation 特價取自官方商店的優惠分類（所有優惠，台灣區共 2,862
+            款），只列折扣 ≥50% 的遊戲、折扣大→小、前 510 款；款數會隨檔期浮動。
+          </p>
         </section>
       )}
 

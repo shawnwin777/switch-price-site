@@ -69,10 +69,6 @@ export default async function ConsolePage() {
         psplusCatalogUrl={psplus.catalogUrl}
         psplusMonthlyUrl={psplus.monthlyUrl}
       />
-      <p className="muted">
-        PlayStation 特價取自官方商店的優惠分類（所有優惠，台灣區共 2,862 款），只列折扣
-        ≥50% 的遊戲、折扣大→小、前 510 款；款數會隨檔期浮動。
-      </p>
       <p>
         <Link href="/">← 回首頁</Link>
       </p>
