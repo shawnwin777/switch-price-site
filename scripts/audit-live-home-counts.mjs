@@ -59,8 +59,8 @@ for(const [name,link] of [
  try{
   const response=await fetch(link,{signal:AbortSignal.timeout(25000)});
   const html=(await response.text()).slice(0,2_500_000);
-  const plain=html.replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi,' ').replace(/<style\\b[^>]*>[\\s\\S]*?<\\/style>/gi,' ').replace(/<!--[\\s\\S]*?-->/g,' ').replace(/<[^>]*>/g,' ').replace(/\\s+/g,' ');
-  const countMatches=[...plain.matchAll(/共\\s*([\\d,]+)\\s*款/g)].slice(0,12).map(m=>Number(m[1].replaceAll(',','')));
+  const plain=html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,' ').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,' ').replace(/<!--[\s\S]*?-->/g,' ').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ');
+  const countMatches=[...plain.matchAll(/共\s*([\d,]+)\s*款/g)].slice(0,12).map(m=>Number(m[1].replaceAll(',','')));
   const nearby=[...plain.matchAll(/共/g)].slice(0,10).map(m=>plain.slice(Math.max(0,m.index-25),m.index+95));
   const taiwanMatches=[...html.matchAll(/([\d,]+)\s*筆符合條件的官方 NSUID/g)].slice(0,8).map(m=>Number(m[1].replaceAll(',','')));
   const addonMatches=[...html.matchAll(/([\d,]+)\s*筆台灣在售商品/g)].slice(0,8).map(m=>Number(m[1].replaceAll(',','')));
