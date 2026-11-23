@@ -4,26 +4,32 @@ import { useState } from "react";
 import type { DealsCarouselItem } from "@/lib/deals-carousel";
 import { pageWindow } from "@/lib/pagination";
 import DealCard from "./DealCard";
+import MembershipServiceSection from "./MembershipTabs";
 
 /** 每頁顯示款數（shawn 定：一次只呈現 24 款）。 */
 const PAGE_SIZE = 24;
 
-type TabKey = "free" | "steam" | "xbox";
+type TabKey = "free" | "steam" | "xbox" | "gamepass";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "free", label: "免費遊戲" },
   { key: "steam", label: "STEAM" },
   { key: "xbox", label: "XBOX PC" },
+  { key: "gamepass", label: "PC Game Pass" },
 ];
 
-/** /deals 分頁框：同一頁上方三個分頁，點了不跳頁、不換路由，
+/** /deals 分頁框：同一頁上方四個分頁，點了不跳頁、不換路由，
  *  當下就切換顯示該平台的遊戲（client-side 切換）。
  *  面板永遠展開、不摺疊（2026-11-23：分頁框模式下摺疊沒意義）。
  *  免費遊戲分頁：Epic 免費遊戲（本週＋下週預告）＋Steam 限時免費領取
  *  （折扣 100% 的付費遊戲，可永久保留；免費遊玩 F2P 不在這裡）。
  *  每平台取前 200 款，一次只顯示 24 款，在頁內翻頁。
  *  家機不在這頁：2026-11-23 12:17 shawn 改方向，Xbox 家機改去獨立頁
- *  /console，本頁維持 PC 頁（免費遊戲／STEAM／XBOX PC）。 */
+ *  /console，本頁維持 PC 頁（免費遊戲／STEAM／XBOX PC）。
+ *  GAME PASS 分頁（2026-11-23 新增，標籤「PC Game Pass」）：
+ *  Game Pass 最近新增（PC），官方最近新增清單順序、卡片標「新進」、
+ *  不寫價格（訂閱內含）；下方接 Game Pass 方案價目。分頁永遠顯示，
+ *  新進遊戲沒資料時只在遊戲區顯示空狀態。 */
 export default function DealsTabs({
   epicCurrent,
   epicUpcoming,
@@ -32,6 +38,8 @@ export default function DealsTabs({
   steamTotalCount,
   xbox,
   xboxTotalCount,
+  gamepass,
+  gamepassTotalCount,
 }: {
   epicCurrent: DealsCarouselItem[];
   epicUpcoming: DealsCarouselItem[];
@@ -40,6 +48,8 @@ export default function DealsTabs({
   steamTotalCount: number;
   xbox: DealsCarouselItem[];
   xboxTotalCount: number;
+  gamepass: DealsCarouselItem[];
+  gamepassTotalCount: number;
 }) {
   // 預設 Steam（內容最多，特賣會期間第一眼就有 24 款可看）。
   const [active, setActive] = useState<TabKey>("steam");
@@ -47,12 +57,14 @@ export default function DealsTabs({
     free: 1,
     steam: 1,
     xbox: 1,
+    gamepass: 1,
   });
 
   const counts: Record<TabKey, number> = {
     free: epicCurrent.length + epicUpcoming.length + steamFree.length,
     steam: steam.length,
     xbox: xbox.length,
+    gamepass: gamepass.length,
   };
   const totalPages = (key: TabKey) =>
     Math.max(1, Math.ceil(counts[key] / PAGE_SIZE));
@@ -115,6 +127,7 @@ export default function DealsTabs({
 
   const steamPage = pageItems("steam", steam);
   const xboxPage = pageItems("xbox", xbox);
+  const gamepassPage = pageItems("gamepass", gamepass);
 
   return (
     <div>
@@ -238,6 +251,41 @@ export default function DealsTabs({
               微軟商店台灣區 PC 特價頁 →
             </a>
           </p>
+        </section>
+      )}
+
+      {active === "gamepass" && (
+        <section className="deals-section" aria-label="PC Game Pass">
+          {sectionHead(
+            "🎮 Game Pass 最近新增（PC）",
+            `本期新增 ${gamepass.length} 款` +
+              (gamepassTotalCount > 0
+                ? ` · 官方最近新增清單共 ${gamepassTotalCount} 款`
+                : "")
+          )}
+          {gamepassPage.length > 0 ? (
+            <div className="deals-grid">
+              {gamepassPage.map((item) => (
+                <DealCard key={item.key} item={item} />
+              ))}
+            </div>
+          ) : (
+            <p className="muted">
+              目前 Game Pass PC 沒有最近新增的資訊，請稍後再試。
+            </p>
+          )}
+          {renderPager("gamepass")}
+          <p className="muted">
+            完整目錄請看{" "}
+            <a
+              href="https://www.xbox.com/zh-TW/xbox-game-pass/games"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Xbox Game Pass 遊戲目錄 →
+            </a>
+          </p>
+          <MembershipServiceSection serviceId="game-pass" />
         </section>
       )}
     </div>

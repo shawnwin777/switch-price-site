@@ -122,6 +122,47 @@ export const getCachedPsDeals = unstable_cache(
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["ps-deals"] }
 );
 
+import {
+  fetchGamePassNew,
+  type GamePassNewData,
+  type GamePassPlatform,
+} from "./gamepass";
+
+/** Game Pass 最近新增（/deals PC 分頁、/console 家機分頁，伺服器端抓取、
+ *  每小時更新一次）。2026-11-23 新增：xbox.com sigls v3 recentlyadded
+ *  分類＋Display Catalog 補資料；家機 31 款、PC 33 款（實測）。
+ *  快取 key 分平台（gamepass-new-console-v1／gamepass-new-pc-v1）。 */
+export const getCachedGamePassNew = (
+  platform: GamePassPlatform
+): Promise<GamePassNewData> =>
+  platform === "console"
+    ? getCachedGamePassNewConsole()
+    : getCachedGamePassNewPc();
+
+const getCachedGamePassNewConsole = unstable_cache(
+  async (): Promise<GamePassNewData> => fetchGamePassNew("console"),
+  ["gamepass-new-console-v1"],
+  { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["gamepass-new"] }
+);
+
+const getCachedGamePassNewPc = unstable_cache(
+  async (): Promise<GamePassNewData> => fetchGamePassNew("pc"),
+  ["gamepass-new-pc-v1"],
+  { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["gamepass-new"] }
+);
+
+import { fetchPsPlusNew, type PsPlusNewData } from "./ps-plus";
+
+/** PS Plus 本月新進（/console 家機頁 PS PLUS 分頁，伺服器端抓取、
+ *  每小時更新一次）。2026-11-23 新增：PS Blog sitemap 自動發現當月
+ *  目錄文＋每月遊戲文，解析 <strong>遊戲名 | PS5, PS4</strong> 清單，
+ *  再用官方搜尋對應到台灣商店商品拿圖片／連結。 */
+export const getCachedPsPlusNew = unstable_cache(
+  async (): Promise<PsPlusNewData> => fetchPsPlusNew(),
+  ["ps-plus-new-v1"],
+  { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["ps-plus-new"] }
+);
+
 /** 首頁公開列表（分頁＋篩選＋排序）。key = 全部篩選條件＋個人 id 清單，
  *  所以不同篩選／不同使用者的排除清單不會共用同一份快取。
  *  內層 unstable_cache：查詢失敗時直接拋錯——Next 14.2.35 的

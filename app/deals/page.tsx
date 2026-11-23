@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   getCachedDealsPage,
+  getCachedGamePassNew,
   getCachedXboxPcDeals,
 } from "@/lib/cached-data";
 import { formatTaipei } from "@/lib/format";
@@ -21,13 +22,16 @@ export const metadata = {
  *  官網 403 擋機器人）＋Steam 限時免費領取（折扣 100% 的付費遊戲）；
  *  STEAM 分頁取折扣最大的前 200 款（特價搜尋 API，台灣區特價中共 15,020 款）；
  *  XBOX PC 分頁取折扣最大的前 200 款（台灣區共約 500 款特價）。
+ *  GAME PASS 分頁（2026-11-23 新增）：Game Pass 最近新增（PC），
+ *  官方最近新增清單順序、卡片標「新進」（見 lib/gamepass.ts）。
  *  家機不在這頁：2026-11-23 12:17 shawn 改方向，Xbox 家機改去獨立頁
  *  /console（PS 家機也在那頁等上線），本頁維持 PC 頁。
  *  資料伺服器端抓取、每小時快取（lib/cached-data.ts）。 */
 export default async function DealsPage() {
-  const [deals, xbox] = await Promise.all([
+  const [deals, xbox, gamepassPc] = await Promise.all([
     getCachedDealsPage(),
     getCachedXboxPcDeals(),
+    getCachedGamePassNew("pc"),
   ]);
 
   return (
@@ -36,7 +40,8 @@ export default async function DealsPage() {
         🎮 PC遊戲<span>特價</span>
       </h1>
       <p className="muted">
-        台灣區 Steam 特價、Epic 免費遊戲與 Xbox PC 特價完整清單，每小時更新一次。
+        台灣區 Steam 特價、Epic 免費遊戲、Xbox PC 特價與 Game Pass
+        最近新增完整清單，每小時更新一次。
         只列台灣區——跨區帳號可能被鎖，這裡不做跨區切換。
       </p>
       <p className="muted">
@@ -51,6 +56,8 @@ export default async function DealsPage() {
         steamTotalCount={deals.steamTotalCount}
         xbox={xbox.items}
         xboxTotalCount={xbox.totalCount}
+        gamepass={gamepassPc.items}
+        gamepassTotalCount={gamepassPc.totalCount}
       />
       <p>
         <Link href="/">← 回首頁</Link>
