@@ -105,6 +105,19 @@ export const getCachedXboxConsoleDeals = unstable_cache(
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["xbox-console-deals"] }
 );
 
+import { fetchPsDeals, type PsDealsData } from "./ps-deals";
+
+/** PS 家機特價（/console 家機頁，伺服器端抓取、每小時更新一次）。
+ *  2026-11-23 新增：官方 GraphQL categoryGridRetrieve（persisted hash
+ *  來自公開文件 mrt1m/playstation-store-api），抓 SALES＋OFFERS
+ *  兩個特價分類、只列目前真的有折扣的；實測當下聯集去重後 44 款
+ *  （沒大檔期所以少，不是 bug），價格已抽 2 款對照未登入商店頁驗證過。 */
+export const getCachedPsDeals = unstable_cache(
+  async (): Promise<PsDealsData> => fetchPsDeals(),
+  ["ps-deals-v1"],
+  { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["ps-deals"] }
+);
+
 /** 首頁公開列表（分頁＋篩選＋排序）。key = 全部篩選條件＋個人 id 清單，
  *  所以不同篩選／不同使用者的排除清單不會共用同一份快取。 */
 export const getCachedGamesPagePublic = unstable_cache(

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCachedXboxConsoleDeals } from "@/lib/cached-data";
+import { getCachedPsDeals, getCachedXboxConsoleDeals } from "@/lib/cached-data";
 import { formatTaipei } from "@/lib/format";
 import ConsoleTabs from "@/components/ConsoleTabs";
 
@@ -15,16 +15,15 @@ export const metadata = {
  *  PC（/deals）、家機（本頁）、SWITCH（首頁）。
  *  XBOX 家機：Reco 特價清單＋Display Catalog（filter Windows.Xbox，
  *  與 PC 版同一條管線），前 200 款、每頁 24 款、折扣大→小，每小時快取。
- *  PS 家機：官方搜尋 GraphQL（getSearchResults，persisted hash 已破解）
- *  ＋價格已打通，且以《A Way Out》驗證過匿名抓到的價
- *  （NT$850→NT$170，-80%）與未登入商店產品頁內嵌價一致；但官方
- *  優惠頁走另一個 EMS 查詢（hash 未知、JS 內無內嵌），多詞搜尋聯集
- *  產出太低（16 個詞 382 款僅 37 款特價），沒有穩定的伺服器端
- *  優惠清單來源，所以 PS 分頁先不上線——ConsoleTabs 收到 ps 資料
- *  時分頁自動出現。下一步：瀏覽器實測抓優惠頁 hash，或找
- *  Chihiro 優惠容器 ID。 */
+ *  PS 家機（2026-11-23 上線）：官方 GraphQL categoryGridRetrieve
+ *  （persisted hash 來自公開文件，見 lib/ps-deals.ts），抓 SALES＋
+ *  OFFERS 兩個特價分類、只列目前真的有折扣的（當下 44 款，沒大檔期
+ *  所以少）；價格已抽 2 款對照未登入商店產品頁驗證過。 */
 export default async function ConsolePage() {
-  const xboxConsole = await getCachedXboxConsoleDeals();
+  const [xboxConsole, ps] = await Promise.all([
+    getCachedXboxConsoleDeals(),
+    getCachedPsDeals(),
+  ]);
 
   return (
     <>
@@ -32,7 +31,7 @@ export default async function ConsolePage() {
         🕹️ 家機<span>特價</span>
       </h1>
       <p className="muted">
-        台灣區 Xbox 家機特價完整清單，每小時更新一次。
+        台灣區 Xbox 家機與 PS 特價完整清單，每小時更新一次。
         只列台灣區——跨區帳號可能被鎖，這裡不做跨區切換。
       </p>
       <p className="muted">
@@ -44,10 +43,11 @@ export default async function ConsolePage() {
       <ConsoleTabs
         xboxConsole={xboxConsole.items}
         xboxConsoleTotalCount={xboxConsole.totalCount}
+        ps={ps.items}
+        psTotalCount={ps.totalCount}
       />
       <p className="muted">
-        PS 家機特價正在接洽官方來源（搜尋與價格已打通，優惠清單還在找
-        穩定的抓法），Xbox 家機先上線。
+        PS 特價取自官方商店的特價分類（SALES＋OFFERS），只列目前真的有折扣的遊戲；款數會隨檔期浮動。
       </p>
       <p>
         <Link href="/">← 回首頁</Link>
