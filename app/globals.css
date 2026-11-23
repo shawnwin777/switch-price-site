@@ -327,6 +327,137 @@ label.field-label {
   text-decoration: none;
 }
 
+/* ---------- 新首頁 /home 遊戲選單（2026-11-23 改版） ---------- */
+.home-menu {
+  align-items: center;
+  display: grid;
+  gap: 40px;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  padding: 56px 16px 24px;
+}
+
+.home-menu-logo {
+  display: block;
+  filter: drop-shadow(0 0 28px rgba(0, 240, 255, 0.22));
+  height: auto;
+  max-width: 520px;
+  width: 100%;
+}
+
+.home-menu-brand .home-hero-title {
+  margin-top: 28px;
+  text-align: left;
+}
+
+.home-menu-brand .home-hero-sub {
+  margin: 14px 0 0;
+  max-width: 520px;
+  text-align: left;
+}
+
+.home-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.home-menu-item {
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: flex;
+  gap: 16px;
+  padding: 18px 20px;
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.home-menu-item:hover {
+  border-color: var(--cyan);
+  text-decoration: none;
+  transform: translateY(-2px);
+}
+
+.home-menu-icon {
+  color: var(--cyan);
+  flex: none;
+  height: 44px;
+  width: 44px;
+}
+
+.home-menu-icon svg {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.home-menu-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.home-menu-item-title {
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.home-menu-item-sub {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.home-menu-arrow {
+  color: var(--muted);
+  font-size: 22px;
+  margin-left: auto;
+}
+
+.home-about {
+  border-top: 1px solid var(--line);
+  margin-top: 44px;
+  padding: 28px 16px 48px;
+}
+
+.home-about p {
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 760px;
+}
+
+@media (max-width: 860px) {
+  .home-menu {
+    gap: 28px;
+    grid-template-columns: 1fr;
+    padding-top: 36px;
+  }
+
+  .home-menu-brand .home-menu-logo {
+    max-width: 420px;
+  }
+}
+
+/* ---------- 頁首 SGS 標誌圖標（導覽列左邊） ---------- */
+.logo-mark {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: block;
+  flex: none;
+  height: 44px;
+  overflow: hidden;
+  width: 44px;
+}
+
+.logo-mark img {
+  display: block;
+  height: 100%;
+  width: auto;
+}
+
 /* ---------- badges ---------- */
 .badge {
   border-radius: 999px;

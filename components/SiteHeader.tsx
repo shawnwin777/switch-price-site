@@ -34,6 +34,15 @@ export default function SiteHeader() {
   return (
     <header className="site-header">
       <div className="site-header-inner">
+        <Link href="/home" className="logo-mark" aria-label="SHAWN GAME STUDIO 首頁">
+          <Image
+            src="/sgs-logo.png"
+            alt=""
+            width={2172}
+            height={724}
+            aria-hidden="true"
+          />
+        </Link>
         <Link href="/home" className="logo" aria-label="SHAWN GAME STUDIO 首頁">
           <Image
             src="/sgs-logo.png"

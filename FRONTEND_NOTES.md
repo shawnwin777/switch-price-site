@@ -142,12 +142,17 @@ npm start                    # 跑 production build
 ## 已完成（2026-11-17 快取版）
 
 - **新首頁 `/home`**（2026-11-23，shawn 定）：Shawn Game Studio 的大首頁
-  （landing page），主視覺＋三組入口卡片——比價（Switch 比價 `/`、PC遊戲特價
-  `/deals`、家機特價 `/console`）、特價情報（準備上市 `/upcoming`、接近歷史低價
-  `/near-low`、歷史低價 `/historical-low`）、會員・收藏（NSO 比價 `/nso`、收藏排行
-  `/ranking`、台灣完整目錄 `/taiwan`）。款數走與舊卡片相同的每小時快取 getter，
-  任一查詢失敗時該卡顯示備用文案。導覽列加「首頁」連 `/home`、「Switch 比價」連
-  `/`，logo 也連 `/home`。
+  （landing page）。2026-11-23 下午改版成遊戲選單風格：左邊放大圖標（SGS 標誌
+  `public/sgs-logo.png`）＋招牌語「遊戲比價，從這裡開始」，右邊三個選單
+  （SWITCH → `/switch-price`、PC GAMES → `/deals`、Gaming console → `/console`，
+  inline SVG 圖標），最下面「關於我」（工作室／網站簡介，不編個人經歷）。
+  下面兩組入口卡片（特價情報：`/upcoming`、`/near-low`、`/historical-low`；
+  會員・收藏：`/nso`、`/ranking`、`/taiwan`）被 shawn 說用不太到、整組刪掉，
+  那些頁面本身還在、只是不在 /home 列出來。本頁純靜態、不抓資料。
+  導覽列加「首頁」連 `/home`、「Switch 比價」連 `/switch-price`，logo 也連
+  `/home`；頁首左邊另有 SGS 標誌小圖標（同一張 `sgs-logo.png` CSS 裁切只取標誌）。
+  比價牆 2026-11-23 從 `/` 搬到 `/switch-price`，`/` 導向 `/home`
+  （`app/page.tsx` 只有 redirect；舊連結靠導向不會死）。
   - 2026-11-23 下午 shawn 否決了第一版做法（`/` 牆上方的「站內入口」卡片，
     會亂）：入口卡片已從 `/` 拆掉，比價牆恢復成只有牆本身（搜尋、篩選、排序、
     分頁不動）。準備上市與接近歷史低價是獨立列表頁（排行頁風格、
