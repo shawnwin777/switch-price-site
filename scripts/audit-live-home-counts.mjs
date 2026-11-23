@@ -48,6 +48,27 @@ if(anon){
   catch(e){output.anonymousCounts[name]='ERROR: '+String(e);}
  }
 }
+
+output.sitePages={};
+for(const [name,link] of [
+  ['home','https://switch-price-site.vercel.app/'],
+  ['home_tw_filter','https://switch-price-site.vercel.app/?country=TW'],
+  ['official_tw','https://switch-price-site.vercel.app/taiwan'],
+  ['addons_tw','https://switch-price-site.vercel.app/taiwan/addons'],
+]){
+ try{
+  const response=await fetch(link,{signal:AbortSignal.timeout(25000)});
+  const html=(await response.text()).slice(0,2_500_000);
+  const countMatches=[...html.matchAll(/共\s*([\d,]+)\s*款/g)].slice(0,12).map(m=>Number(m[1].replaceAll(',','')));
+  const taiwanMatches=[...html.matchAll(/([\d,]+)\s*筆符合條件的官方 NSUID/g)].slice(0,8).map(m=>Number(m[1].replaceAll(',','')));
+  const addonMatches=[...html.matchAll(/([\d,]+)\s*筆台灣在售商品/g)].slice(0,8).map(m=>Number(m[1].replaceAll(',','')));
+  output.sitePages[name]={status:response.status,finalHost:new URL(response.url).host,
+    bytesSampled:html.length,gameCountMatches:[...new Set(countMatches)],
+    taiwanMatches,addonMatches,
+    responseCache:response.headers.get('x-vercel-cache')??null};
+ }catch(e){output.sitePages[name]={error:String(e)};}
+}
 const errors=Object.keys(output.errors);
 console.log(JSON.stringify(output,null,2));
+
 if(errors.length)process.exitCode=1;
