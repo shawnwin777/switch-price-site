@@ -32,7 +32,7 @@ export default function CountrySettings({
         🌍 國家顯示設定（{visibleCount} / {COUNTRIES.length} 國可見，點一下封鎖／取消封鎖）
       </summary>
       <p className="muted">
-        封鎖沒有可用信用卡的地區，該國價格就不會出現在最低價與價格表裡。設定只存在這台裝置的瀏覽器（localStorage）。
+        封鎖沒有可用信用卡的地區，該國價格就不會出現在最低價與價格表裡。設定存在這台裝置的瀏覽器（localStorage），同時會同步到 cookie，讓伺服器在查遊戲名單時就能用上（設了「全部顯示」，首頁就會列出全部國家有價的遊戲）。
       </p>
       <div className="country-actions">
         <button

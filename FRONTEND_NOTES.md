@@ -66,7 +66,10 @@ npm start                    # 跑 production build
 - 匯率：`getLatestFx()` 取 `fx_rates` 裡 `date_key` 最新的一批；頁面註明
   「匯率以當天 08:00 台北時間為準」，並顯示快照時間與遊戲價格最後更新時間。
 - 國家封鎖：存在瀏覽器 `localStorage`（key `spc-blocked-countries`），至少保留一國可見；
-  封鎖的國家不參與卡片最低價、價格表與排行計算。
+  封鎖的國家不參與卡片最低價、價格表與排行計算。設定改動時同時寫進 cookie
+  `spc-visible-countries`（值是 `ALL` 或逗號串接的可見代碼，有效期 1 年），
+  伺服器端在查首頁名單前讀 cookie——沒 cookie（或非法值）時用預設 TW/HK。
+  頁面載入時也會把 localStorage 的設定同步寫進 cookie 一次，舊設定不用重選就生效。
 
 ## 頁面清單
 
@@ -82,8 +85,8 @@ npm start                    # 跑 production build
   登入後，已購買的遊戲不顯示在遊戲牆／搜尋結果裡（伺服器端以
   `user_purchases` 排除，見 `lib/data.ts`）；總數顯示維持全站總數。
   只看我的收藏／只看已購買是使用者自己的清單，不排除已購買。
-  注意：最低價排序用的是「全部國家」的最低價（封鎖清單只存在瀏覽器 localStorage，
-  伺服器不知道），卡片顯示的最低價仍依可見國家計算。
+  注意：最低價排序用的是「全部國家」的最低價（檢視的統計欄位是全球的），
+  卡片顯示的最低價仍依可見國家計算。
 - `/games/[slug]` 詳細頁：價格表依台幣排序、最便宜高亮、比台版省多少、歷史低價徽章＋
   歷史低價金額、特價結束時間＋剩餘天數；留言區在價格上方（讚數排序、預設 5 則、
   其餘收在「顯示全部」）；遊戲讚；已購買切換（收藏按鈕旁，`user_purchases`，
@@ -189,6 +192,17 @@ npm start                    # 跑 production build
   `?country=XX` 單一國家篩選、排除已購買、特價優先排序都保留；「只看我的收藏」不套用預設篩選（自己的清單不該因沒台港價而消失）。
   伺服器端只知道預設值 TW/HK（使用者 localStorage 的可見國家設定伺服器端看不到），實作以預設 TW/HK 為準。
   快取 key 依慣例 bump：`games-page-v2` → `games-page-v3`（部署不會清 Data Cache，舊項目留到過期；換 key 立刻重算）。
+  2026-11-23 改走 cookie：瀏覽器改設定時把可見國家同步寫進 cookie `spc-visible-countries`
+ （`ALL` 或逗號代碼；非法值視為預設 TW/HK），`app/page.tsx` 在查詢前用
+  `lib/countries.ts` 的 `parseVisibleCountriesCookie` 讀它，`lib/data.ts` 依此撈遊戲
+  （`ALL` 不做國家過濾、代碼清單只撈那些國家有價的、沒 cookie 用預設 TW/HK；
+  `?country=XX` 優先於 cookie、「只看我的收藏」不套用國家篩選）。
+  頁面載入時 `HomeClient` 會把 localStorage 的設定同步寫進 cookie 一次，設定變了就
+  `router.refresh()` 讓伺服器端重查（重整後伺服器端範圍與瀏覽器端一致，不會循環）。
+  快取：可見範圍字串放進 `GamesPagePublicArgs`，是 `unstable_cache` key 的一部分，
+  不同設定不會共用同一份快取；靜態 key 再 bump：`games-page-v3` → `games-page-v4`。
+  預期驗證數字（上線後以 curl 帶 cookie 實測為準）：無 cookie → 4,891 款／第 1 / 272 頁；
+  `ALL` cookie → 29,570 款／第 1 / 1643 頁；`?country=JP` 正常。
   限制：特價統計（has_sale、min_sale_end）仍是全部國家的（見 migration `20261119_add_price_country_list.sql` 的已知限制），卡片上的最低價／特價徽章／特價至只看可見國家。
 
 ## 未來規劃（目前不做，只記下來）

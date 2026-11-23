@@ -129,6 +129,10 @@ export interface GamesPageFilters {
   demo?: number;
   /** 國家篩選：只顯示在該國有價格的遊戲（國家代碼，如 JP）。 */
   country?: string;
+  /** 伺服器端可見國家（從 cookie 讀到）："ALL" = 全部國家，不做國家過濾；
+   *  代碼清單 = 只撈那些國家有價的遊戲；undefined = 預設 TW/HK。
+   *  ?country=XX 單一國家篩選優先於此欄位。 */
+  visibleCountries?: string[] | "ALL";
   sort?: HomeSortKey;
   onlySale?: boolean;
   onlyMine?: boolean;
@@ -200,18 +204,28 @@ function buildFilteredGamesQuery(
   if (filterUnnamed) query.eq("is_unnamed", false);
   // 國家篩選：只顯示在該國家有價格的遊戲。注意：特價統計（has_sale、
   // min_sale_end）仍是全部國家的，不隨國家篩選改變。
-  // 沒選國家時：只撈預設可見國家（TW、HK）有價的遊戲參與排序與分頁
-  // （2026-11-23 修復：舊版先照全球特價排序分頁、再由前端依可見國家
-  // 過濾，導致預設首頁第一頁 18 款 TW/HK 價格 0/18、整頁「可見國家尚
-  // 無價格」。伺服器端只知道預設值 TW/HK——使用者 localStorage 裡的
-  // 可見國家設定伺服器端看不到，實作以預設 TW/HK 為準）。
+  // 沒選國家時：依 cookie 的可見國家設定撈遊戲——"ALL" 不做國家過濾、
+  // 代碼清單只撈那些國家有價的遊戲、沒有 cookie（或非法值）時用預設
+  // TW/HK（2026-11-23：舊版伺服器端只知道預設值 TW/HK，使用者
+  // localStorage 的設定伺服器端看不到，就算設了「全部國家」，首頁
+  // 還是只有 4,891 款；改成設定同步寫 cookie 後，伺服器端查之前就
+  // 知道要撈哪些國家）。?country=XX 單一國家篩選優先於 cookie 設定。
   // 只看我的收藏（onlyMine）不套用預設篩選：那是使用者自己的清單，
   // 不該因為沒台港價就整款消失。
   if (filterCountry) {
     if (opts.country) {
       query.contains("price_country_list", [opts.country]);
     } else if (!opts.onlyMine) {
-      query.or("price_country_list.cs.{TW},price_country_list.cs.{HK}");
+      const vis = opts.visibleCountries;
+      if (vis === "ALL") {
+        // 全部國家可見：不做國家過濾。
+      } else if (vis && vis.length > 0) {
+        // 代碼皆由伺服器端 parseVisibleCountriesCookie 驗證過（只含
+        // 35 國清單內的代碼），可直接拼進 or() 條件。
+        query.or(vis.map((c) => `price_country_list.cs.{${c}}`).join(","));
+      } else {
+        query.or("price_country_list.cs.{TW},price_country_list.cs.{HK}");
+      }
     }
   }
   const term = sanitizeSearchTerm(opts.q ?? "");
@@ -359,6 +373,9 @@ export interface GamesPagePublicArgs {
   demo?: number;
   /** 國家篩選：只顯示在該國有價格的遊戲（國家代碼，如 JP）。 */
   country?: string;
+  /** 伺服器端可見國家（從 cookie 讀到，見 GamesPageFilters）；
+   *  可序列化、是 unstable_cache key 的一部分，不同設定不會共用同一份快取。 */
+  visibleCountries?: string[] | "ALL";
   sort?: HomeSortKey;
   onlySale?: boolean;
   onlyMine?: boolean;

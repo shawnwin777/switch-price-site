@@ -12,6 +12,10 @@
 //      匯率、排行），key 裡沒有任何 userId，裡面也不讀 cookies。
 //      快取函式用的 client 是不帶 cookie 的公開 client
 //      （lib/supabase-public.ts），就算快取被打穿，裡面也沒有個人資料。
+//      例外：首頁列表的 key 包含呼叫端傳入的可見國家範圍字串（cookie
+//      解析出的 "ALL" 或代碼清單，公開設定、非個人資料），不同設定
+//      不會共用同一份快取；cookie 本身由頁面（Server Component）讀，
+//      不由快取函式讀。
 //   2. 個人狀態（我是否按讚／收藏／已購買）永遠即時查、不快取：
 //      頁面拿到快取的公開結果後，再用請求的 server client 跑
 //      overlayMyGameFlags() 補上（只有當頁 12 款的 3 個小查詢）。
@@ -87,10 +91,11 @@ export const getCachedXboxPcDeals = unstable_cache(
 export const getCachedGamesPagePublic = unstable_cache(
   async (args: GamesPagePublicArgs): Promise<GamesPageResult> =>
     fetchGamesPagePublicCore(createPublicClient(), args),
-  // v3：2026-11-23 沒選國家時查詢階段只撈 TW／HK 有價的遊戲參與排序與
-  // 分頁（舊 key 的快取是全球特價排序、第一頁 18 款台港無價的舊資料），
-  // 換 key 讓它立刻重算（部署不會清 Data Cache，舊項目會留到過期）。
-  ["games-page-v3"],
+  // v4：2026-11-23 可見國家設定改走 cookie——呼叫端把 cookie 解析出的
+  // 可見範圍（"ALL" 或代碼清單）放進 args，unstable_cache 的 key 包含
+  // args，所以不同設定不會共用同一份快取；同時換靜態 key 讓舊的 v3
+  // 快取（全是 TW/HK 範圍的舊資料）立刻重算（部署不會清 Data Cache）。
+  ["games-page-v4"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["games-page"] }
 );
 

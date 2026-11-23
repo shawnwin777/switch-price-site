@@ -9,7 +9,9 @@ import { pageWindow } from "@/lib/pagination";
 import {
   COUNTRIES,
   DEFAULT_BLOCKED_CODES,
+  VISIBLE_COUNTRIES_COOKIE,
   productTypeLabel,
+  serializeVisibleCountries,
 } from "@/lib/countries";
 import type { GameWithPrices } from "@/lib/types";
 import GameCard from "./GameCard";
@@ -17,6 +19,17 @@ import CountrySettings from "./CountrySettings";
 import SaleBanner from "./SaleBanner";
 
 const BLOCKED_KEY = "spc-blocked-countries";
+
+/** 可見國家設定寫進 cookie（瀏覽器每次開頁面都會自動帶給伺服器，
+ *  伺服器端查遊戲名單前就讀得到；localStorage 伺服器端看不到）。
+ *  值是 "ALL" 或逗號串接的代碼，有效期 1 年。 */
+function writeVisibleCookie(scope: string) {
+  try {
+    document.cookie = `${VISIBLE_COUNTRIES_COOKIE}=${encodeURIComponent(scope)}; path=/; max-age=31536000; SameSite=Lax`;
+  } catch {
+    // 寫入失敗不影響使用（伺服器端會用預設 TW/HK）。
+  }
+}
 
 export type HomeFilters = Omit<GamesPageFilters, "userId"> & { page: number };
 
@@ -31,6 +44,7 @@ export default function HomeClient({
   productTypes,
   loggedInUserId,
   isAdmin,
+  serverVisibleScope,
 }: {
   games: GameWithPrices[];
   total: number;
@@ -40,6 +54,9 @@ export default function HomeClient({
   productTypes: string[];
   loggedInUserId: string | null;
   isAdmin: boolean;
+  /** 伺服器端這次查詢用的可見國家範圍（"ALL" 或逗號代碼，見 app/page.tsx）；
+   *  瀏覽器端拿它比對 localStorage 的設定，不一致時寫 cookie 並重整。 */
+  serverVisibleScope: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -62,6 +79,14 @@ export default function HomeClient({
     setBlockedLoaded(true);
   }, []);
 
+  // 瀏覽器端的可見國家範圍（canonical 字串，與伺服器端同一格式）。
+  const clientScope = useMemo(() => {
+    const blockedSet = new Set(blocked);
+    return serializeVisibleCountries(
+      COUNTRIES.filter((c) => !blockedSet.has(c.code)).map((c) => c.code)
+    );
+  }, [blocked]);
+
   useEffect(() => {
     if (!blockedLoaded) return;
     try {
@@ -69,7 +94,21 @@ export default function HomeClient({
     } catch {
       // 寫入失敗不影響使用。
     }
-  }, [blocked, blockedLoaded]);
+    // 同步寫進 cookie，讓伺服器端下次查詢前就知道要撈哪些國家。
+    writeVisibleCookie(clientScope);
+    // 設定變了（例如第一次載入時 localStorage 是「全部國家」、
+    // 但伺服器端這次用預設 TW/HK 查的），重整頁面讓伺服器端用新的
+    // cookie 重查名單。?country=XX 或只看我的收藏時名單不受 cookie
+    // 影響，就不重整。重整後 serverVisibleScope 會變成一致，不會循環。
+    if (
+      !filtersRef.current.country &&
+      !filtersRef.current.onlyMine &&
+      clientScope !== serverVisibleScope
+    ) {
+      router.refresh();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocked, blockedLoaded, clientScope, serverVisibleScope]);
 
   // 登入狀態（server 傳來的 userId 優先；瀏覽器端再確認一次，登入後免重整）。
   useEffect(() => {

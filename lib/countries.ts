@@ -60,6 +60,49 @@ export const DEFAULT_BLOCKED_CODES: string[] = COUNTRIES.filter(
   (c) => !DEFAULT_VISIBLE_CODES.includes(c.code)
 ).map((c) => c.code);
 
+/** 可見國家設定的 cookie 名稱（與 localStorage key spc-blocked-countries 對應；
+ *  瀏覽器改設定時同步寫入，伺服器端讀它來決定首頁撈哪些國家有價的遊戲）。 */
+export const VISIBLE_COUNTRIES_COOKIE = "spc-visible-countries";
+
+/** 可見國家代碼清單 → cookie 值：全部 35 國可見時寫 "ALL"，否則按 COUNTRIES
+ *  順序逗號串接（canonical 形式，伺服器端比對與快取 key 都用同一份）。 */
+export function serializeVisibleCountries(codes: string[]): string {
+  const set = new Set(codes.filter((c) => COUNTRY_MAP[c]));
+  if (set.size >= COUNTRIES.length) return "ALL";
+  return COUNTRIES.filter((c) => set.has(c.code))
+    .map((c) => c.code)
+    .join(",");
+}
+
+/** 解析可見國家 cookie：回傳 "ALL"（全部國家）或可見代碼清單；
+ *  沒有 cookie、值為空、或解析後沒有任何合法代碼時回傳 null（呼叫端用預設 TW/HK）。
+ *  不在 35 國清單內的代碼直接丟掉、不報錯。 */
+export function parseVisibleCountriesCookie(
+  raw: string | null | undefined
+): string[] | "ALL" | null {
+  if (!raw) return null;
+  let value = raw;
+  try {
+    value = decodeURIComponent(raw);
+  } catch {
+    // 解不開就用原始值繼續解析。
+  }
+  const trimmed = value.trim().toUpperCase();
+  if (!trimmed) return null;
+  if (trimmed === "ALL") return "ALL";
+  const codes = [...new Set(trimmed.split(/[,\s]+/))].filter(
+    (c) => COUNTRY_MAP[c]
+  );
+  if (codes.length === 0) return null;
+  if (codes.length >= COUNTRIES.length) return "ALL";
+  return COUNTRIES.filter((c) => codes.includes(c.code)).map((c) => c.code);
+}
+
+/** 可見設定 → canonical 字串（"ALL" 或逗號串接），給快取 key 與前後端比對用。 */
+export function visibleScopeString(visible: string[] | "ALL"): string {
+  return visible === "ALL" ? "ALL" : serializeVisibleCountries(visible);
+}
+
 /** 各區官方 eShop 首頁連結；未知國家回 nintendo.com 首頁。 */
 export function eshopUrl(countryCode: string): string {
   return COUNTRY_MAP[countryCode]?.eshop_url ?? "https://www.nintendo.com/";
