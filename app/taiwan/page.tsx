@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getTwPublicCatalog, getTwPublicPrices } from "@/lib/tw-official-public";
+import { getCurrentUser } from "@/lib/auth";
+import { ADMIN_EMAIL, isAdminEmail } from "@/lib/admin";
 import styles from "./taiwan.module.css";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +31,20 @@ function priceLabel(p: Awaited<ReturnType<typeof getTwPublicPrices>>[string] | u
 }
 
 export default async function TaiwanOfficialPage({searchParams}: {searchParams:Params}) {
+  // 管理員限定（跟 /add 新增遊戲同一套）：未登入導去登入頁，非管理員
+  // 只顯示提示、不抓目錄。公開導覽的連結也只對管理員顯示（見 SiteHeader）。
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/taiwan");
+  if (!isAdminEmail(user.email)) {
+    return <section className={styles.root}>
+      <div className={styles.hero}>
+        <p className={styles.eyebrow}>台灣官方商品目錄</p>
+        <h1>台灣 Nintendo Switch／Switch 2</h1>
+        <p>只有網站管理員（{ADMIN_EMAIL}）可以查看台灣完整目錄。</p>
+        <p><Link href="/home">回首頁 →</Link></p>
+      </div>
+    </section>;
+  }
   const q = (first(searchParams.q) ?? "").trim().slice(0,100);
   const platform = (first(searchParams.platform) ?? "").trim();
   const allowed = ["","Nintendo Switch","Nintendo Switch 2","Nintendo Switch 2 Edition"];

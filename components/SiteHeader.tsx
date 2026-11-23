@@ -34,15 +34,6 @@ export default function SiteHeader() {
   return (
     <header className="site-header">
       <div className="site-header-inner">
-        <Link href="/home" className="logo-mark" aria-label="SHAWN GAME STUDIO 首頁">
-          <Image
-            src="/sgs-logo.png"
-            alt=""
-            width={2172}
-            height={724}
-            aria-hidden="true"
-          />
-        </Link>
         <Link href="/home" className="logo" aria-label="SHAWN GAME STUDIO 首頁">
           <Image
             src="/sgs-logo.png"
@@ -57,7 +48,9 @@ export default function SiteHeader() {
           <Link href="/switch-price">Switch 比價</Link>
           <Link href="/deals">PC遊戲特價</Link>
           <Link href="/console">家機特價</Link>
-          <Link href="/taiwan">台灣完整目錄</Link>
+          {email && isAdminEmail(email) && (
+            <Link href="/taiwan">台灣完整目錄</Link>
+          )}
           <Link href="/ranking">收藏排行</Link>
           {email && isAdminEmail(email) && <Link href="/add">新增遊戲</Link>}
           {email ? (

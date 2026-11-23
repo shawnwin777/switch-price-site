@@ -455,23 +455,6 @@ label.field-label {
   }
 }
 
-/* ---------- 頁首 SGS 標誌圖標（導覽列左邊） ---------- */
-.logo-mark {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  display: block;
-  flex: none;
-  height: 44px;
-  overflow: hidden;
-  width: 44px;
-}
-
-.logo-mark img {
-  display: block;
-  height: 100%;
-  width: auto;
-}
-
 /* ---------- badges ---------- */
 .badge {
   border-radius: 999px;

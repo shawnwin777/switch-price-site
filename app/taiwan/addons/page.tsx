@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import snapshot from "../../../public/data/tw-addons.json";
+import { getCurrentUser } from "@/lib/auth";
+import { ADMIN_EMAIL, isAdminEmail } from "@/lib/admin";
 import styles from "../taiwan.module.css";
 
 type Addon={
@@ -25,7 +28,21 @@ function money(v:number|null,currency:string|null){
   return (currency??"") + " " + new Intl.NumberFormat("zh-TW").format(v);
 }
 export const metadata={title:"台灣 DLC、組合包資料｜Shawn Game Studio"};
-export default function TaiwanAddonsPage({searchParams}:{searchParams:Params}){
+// 管理員限定（跟 /taiwan 與 /add 新增遊戲同一套）：未登入導去登入頁，
+// 非管理員只顯示提示。
+export default async function TaiwanAddonsPage({searchParams}:{searchParams:Params}){
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/taiwan/addons");
+  if (!isAdminEmail(user.email)) {
+    return <section className={styles.root}>
+      <div className={styles.hero}>
+        <p className={styles.eyebrow}>台灣 Nintendo eShop · 追加內容</p>
+        <h1>台灣 DLC／組合包商品目錄</h1>
+        <p>只有網站管理員（{ADMIN_EMAIL}）可以查看台灣 DLC／組合包商品目錄。</p>
+        <p><Link href="/home">回首頁 →</Link></p>
+      </div>
+    </section>;
+  }
   const data=snapshot as unknown as Catalog;
   const q=val(searchParams.q).trim().slice(0,100);
   const type=val(searchParams.type);
