@@ -32,21 +32,18 @@ import { unstable_cache } from "next/cache";
 import { createPublicClient } from "./supabase-public";
 import type { GameWithPrices } from "./types";
 import {
-  fetchGamesByIdsPublic,
   fetchGamesPagePublicCore,
   fetchGamePublicCore,
   fetchHistoricalLowPagePublic,
-  fetchNearLowCandidates,
+  fetchNearLowPagePublic,
   fetchUpcomingPagePublic,
   getLatestFx,
   getLatestPriceUpdate,
   getProductTypes,
   getRanking,
-  paginateNearLow,
   type GamesPagePublicArgs,
   type GamesPageResult,
   type HistoricalLowPageResult,
-  type NearLowCandidate,
   type NearLowPageResult,
   type UpcomingPageResult,
 } from "./data";
@@ -328,55 +325,42 @@ export const getCachedProductTypes = unstable_cache(
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["meta"] }
 );
 
-/** 接近歷史低價的候選清單（掃描約 1 萬列，只在快取到期時跑一次）。 */
-export const getCachedNearLowCandidates = unstable_cache(
-  async (): Promise<{
-    candidates: NearLowCandidate[];
-    error: string | null;
-  }> => fetchNearLowCandidates(createPublicClient()),
-  // v2：2026-11-18 候選改帶 cheapest_country（國家篩選用），舊 key 的
-  // 快取是沒有國家欄位的舊形狀，換 key 讓它立刻重算。
-  ["near-low-candidates-v2"],
-  { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["near-low"] }
-);
-
-/** 接近歷史低價列表頁（候選清單本身已快取，分頁只抓當頁 12 款）。
- *  country 有值時只留目前最低價在該國的遊戲（分頁前就先篩選）。 */
+/** 接近歷史低價列表頁（DB 層單一查詢，見 lib/data.ts）。
+ *  失敗時拋錯、不回傳 error 形狀：拋錯不會被 unstable_cache 寫入，
+ *  下次請求會重查；回傳 error 形狀會被快取 1 小時，頁面在這 1 小時
+ *  內一直顯示「資料準備中」（2026-11-23 的教訓：首頁 0 款 bug 與
+ *  /near-low 34 秒壞掉都是同一類問題）。頁面端用 try/catch 接住，
+ *  照樣顯示「資料準備中」，畫面不變。
+ *  2026-11-23：主路徑改 view 欄位單一查詢，key 換 v3（舊 v2 快取
+ *  是全掃描候選的形狀，結構不同，換 key 立刻重算）。 */
 export const getCachedNearLowPage = unstable_cache(
   async (page: number, country?: string): Promise<NearLowPageResult> => {
-    const p = Math.max(1, page);
-    const { candidates, error } = await getCachedNearLowCandidates();
-    if (error) {
-      return {
-        games: [],
-        ratios: {},
-        total: 0,
-        page: p,
-        totalPages: 0,
-        error,
-      };
-    }
-    const { slice, total, totalPages } = paginateNearLow(candidates, p, country);
-    const games = await fetchGamesByIdsPublic(
+    const result = await fetchNearLowPagePublic(
       createPublicClient(),
-      slice.map((c) => c.id)
+      page,
+      country
     );
-    const ratios: Record<string, number> = {};
-    for (const c of slice) ratios[c.id] = c.ratio;
-    return { games, ratios, total, page: p, totalPages, error: null };
+    if (result.error) throw new Error(result.error);
+    return result;
   },
-  // v2：2026-11-18 改 100 款／頁，舊 key 的快取是 12／50 款混舊資料
-  // （第 2 頁曾顯示舊 12 款卻編號 51–62），換 key 讓它立刻重算。
-  ["near-low-page-v2"],
+  ["near-low-page-v3"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["near-low"] }
 );
 
 /** 準備上市列表頁（單一索引查詢，快取整頁結果）。
- * 2026-11-19：每頁 12 款 → 100 款（跟接近歷史低價一樣），key 換 v2，
- * 否則舊 12 款快取會用新頁碼切出錯的範圍（near-low 頁 2 曾因此重號）。 */
+ *  2026-11-19：每頁 12 款 → 100 款（跟接近歷史低價一樣），key 換 v2，
+ *  否則舊 12 款快取會用新頁碼切出錯的範圍（near-low 頁 2 曾因此重號）。
+ *  2026-11-23：查詢失敗（unavailable）時拋錯，不快取「資料補充中」
+ *  的空結果（跟 /near-low 同一個教訓）；頁面端 try/catch 接住後照樣
+ *  顯示「資料補充中」，畫面不變。 */
 export const getCachedUpcomingPage = unstable_cache(
-  async (page: number): Promise<UpcomingPageResult> =>
-    fetchUpcomingPagePublic(createPublicClient(), page),
+  async (page: number): Promise<UpcomingPageResult> => {
+    const result = await fetchUpcomingPagePublic(createPublicClient(), page);
+    if (result.unavailable) {
+      throw new Error("準備上市查詢失敗（資料補充中）");
+    }
+    return result;
+  },
   ["upcoming-page-v2"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["upcoming"] }
 );
@@ -385,10 +369,20 @@ export const getCachedUpcomingPage = unstable_cache(
  *  100 款一頁、折扣大優先。主路徑是 view 欄位 is_at_historical_low
  *  的單一查詢（migration 20261123_add_is_at_historical_low.sql）；
  *  欄位未建時自動改走 prices 旗標備援（見 lib/data.ts）。
- *  快取 key 另外開 historical-low-page-v1，不跟 near-low 共用。 */
+ *  2026-11-23：失敗時拋錯，不快取 error 形狀的結果（跟 /near-low
+ *  同一個教訓）；頁面端 try/catch 接住後照樣顯示「資料準備中」，
+ *  畫面不變。key 換 v2。
+ *  快取 key 另外開 historical-low-page-v2，不跟 near-low 共用。 */
 export const getCachedHistoricalLowPage = unstable_cache(
-  async (page: number, country?: string): Promise<HistoricalLowPageResult> =>
-    fetchHistoricalLowPagePublic(createPublicClient(), page, country),
-  ["historical-low-page-v1"],
+  async (page: number, country?: string): Promise<HistoricalLowPageResult> => {
+    const result = await fetchHistoricalLowPagePublic(
+      createPublicClient(),
+      page,
+      country
+    );
+    if (result.error) throw new Error(result.error);
+    return result;
+  },
+  ["historical-low-page-v2"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["historical-low"] }
 );

@@ -20,7 +20,22 @@ export default async function UpcomingPage({
   searchParams: { page?: string };
 }) {
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
-  const result = await getCachedUpcomingPage(page);
+  // 快取 getter 查詢失敗（unavailable）時拋錯（不快取「資料補充中」
+  // 的空結果）；接住後照樣顯示「資料補充中」，畫面不變，下次請求會
+  // 重查（2026-11-23 改）。
+  let result;
+  try {
+    result = await getCachedUpcomingPage(page);
+  } catch {
+    result = {
+      games: [],
+      total: 0,
+      page,
+      totalPages: 0,
+      hasAnyReleaseDate: false,
+      unavailable: true,
+    };
+  }
   const offset = (result.page - 1) * UPCOMING_PAGE_SIZE;
 
   return (

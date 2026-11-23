@@ -1000,8 +1000,17 @@ export function latestPriceUpdate(prices: Price[]): string | null {
 //   也就是「現在買只比歷史最低貴 0–10%」，但還沒等於歷史低價。
 //   歷史低價為 0／NULL、或尚無價格的遊戲不列入。
 //   排序：離歷史低價越近（比值越小）越前面；比值相同時 id 收尾。
-// PostgREST 不能直接比較兩個欄位，所以候選掃描在程式裡算比值
-// （只取 id＋兩個價格欄位，分頁掃一次，約 1 萬列），結果進快取 1 小時。
+// 實作（2026-11-23 改版，不要照抄舊的全掃描）：
+//   主路徑：migration 20261123_add_is_near_historical_low.sql 給
+//     games_with_price_stats 加 is_near_historical_low 與 near_low_ratio
+//     欄位，DB 層直接篩選＋排序＋分頁，單一查詢（跟 /historical-low 的
+//     is_at_historical_low 同一套做法）。PostgREST 不能直接比較兩個欄位，
+//     所以比值先算成 view 欄位。
+//   備援路徑（migration 還沒套用、欄位不存在時）：舊的
+//     fetchNearLowCandidates 全掃描（13 頁全掃 12,102 列，慢、偶爾超時，
+//     只是過渡；套用 migration 後自動切回主路徑）。
+//   只列遊戲本體：DLC／組合包（product_type dlc／bundle）不進這頁，
+//   跟首頁遊戲牆的預設篩選一致（見 buildFilteredGamesQuery）。
 // ============================================================================
 
 /** 接近歷史低價的比值上限：最低價 <= 歷史低價 × 1.10。 */
@@ -1017,6 +1026,9 @@ export interface NearLowCandidate {
 
 /** 掃描全部有歷史低價與價格的遊戲，算出接近歷史低價的候選清單
  *  （已按比值由小到大排好）。失敗時回傳 error，不拋錯。
+ *  備援路徑專用：只有 view 欄位 is_near_historical_low 還沒建時，
+ *  fetchNearLowPagePublic 才呼叫它（慢、偶爾超時，只是過渡）；套用
+ *  migration 後頁面改走單一查詢，不再經過這裡。
  *  未具名遊戲（games.is_unnamed）不列入：每日更新會幫它們寫
  *  historical_low_twd（見 app/api/refresh/route.ts），特價結束漲價後
  *  比值會落進 1.0–1.1 區間，若不排除就會以「未命名商品」出現在此頁。
@@ -1135,6 +1147,66 @@ export interface NearLowPageResult {
   error: string | null;
 }
 
+/** 主路徑：view 欄位 is_near_historical_low 直接篩選＋排序＋分頁（單一查詢）。
+ *  欄位不存在時回傳 { error } 且 error 帶欄位名，呼叫端改走備援路徑。
+ *  只列遊戲本體（product_type game／NULL），DLC／組合包不進這頁。 */
+async function fetchNearLowPageByView(
+  db: SupabaseClient,
+  page: number,
+  country?: string
+): Promise<NearLowPageResult> {
+  const p = Math.max(1, page);
+  const from = (p - 1) * NEAR_LOW_PAGE_SIZE;
+  const run = async (filterUnnamed: boolean) => {
+    let q = db
+      .from("games_with_price_stats")
+      .select("id,near_low_ratio", { count: "exact" })
+      .eq("is_near_historical_low", true)
+      .or("product_type.eq.game,product_type.is.null")
+      .order("near_low_ratio", { ascending: true, nullsFirst: false })
+      .order("id", { ascending: true });
+    if (filterUnnamed) q = q.eq("is_unnamed", false);
+    if (country) q = q.eq("cheapest_country", country);
+    return q.range(from, from + NEAR_LOW_PAGE_SIZE - 1);
+  };
+  let res = await run(true);
+  if (res.error && /is_unnamed/i.test(res.error.message)) {
+    // is_unnamed 欄位不存在時退回不過濾（migration 未跑的舊庫才會發生）。
+    res = await run(false);
+  }
+  if (res.error) {
+    return {
+      games: [],
+      ratios: {},
+      total: 0,
+      page: p,
+      totalPages: 0,
+      error: res.error.message,
+    };
+  }
+  const rows = (res.data ?? []) as {
+    id: string;
+    near_low_ratio: number | null;
+  }[];
+  const games = await fetchGamesByIdsPublic(
+    db,
+    rows.map((r) => r.id)
+  );
+  const ratios: Record<string, number> = {};
+  for (const r of rows) {
+    if (r.near_low_ratio != null) ratios[r.id] = Number(r.near_low_ratio);
+  }
+  const total = res.count ?? 0;
+  return {
+    games,
+    ratios,
+    total,
+    page: p,
+    totalPages: total > 0 ? Math.ceil(total / NEAR_LOW_PAGE_SIZE) : 0,
+    error: null,
+  };
+}
+
 /** 接近歷史低價列表頁（即時版；頁面改走快取版，邏輯相同）。 */
 export async function fetchNearLowPagePublic(
   db: SupabaseClient,
@@ -1142,25 +1214,34 @@ export async function fetchNearLowPagePublic(
   country?: string
 ): Promise<NearLowPageResult> {
   const p = Math.max(1, page);
-  const { candidates, error } = await fetchNearLowCandidates(db);
-  if (error) {
-    return {
-      games: [],
-      ratios: {},
-      total: 0,
-      page: p,
-      totalPages: 0,
-      error,
-    };
+  const byView = await fetchNearLowPageByView(db, p, country);
+  if (!byView.error) return byView;
+  // 只有 view 欄位不存在時才走備援；其他錯誤直接回報（頁面顯示資料準備中）。
+  if (/is_near_historical_low|near_low_ratio/i.test(byView.error)) {
+    console.warn(
+      "[data] is_near_historical_low 欄位不存在，接近歷史低價改走全掃描備援；請套用 supabase/migrations/20261123_add_is_near_historical_low.sql。"
+    );
+    const { candidates, error } = await fetchNearLowCandidates(db);
+    if (error) {
+      return {
+        games: [],
+        ratios: {},
+        total: 0,
+        page: p,
+        totalPages: 0,
+        error,
+      };
+    }
+    const { slice, total, totalPages } = paginateNearLow(candidates, p, country);
+    const games = await fetchGamesByIdsPublic(
+      db,
+      slice.map((c) => c.id)
+    );
+    const ratios: Record<string, number> = {};
+    for (const c of slice) ratios[c.id] = c.ratio;
+    return { games, ratios, total, page: p, totalPages, error: null };
   }
-  const { slice, total, totalPages } = paginateNearLow(candidates, p, country);
-  const games = await fetchGamesByIdsPublic(
-    db,
-    slice.map((c) => c.id)
-  );
-  const ratios: Record<string, number> = {};
-  for (const c of slice) ratios[c.id] = c.ratio;
-  return { games, ratios, total, page: p, totalPages, error: null };
+  return byView;
 }
 
 // ============================================================================
@@ -1211,6 +1292,7 @@ async function fetchHistoricalLowPageByView(
     .select("id", { count: "exact" })
     .eq("is_at_historical_low", true)
     .eq("is_unnamed", false)
+    .or("product_type.eq.game,product_type.is.null")
     .order("max_discount_pct", { ascending: false, nullsFirst: false })
     .order("cheapest_twd", { ascending: true, nullsFirst: false })
     .order("id", { ascending: true });
@@ -1226,6 +1308,7 @@ async function fetchHistoricalLowPageByView(
         .from("games_with_price_stats")
         .select("id", { count: "exact" })
         .eq("is_at_historical_low", true)
+        .or("product_type.eq.game,product_type.is.null")
         .order("max_discount_pct", { ascending: false, nullsFirst: false })
         .order("cheapest_twd", { ascending: true, nullsFirst: false })
         .order("id", { ascending: true });
@@ -1363,7 +1446,9 @@ async function fetchHistoricalLowPageByFlag(
   );
   // 旗標可能過期（refresh 輪替約 4 天）：顯示前用即時價格驗證一次，
   // 最低價已經不等於歷史低價的剔掉（總數仍用旗標數，會略多，見上方說明）。
+  // 只列遊戲本體：DLC／組合包不進這頁。
   const verified = games.filter((g) => {
+    if (g.product_type != null && g.product_type !== "game") return false;
     const cheapest = cheapestPrice(g.prices);
     return (
       cheapest?.price_twd != null &&

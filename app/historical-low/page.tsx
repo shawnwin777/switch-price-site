@@ -34,7 +34,14 @@ export default async function HistoricalLowPage({
     searchParams.country && COUNTRY_MAP[searchParams.country]
       ? searchParams.country
       : undefined;
-  const result = await getCachedHistoricalLowPage(page, country);
+  // 快取 getter 查詢失敗時拋錯（不快取錯誤結果）；接住後照樣顯示
+  // 「資料準備中」，畫面不變，下次請求會重查（2026-11-23 改）。
+  let result;
+  try {
+    result = await getCachedHistoricalLowPage(page, country);
+  } catch {
+    result = { games: [], total: 0, page, totalPages: 0, error: "查詢失敗" };
+  }
   const offset = (result.page - 1) * HISTORICAL_LOW_PAGE_SIZE;
   // 分頁連結要帶著國家篩選，不然翻頁就回到全部國家。
   const pageHref = (p: number) =>
