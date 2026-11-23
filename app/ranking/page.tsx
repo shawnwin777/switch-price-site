@@ -19,7 +19,8 @@ export default async function RankingPage({
     <>
       <h1>🏆 收藏排行 TOP 10</h1>
       <p className="muted">
-        最多玩家收藏的遊戲。預設只顯示特價中，方便直接撿便宜。
+        最多玩家收藏的遊戲。預設只顯示特價中，方便直接撿便宜。目前僅支援
+        Switch 比價。
       </p>
       <div className="filter-row">
         <Link

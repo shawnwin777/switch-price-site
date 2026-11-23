@@ -93,6 +93,7 @@ export default function LoginClient() {
           </button>
           <p className="muted">
             登入後即可收藏遊戲、按讚、留言，並在首頁看到「你收藏的遊戲正在特價」的提醒。
+            目前僅支援 Switch 比價。
           </p>
         </div>
       )}
