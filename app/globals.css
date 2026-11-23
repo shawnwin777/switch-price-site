@@ -837,6 +837,8 @@ a.home-login-preview-btn:hover {
     min-height: 300px;
     padding: 28px 48px 28px 20px;
     position: static;
+    /* 手機版品牌板不滑出：滑動過渡直接停用，不要有任何滑動。 */
+    transition: none;
   }
 
   .home-diagonal.drawer-open .home-brand-panel {
@@ -900,6 +902,49 @@ a.home-login-preview-btn:hover {
 
   .home-menu-arrow {
     font-size: 18px;
+  }
+
+  /* 手機「關於我」：點按展開時只顯示三個社群連結的小列，
+   *  不要介紹文字和整片預覽圖。 */
+  .home-about-preview {
+    gap: 0;
+  }
+
+  .home-about-preview-text {
+    display: none;
+  }
+
+  .home-about-social {
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .home-about-social li {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .home-about-social-link {
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 6px;
+    text-align: center;
+  }
+
+  .home-about-social-icon {
+    height: 28px;
+    width: 28px;
+  }
+
+  .home-about-social-name {
+    font-size: 12px;
+  }
+
+  .home-about-social-handle {
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 

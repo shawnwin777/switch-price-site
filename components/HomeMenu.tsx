@@ -16,8 +16,11 @@ import Link from "next/link";
  *  會員登入預覽 = 一句登入好處＋前往登入按鈕；
  *  關於我預覽 = 介紹文字＋IG／Threads／Discord 圖標。
  *  預覽圖由 server 端 page.tsx 抓好當 props 傳進來，失敗時這裡
- *  顯示漸層佔位、不讓整頁掛掉。手機沒有 hover：點一下先展開預覽，
- *  再點一下才進連結。 */
+ *  顯示漸層佔位、不讓整頁掛掉。
+ *  手機（≤860px）不玩抽屜：上下堆疊看不到品牌板滑開，選單點一下
+ *  直接進連結（hover／focus 也不展開預覽，避免點按時頁面先被拉長）；
+ *  品牌板的滑出動畫在手機版停用；只有「關於我」點按展開，
+ *  而且手機版只顯示三個社群連結的小列，不要整片預覽圖。 */
 
 export interface HomePreviewItem {
   key: string;
@@ -340,10 +343,20 @@ export default function HomeMenu({ previews }: { previews: HomePreviews }) {
     setActive(key);
   };
 
-  /** 手機（沒有 hover）點連結：第一次點先展開預覽、留在本頁，
-   *  已經展開時再點才真的進連結；桌機 hover 不受影響。 */
+  /** 手機寬度（≤860px）：上下堆疊不玩抽屜，選單點了直接進連結。 */
+  const isMobileWidth = () =>
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 860px)").matches;
+
+  /** 觸控裝置點連結：第一次點先展開預覽、留在本頁，
+   *  已經展開時再點才真的進連結；手機寬度不攔截、直接進連結，
+   *  桌機 hover 不受影響。 */
   const handleLinkClick = (key: MenuKey, e: MouseEvent) => {
-    if (typeof window !== "undefined" && window.matchMedia("(hover: none)").matches) {
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(hover: none)").matches &&
+      !isMobileWidth()
+    ) {
       if (active !== key) {
         e.preventDefault();
         open(key);
@@ -416,8 +429,15 @@ export default function HomeMenu({ previews }: { previews: HomePreviews }) {
           );
           const common = {
             className: `home-menu-item${isActive ? " is-active" : ""}`,
-            onMouseEnter: () => open(item.key),
-            onFocus: () => open(item.key),
+            /* 手機寬度不展開預覽：點按時 hover／focus 的合成事件
+             *  也不要先把預覽展開、把頁面拉長；只有「關於我」
+             *  按鈕用自己的 onClick 點按展開。 */
+            onMouseEnter: () => {
+              if (!isMobileWidth()) open(item.key);
+            },
+            onFocus: () => {
+              if (!isMobileWidth()) open(item.key);
+            },
           };
           return item.href ? (
             <Link
