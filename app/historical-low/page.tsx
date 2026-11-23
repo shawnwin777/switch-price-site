@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCachedHistoricalLowPage } from "@/lib/cached-data";
-import { cheapestPrice, HISTORICAL_LOW_PAGE_SIZE } from "@/lib/data";
+import { cheapestPrice, isPriceOnSale, HISTORICAL_LOW_PAGE_SIZE } from "@/lib/data";
 import { COUNTRY_MAP } from "@/lib/countries";
 import { pageWindow } from "@/lib/pagination";
 import { formatTwd } from "@/lib/format";
@@ -82,10 +82,16 @@ export default async function HistoricalLowPage({
           <div className="rank-list four-col">
             {result.games.map((game, i) => {
               const cheapest = cheapestPrice(game.prices);
-              // 折扣取該遊戲全部價格裡最大的（最便宜那國未必是折扣最大的那國）。
+              // 折扣只算還在特價的價格：特價已結束就不掛 -%；
+              // 曾經特價過（但已結束）顯示「特價已結束」，不是「尚未特價過」。
               const discount = Math.max(
                 0,
-                ...game.prices.map((p) => p.discount_pct ?? 0)
+                ...game.prices
+                  .filter(isPriceOnSale)
+                  .map((p) => p.discount_pct ?? 0)
+              );
+              const everDiscounted = game.prices.some(
+                (p) => (p.discount_pct ?? 0) > 0
               );
               return (
                 <div key={game.id} className="rank-row">
@@ -109,7 +115,9 @@ export default async function HistoricalLowPage({
                       {formatTwd(game.historical_low_twd)}
                       {discount > 0
                         ? ` · 折扣 -${discount}%`
-                        : " · 尚未特價過"}
+                        : everDiscounted
+                          ? " · 特價已結束"
+                          : " · 尚未特價過"}
                     </div>
                     <div>
                       <span className="badge badge-sale">歷史低價</span>{" "}

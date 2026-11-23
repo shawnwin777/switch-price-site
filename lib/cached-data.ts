@@ -291,11 +291,13 @@ export const getCachedGamePublic = unstable_cache(
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["game"] }
 );
 
-/** 收藏排行 TOP 10（完全公開）。 */
+/** 收藏排行 TOP 10（完全公開）。key 換 ranking-v2（2026-11-23）：
+ *  on_sale／sale_end 是 getRanking 裡算好才快取的，舊 key 的快取
+ *  會把已結束的特價繼續當特價中再錯 1 小時；換 key 立刻重算。 */
 export const getCachedRanking = unstable_cache(
   async (onlyOnSale: boolean, limit: number) =>
     getRanking(createPublicClient(), onlyOnSale, limit),
-  ["ranking"],
+  ["ranking-v2"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["ranking"] }
 );
 

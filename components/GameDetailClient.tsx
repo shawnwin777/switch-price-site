@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
-import { cheapestPrice, isOnSale, saleEndOf } from "@/lib/data";
+import { cheapestPrice, isOnSale, isPriceOnSale, saleEndOf } from "@/lib/data";
 import { COUNTRIES, DEFAULT_BLOCKED_CODES, demoLabel, eshopUrl, productTypeLabel } from "@/lib/countries";
 import { formatRaw, formatTwd, isSaleEndingSoon, saleEndLabel } from "@/lib/format";
 import type { CommentItem, GameWithPrices } from "@/lib/types";
@@ -307,7 +307,7 @@ export default function GameDetailClient({
                       <b>{formatTwd(p.price_twd)}</b>
                     </td>
                     <td>
-                      {p.discount_pct ? (
+                      {isPriceOnSale(p) && p.discount_pct ? (
                         <span className="badge badge-sale">
                           -{p.discount_pct}%
                         </span>

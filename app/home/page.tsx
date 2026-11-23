@@ -5,6 +5,7 @@ import {
   getCachedXboxConsoleDeals,
   getCachedXboxPcDeals,
 } from "@/lib/cached-data";
+import { isPriceOnSale } from "@/lib/data";
 import type { DealsCarouselItem } from "@/lib/deals-carousel";
 import HomeMenu, { type HomePreviewItem, type HomePreviews } from "@/components/HomeMenu";
 
@@ -82,14 +83,18 @@ async function fetchSwitchPreviews(): Promise<HomePreviewItem[]> {
           : null;
       const bestDiscount = Math.max(
         0,
-        ...g.prices.map((p) => p.discount_pct ?? 0)
+        ...g.prices.filter(isPriceOnSale).map((p) => p.discount_pct ?? 0)
       );
       return {
         key: g.slug,
         title: g.title_zh,
         image: g.cover_url as string,
         url: `/games/${g.slug}`,
-        badge: bestDiscount > 0 ? `-${bestDiscount}%` : "特價中",
+        badge: bestDiscount > 0 ? `-${bestDiscount}%` : "",
+        // bestDiscount 只算還在特價的價格：特價已結束的遊戲
+        // 徽章留空（HomeMenu 沒有 badge 就不渲染），不再掛 -%
+        // 或「特價中」。預覽名單本身仍由 DB 的 has_sale 決定
+        // （只看特價篩選），下次價格輪抓才會把它移出名單。
         priceLine:
           cheapest && cheapest.price_twd != null
             ? `最低 NT$ ${cheapest.price_twd.toLocaleString()}`

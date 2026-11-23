@@ -75,16 +75,39 @@ export function cheapestPrice(
   return list.reduce((a, b) => ((b.price_twd ?? Infinity) < (a.price_twd ?? Infinity) ? b : a));
 }
 
-export function isOnSale(prices: Price[]): boolean {
-  return prices.some((p) => (p.discount_pct ?? 0) > 0);
+/** 單一價格是否仍在特價：有折扣，且特價結束時間未過。
+ *  sale_end 為 NULL＝長期特價（無結束時間），維持特價中；
+ *  sale_end 無效字串時也維持現況，不誤判為已結束。
+ *  時間比較用同一瞬間（Date.now()），台北時間與 UTC 只是顯示時區，
+ *  過期判斷不受時區影響。 */
+export function isPriceOnSale(p: Price): boolean {
+  if ((p.discount_pct ?? 0) <= 0) return false;
+  if (!p.sale_end) return true;
+  const end = new Date(p.sale_end).getTime();
+  if (Number.isNaN(end)) return true;
+  return end > Date.now();
 }
 
+export function isOnSale(prices: Price[]): boolean {
+  return prices.some(isPriceOnSale);
+}
+
+/** 遊戲卡片／詳情頁顯示的特價結束時間。
+ *  優先取「仍在特價」的結束時間（最早的）；若全部特價都已過期，
+ *  取最早的那個已過期時間，讓卡片仍能顯示「特價至：已結束」，
+ *  而不是整個特價至消失。混合情況（某國已結束、另一國還在特價）
+ *  顯示還在特價那國的結束時間，不再誤寫已結束。 */
 export function saleEndOf(prices: Price[]): string | null {
   const ends = prices
     .filter((p) => (p.discount_pct ?? 0) > 0 && p.sale_end)
     .map((p) => p.sale_end as string)
     .sort();
-  return ends[0] ?? null;
+  if (ends.length === 0) return null;
+  const activeEnd = ends.find((e) => {
+    const t = new Date(e).getTime();
+    return !Number.isNaN(t) && t > Date.now();
+  });
+  return activeEnd ?? ends[0];
 }
 
 // ============================================================================
@@ -933,7 +956,7 @@ export async function getCollectedOnSale(
   const result: CollectedOnSale[] = [];
   for (const g of games as Game[]) {
     const ps = ((prices as Price[]) ?? []).filter((p) => p.game_id === g.id);
-    const salePrices = ps.filter((p) => (p.discount_pct ?? 0) > 0);
+    const salePrices = ps.filter(isPriceOnSale);
     if (salePrices.length === 0) continue;
     result.push({
       game: { ...g, cover_url: resolveCoverUrl(g.cover_url) },
