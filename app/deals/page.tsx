@@ -106,6 +106,7 @@ export default async function DealsPage() {
         steamFree={deals.steamFree}
         steam={deals.steam}
         steamTotalCount={deals.steamTotalCount}
+        steamFromFallback={deals.steamFromFallback}
         xbox={xbox.items}
         xboxTotalCount={xbox.totalCount}
         gamepass={gamepassPc.items}

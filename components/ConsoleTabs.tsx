@@ -21,7 +21,8 @@ const TABS: { key: TabKey; label: string }[] = [
 /** /console 家機頁的分頁框：只有四個分頁、順序固定，點了不跳頁、不換路由。
  *  面板永遠展開、不摺疊（跟 /deals 一樣）。
  *  1. XBOX 家機：Reco 清單＋Display Catalog（filter Windows.Xbox），
- *     前 510 款、折扣大→小，預設顯示。
+ *     最多 510 款、折扣大→小，預設顯示；實際去重後有效款數以 live 為準
+ *     （中-5：寫死 510 會在款數浮動到 470 時變錯）。
  *  2. XGP 家機：Game Pass 最近新增（家機），官方清單順序、卡片標「新進」；
  *     下方接 Game Pass 方案價目。
  *  3. PlayStation：官方優惠分類，折扣 ≥50%、前 510 款。
@@ -239,9 +240,9 @@ export default function ConsoleTabs({
         <section className="deals-section" aria-label="XBOX 家機">
           {sectionHead(
             "🟢 XBOX 家機",
-            `折扣最大的 ${xboxConsole.length} 款` +
+            `折扣最大的 ${xboxConsole.length} 款（去重後有效款數）` +
               (xboxConsoleTotalCount > 0
-                ? ` · 台灣區共 ${xboxConsoleTotalCount.toLocaleString("zh-Hant-TW")} 款特價`
+                ? ` · 台灣區共 ${xboxConsoleTotalCount.toLocaleString("zh-Hant-TW")} 款特價（清單 API 原始總數）`
                 : "")
           )}
           {xboxConsolePage.length > 0 ? (
@@ -256,12 +257,16 @@ export default function ConsoleTabs({
             </p>
           )}
           {renderPager("xbox-console")}
+          {/* 中-5：附註與 app/console/page.tsx 同一口徑——標題的 N 是去重後
+              有效款數，「台灣區共 M 款」是清單 API 原始總數（未去重），兩者
+              口徑不同；數字一律 live 插值，不寫死「約 500 款」「前 510 款」。 */}
           <p className="muted">
-            Xbox 家機特價取自微軟商店台灣區特價清單（Reco Deal 清單，台灣區共
+            Xbox 家機特價取自微軟商店台灣區特價清單（Reco Deal 清單），只列有折扣的遊戲、折扣大→小；
+            本頁列出折扣最大的 {xboxConsole.length} 款（去重後的有效款數）
             {xboxConsoleTotalCount > 0
-              ? ` ${xboxConsoleTotalCount.toLocaleString("zh-Hant-TW")} 款`
-              : "約 500 款"}
-            ），只列有折扣的遊戲、折扣大→小、前 510 款；款數會隨檔期浮動。
+              ? `；「台灣區共 ${xboxConsoleTotalCount.toLocaleString("zh-Hant-TW")} 款」是清單 API 回報的原始總數（未去重），與去重後的有效款數口徑不同。`
+              : "；清單 API 回報的原始總數（未去重）與去重後的有效款數口徑不同。"}
+            款數會隨檔期浮動。
           </p>
           <p className="muted">
             完整清單請看{" "}

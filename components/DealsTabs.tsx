@@ -36,6 +36,7 @@ export default function DealsTabs({
   steamFree,
   steam,
   steamTotalCount,
+  steamFromFallback,
   xbox,
   xboxTotalCount,
   gamepass,
@@ -46,6 +47,7 @@ export default function DealsTabs({
   steamFree: DealsCarouselItem[];
   steam: DealsCarouselItem[];
   steamTotalCount: number;
+  steamFromFallback: boolean;
   xbox: DealsCarouselItem[];
   xboxTotalCount: number;
   gamepass: DealsCarouselItem[];
@@ -285,6 +287,16 @@ export default function DealsTabs({
                 ? ` · 台灣區特價中 ${steamTotalCount.toLocaleString("zh-Hant-TW")} 款`
                 : "")
           )}
+          {/* 高-1：Steam 顯示 specials 備援（只有 10 款精選）時，在 STEAM
+              分頁內顯示「資料暫時不完整」提示（頁面層分頁框上方另有一份，
+              切換分頁後仍顯示的那份就是這裡；見 app/deals/page.tsx）。 */}
+          {steamFromFallback && (
+            <p className="muted">
+              ⚠️ Steam 資料暫時不完整：特價搜尋暫時抓不到，目前 STEAM 只顯示{" "}
+              {steam.length} 款精選（不是完整特價清單）；每小時會重新抓取，
+              恢復後自動回到完整清單。Epic 免費遊戲與其他分頁不受影響。
+            </p>
+          )}
           {steamPage.length > 0 ? (
             <div className="deals-grid">
               {steamPage.map((item) => (
@@ -297,6 +309,17 @@ export default function DealsTabs({
             </p>
           )}
           {renderPager("steam")}
+          {/* 中-6：STEAM 取數範圍附註——抓前 6 頁 600 列再取前 510，
+              不是全台灣特價款裡的全域前 510（程式現況，見
+              lib/deals-carousel.ts）；總數用 live steamTotalCount。 */}
+          <p className="muted">
+            STEAM 取數範圍：先抓特價搜尋前 6 頁（600 列）再按折扣大→小取前
+            510 款，不是全台灣特價中
+            {steamTotalCount > 0
+              ? ` ${steamTotalCount.toLocaleString("zh-Hant-TW")} 款`
+              : "約 15,020 款"}
+            裡的全域前 510 款。
+          </p>
         </section>
       )}
 
