@@ -4,12 +4,14 @@ const SOURCE_LABEL: Record<DealsCarouselItem["source"], string> = {
   steam: "Steam",
   epic: "Epic",
   xbox: "Xbox",
+  ps: "PlayStation",
 };
 
 const SOURCE_BADGE_CLASS: Record<DealsCarouselItem["source"], string> = {
   steam: "deals-badge-steam",
   epic: "deals-badge-epic",
   xbox: "deals-badge-xbox",
+  ps: "deals-badge-ps",
 };
 
 /** /deals 用的單一特價／免費遊戲卡片：圖片在上、標題＋價格在下，

@@ -1156,6 +1156,236 @@ export async function fetchNearLowPagePublic(
 }
 
 // ============================================================================
+// 歷史低價（/historical-low）
+// ----------------------------------------------------------------------------
+// 規則：目前最低價 = 歷史低價（比值正好 = 1）的遊戲。
+//   這正是 /near-low 收不到的區間：那頁只收 1 < 比值 <= 1.1，
+//   比值 = 1 的遊戲（2026-11-23 實測 8,329 款，全部是具名遊戲）
+//   一款都不在裡面，shawn 問得沒錯，所以獨立成頁。
+//   還沒特價過的遊戲也在這裡（原價就是歷史最低價），只是排在後面；
+//   排序：折扣最大優先，再按最低價由低到高、id 收尾。
+// 實作（不要照抄 /near-low 的全掃描：13 頁全掃 12,175 列、常超時壞掉）：
+//   主路徑：migration 20261123_add_is_at_historical_low.sql 給
+//     games_with_price_stats 加 is_at_historical_low 欄位
+//     （cheapest_twd = historical_low_twd），DB 層直接篩選＋分頁，
+//     單一查詢（filter + order + range + count=exact）。
+//   備援路徑（migration 還沒套用、欄位不存在時）：prices 表的
+//     is_historical_low 旗標（refresh／catalog-sync 在寫入時算好：
+//     該國現價 <= 歷史低價時為 true）由 DB 先篩選，只取符合的列
+//     （2026-11-23 實測 9,396 列／9,282 款），程式端只做去重＋排序＋
+//     切頁；顯示前再用即時查到的 cheapest／historical_low 驗證一次，
+//     過期的剔掉。備援總數會比主路徑多約 11%（旗標最多約 4 天沒更新），
+//     套用 migration 後自動切回主路徑。
+// ============================================================================
+
+/** 歷史低價每頁款數（比照 /near-low：100 款一頁）。 */
+export const HISTORICAL_LOW_PAGE_SIZE = 100;
+
+export interface HistoricalLowPageResult {
+  games: GameWithPrices[];
+  total: number;
+  page: number;
+  totalPages: number;
+  error: string | null;
+}
+
+/** 主路徑：view 欄位 is_at_historical_low 直接篩選＋分頁（單一查詢）。
+ *  欄位不存在時回傳 { error } 且 error 帶欄位名，呼叫端改走備援路徑。 */
+async function fetchHistoricalLowPageByView(
+  db: SupabaseClient,
+  page: number,
+  country?: string
+): Promise<HistoricalLowPageResult> {
+  const p = Math.max(1, page);
+  const from = (p - 1) * HISTORICAL_LOW_PAGE_SIZE;
+  let q = db
+    .from("games_with_price_stats")
+    .select("id", { count: "exact" })
+    .eq("is_at_historical_low", true)
+    .eq("is_unnamed", false)
+    .order("max_discount_pct", { ascending: false, nullsFirst: false })
+    .order("cheapest_twd", { ascending: true, nullsFirst: false })
+    .order("id", { ascending: true });
+  if (country) q = q.eq("cheapest_country", country);
+  const { data, count, error } = await q.range(
+    from,
+    from + HISTORICAL_LOW_PAGE_SIZE - 1
+  );
+  if (error) {
+    // is_unnamed 欄位不存在時退回不過濾（migration 未跑的舊庫才會發生）。
+    if (/is_unnamed/i.test(error.message)) {
+      let q2 = db
+        .from("games_with_price_stats")
+        .select("id", { count: "exact" })
+        .eq("is_at_historical_low", true)
+        .order("max_discount_pct", { ascending: false, nullsFirst: false })
+        .order("cheapest_twd", { ascending: true, nullsFirst: false })
+        .order("id", { ascending: true });
+      if (country) q2 = q2.eq("cheapest_country", country);
+      const retry = await q2.range(from, from + HISTORICAL_LOW_PAGE_SIZE - 1);
+      if (retry.error)
+        return { games: [], total: 0, page: p, totalPages: 0, error: retry.error.message };
+      const ids = (retry.data as { id: string }[] | null ?? []).map((r) => r.id);
+      const games = await fetchGamesByIdsPublic(db, ids);
+      const total = retry.count ?? 0;
+      return {
+        games,
+        total,
+        page: p,
+        totalPages: total > 0 ? Math.ceil(total / HISTORICAL_LOW_PAGE_SIZE) : 0,
+        error: null,
+      };
+    }
+    return { games: [], total: 0, page: p, totalPages: 0, error: error.message };
+  }
+  const ids = (data as { id: string }[] | null ?? []).map((r) => r.id);
+  const games = await fetchGamesByIdsPublic(db, ids);
+  const total = count ?? 0;
+  return {
+    games,
+    total,
+    page: p,
+    totalPages: total > 0 ? Math.ceil(total / HISTORICAL_LOW_PAGE_SIZE) : 0,
+    error: null,
+  };
+}
+
+interface HistoricalLowFallbackCandidate {
+  id: string;
+  /** 該遊戲所有歷史低價列裡的最大折扣％（排序用）。 */
+  maxDiscount: number;
+  /** 該遊戲歷史低價列裡的最低價（排序用）。 */
+  cheapest: number;
+  /** 最低價的國家（同價時取國家代碼較小者，與 view 的 cheapest_country 同規則）。 */
+  cheapestCountry: string | null;
+}
+
+/** 備援路徑：prices.is_historical_low 由 DB 篩選後取回符合的列，去重＋排序＋切頁。
+ *  只在主路徑的 view 欄位還沒建時用。 */
+async function fetchHistoricalLowPageByFlag(
+  db: SupabaseClient,
+  page: number,
+  country?: string
+): Promise<HistoricalLowPageResult> {
+  const p = Math.max(1, page);
+  // 符合的列約 9,400 筆（1000 列一頁），3 批並行抓，約數秒。
+  const rows: {
+    game_id: string;
+    price_twd: number;
+    discount_pct: number | null;
+    country: string;
+  }[] = [];
+  let offset = 0;
+  let done = false;
+  while (!done) {
+    const batchOffsets = [offset, offset + 1000, offset + 2000];
+    const settled = await Promise.allSettled(
+      batchOffsets.map((off) =>
+        db
+          .from("prices")
+          .select("game_id,price_twd,discount_pct,country")
+          .eq("is_historical_low", true)
+          .not("price_twd", "is", null)
+          .order("price_twd", { ascending: true })
+          .range(off, off + 999)
+      )
+    );
+    let fetched = 0;
+    for (const s of settled) {
+      if (s.status !== "fulfilled" || s.value.error || !s.value.data) {
+        if (s.status === "fulfilled" && s.value.error) {
+          return {
+            games: [],
+            total: 0,
+            page: p,
+            totalPages: 0,
+            error: s.value.error.message,
+          };
+        }
+        continue;
+      }
+      const data = s.value.data as unknown as typeof rows;
+      fetched += data.length;
+      rows.push(...data);
+    }
+    if (fetched < 3000) done = true;
+    offset += 3000;
+  }
+  const byGame = new Map<string, HistoricalLowFallbackCandidate>();
+  for (const r of rows) {
+    const prev = byGame.get(r.game_id);
+    const disc = r.discount_pct ?? 0;
+    if (!prev) {
+      byGame.set(r.game_id, {
+        id: r.game_id,
+        maxDiscount: disc,
+        cheapest: r.price_twd,
+        cheapestCountry: r.country,
+      });
+    } else {
+      if (disc > prev.maxDiscount) prev.maxDiscount = disc;
+      if (
+        r.price_twd < prev.cheapest ||
+        (r.price_twd === prev.cheapest &&
+          (prev.cheapestCountry == null || r.country < prev.cheapestCountry))
+      ) {
+        prev.cheapest = r.price_twd;
+        prev.cheapestCountry = r.country;
+      }
+    }
+  }
+  let candidates = [...byGame.values()];
+  if (country) {
+    candidates = candidates.filter((c) => c.cheapestCountry === country);
+  }
+  candidates.sort(
+    (a, b) =>
+      b.maxDiscount - a.maxDiscount || a.cheapest - b.cheapest || (a.id < b.id ? -1 : 1)
+  );
+  const total = candidates.length;
+  const totalPages =
+    total > 0 ? Math.ceil(total / HISTORICAL_LOW_PAGE_SIZE) : 0;
+  const slice = candidates.slice(
+    (p - 1) * HISTORICAL_LOW_PAGE_SIZE,
+    p * HISTORICAL_LOW_PAGE_SIZE
+  );
+  const games = await fetchGamesByIdsPublic(
+    db,
+    slice.map((c) => c.id)
+  );
+  // 旗標可能過期（refresh 輪替約 4 天）：顯示前用即時價格驗證一次，
+  // 最低價已經不等於歷史低價的剔掉（總數仍用旗標數，會略多，見上方說明）。
+  const verified = games.filter((g) => {
+    const cheapest = cheapestPrice(g.prices);
+    return (
+      cheapest?.price_twd != null &&
+      g.historical_low_twd != null &&
+      cheapest.price_twd === g.historical_low_twd
+    );
+  });
+  return { games: verified, total, page: p, totalPages, error: null };
+}
+
+/** 歷史低價列表頁（即時版；頁面改走快取版，邏輯相同）。 */
+export async function fetchHistoricalLowPagePublic(
+  db: SupabaseClient,
+  page: number,
+  country?: string
+): Promise<HistoricalLowPageResult> {
+  const p = Math.max(1, page);
+  const byView = await fetchHistoricalLowPageByView(db, p, country);
+  if (!byView.error) return byView;
+  // 只有 view 欄位不存在時才走備援；其他錯誤直接回報（頁面顯示資料準備中）。
+  if (/is_at_historical_low/i.test(byView.error)) {
+    console.warn(
+      "[data] is_at_historical_low 欄位不存在，歷史低價改走 prices 旗標備援；請套用 supabase/migrations/20261123_add_is_at_historical_low.sql。"
+    );
+    return fetchHistoricalLowPageByFlag(db, p, country);
+  }
+  return byView;
+}
+
+// ============================================================================
 // 準備上市（/upcoming）
 // ----------------------------------------------------------------------------
 // 規則：release_date（上市日期）> 今天（台北日期）的遊戲，越快上市越前面。

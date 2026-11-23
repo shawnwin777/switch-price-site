@@ -1,9 +1,11 @@
 // ============================================================================
-// Xbox 家機特價（/deals「XBOX 家機」分頁）：伺服器端抓取（不需金鑰）。
+// Xbox 家機特價（/console 家機頁）：伺服器端抓取（不需金鑰）。
 // 2026-11-23 從 lib/xbox-deals.ts（PC 版）複製，只改平台 filter 為
 // Windows.Xbox——Reco 特價清單＋Display Catalog 同一條管線；實測
 // Reco totalCount 500，抽 50 款有 48 款是家機＋台幣折價
 // （Forza Horizon 6、Gears of War: E-Day 等）。
+// 2026-11-23 12:17 shawn 改方向：家機不做 /deals 第四分頁，改獨立頁
+// /console；本檔案內容不變，只是掛的頁面換了。
 // ----------------------------------------------------------------------------
 // 兩段式（2026-11-23 實測台灣區都通）：
 //   1. 清單：GET https://apps.microsoft.com/api/Reco/GetComputedProductsList

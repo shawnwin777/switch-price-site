@@ -35,6 +35,7 @@ import {
   fetchGamesByIdsPublic,
   fetchGamesPagePublicCore,
   fetchGamePublicCore,
+  fetchHistoricalLowPagePublic,
   fetchNearLowCandidates,
   fetchUpcomingPagePublic,
   getLatestFx,
@@ -44,6 +45,7 @@ import {
   paginateNearLow,
   type GamesPagePublicArgs,
   type GamesPageResult,
+  type HistoricalLowPageResult,
   type NearLowCandidate,
   type NearLowPageResult,
   type UpcomingPageResult,
@@ -92,9 +94,11 @@ import {
   type XboxConsoleDealsData,
 } from "./xbox-console-deals";
 
-/** Xbox 家機特價（/deals「XBOX 家機」分頁，伺服器端抓取、每小時更新一次）。
+/** Xbox 家機特價（/console 家機頁，伺服器端抓取、每小時更新一次）。
  *  2026-11-23 新增：與 PC 版同一條管線（Reco 清單＋Display Catalog），
- *  只差平台 filter 為 Windows.Xbox；實測抽 50 款有 48 款是家機＋台幣折價。 */
+ *  只差平台 filter 為 Windows.Xbox；實測抽 50 款有 48 款是家機＋台幣折價。
+ *  2026-11-23 12:17 shawn 改方向：家機不做 /deals 第四分頁，改獨立頁 /console，
+ *  這裡的快取不動（key 仍是 xbox-console-deals-v1，資料本身沒變）。 */
 export const getCachedXboxConsoleDeals = unstable_cache(
   async (): Promise<XboxConsoleDealsData> => fetchXboxConsoleDeals(),
   ["xbox-console-deals-v1"],
@@ -200,4 +204,16 @@ export const getCachedUpcomingPage = unstable_cache(
     fetchUpcomingPagePublic(createPublicClient(), page),
   ["upcoming-page-v2"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["upcoming"] }
+);
+
+/** 歷史低價列表頁（/historical-low）：目前最低價 = 歷史低價的遊戲，
+ *  100 款一頁、折扣大優先。主路徑是 view 欄位 is_at_historical_low
+ *  的單一查詢（migration 20261123_add_is_at_historical_low.sql）；
+ *  欄位未建時自動改走 prices 旗標備援（見 lib/data.ts）。
+ *  快取 key 另外開 historical-low-page-v1，不跟 near-low 共用。 */
+export const getCachedHistoricalLowPage = unstable_cache(
+  async (page: number, country?: string): Promise<HistoricalLowPageResult> =>
+    fetchHistoricalLowPagePublic(createPublicClient(), page, country),
+  ["historical-low-page-v1"],
+  { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["historical-low"] }
 );

@@ -10,6 +10,7 @@ import {
 } from "@/lib/data";
 import {
   getCachedGamesPagePublic,
+  getCachedHistoricalLowPage,
   getCachedLatestFx,
   getCachedLatestPriceUpdate,
   getCachedNearLowPage,
@@ -135,7 +136,7 @@ export default async function HomePage({
     excludePurchasedIds = await getUserPurchaseGameIds(db, userId);
   }
 
-  const [pageRes, fx, lastUpdate, productTypes, nearLow, upcoming] =
+  const [pageRes, fx, lastUpdate, productTypes, nearLow, upcoming, historicalLow] =
     await Promise.all([
       getCachedGamesPagePublic({
         ...params,
@@ -148,6 +149,8 @@ export default async function HomePage({
       getCachedProductTypes(),
       getCachedNearLowPage(1),
       getCachedUpcomingPage(1),
+      // 歷史低價卡片的數字（2026-11-23 新增第四張卡）。
+      getCachedHistoricalLowPage(1),
       // Steam＋Epic 已改成獨立頁面 /deals（2026-11-23），首頁不再抓輪播資料，
       // 只放連去 /deals 的入口卡片。
     ]);
@@ -222,6 +225,16 @@ export default async function HomePage({
           <div className="feature-card-title">🎮 NSO 會員跨區比價</div>
           <div className="feature-card-sub">
             一般、擴充、家庭會員與遊戲兌換券，35 國比價
+          </div>
+        </Link>
+        <Link href="/historical-low" className="feature-card">
+          <div className="feature-card-title">💰 歷史低價</div>
+          <div className="feature-card-sub">
+            {historicalLow.error
+              ? "資料準備中"
+              : historicalLow.total > 0
+                ? `${historicalLow.total} 款正在歷史低價`
+                : "目前沒有正在歷史低價的遊戲"}
           </div>
         </Link>
       </div>

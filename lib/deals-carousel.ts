@@ -35,7 +35,7 @@
 // 頁面只顯示另一來源；兩邊都失敗時顯示空狀態（頁面不壞）。
 // ============================================================================
 
-export type DealsCarouselSource = "steam" | "epic" | "xbox";
+export type DealsCarouselSource = "steam" | "epic" | "xbox" | "ps";
 
 export interface DealsCarouselItem {
   source: DealsCarouselSource;

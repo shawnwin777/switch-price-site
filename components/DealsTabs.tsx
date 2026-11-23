@@ -8,23 +8,22 @@ import DealCard from "./DealCard";
 /** 每頁顯示款數（shawn 定：一次只呈現 24 款）。 */
 const PAGE_SIZE = 24;
 
-type TabKey = "free" | "steam" | "xbox" | "xbox-console";
+type TabKey = "free" | "steam" | "xbox";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "free", label: "免費遊戲" },
   { key: "steam", label: "STEAM" },
   { key: "xbox", label: "XBOX PC" },
-  { key: "xbox-console", label: "XBOX 家機" },
 ];
 
-/** /deals 分頁框：同一頁上方四個分頁，點了不跳頁、不換路由，
+/** /deals 分頁框：同一頁上方三個分頁，點了不跳頁、不換路由，
  *  當下就切換顯示該平台的遊戲（client-side 切換）。
  *  面板永遠展開、不摺疊（2026-11-23：分頁框模式下摺疊沒意義）。
  *  免費遊戲分頁：Epic 免費遊戲（本週＋下週預告）＋Steam 限時免費領取
  *  （折扣 100% 的付費遊戲，可永久保留；免費遊玩 F2P 不在這裡）。
  *  每平台取前 200 款，一次只顯示 24 款，在頁內翻頁。
- *  XBOX PC 與 XBOX 家機用同一條管線（Reco 清單＋Display Catalog），
- *  只差平台 filter（Windows.Desktop／Windows.Xbox）。 */
+ *  家機不在這頁：2026-11-23 12:17 shawn 改方向，Xbox 家機改去獨立頁
+ *  /console，本頁維持 PC 頁（免費遊戲／STEAM／XBOX PC）。 */
 export default function DealsTabs({
   epicCurrent,
   epicUpcoming,
@@ -33,8 +32,6 @@ export default function DealsTabs({
   steamTotalCount,
   xbox,
   xboxTotalCount,
-  xboxConsole,
-  xboxConsoleTotalCount,
 }: {
   epicCurrent: DealsCarouselItem[];
   epicUpcoming: DealsCarouselItem[];
@@ -43,8 +40,6 @@ export default function DealsTabs({
   steamTotalCount: number;
   xbox: DealsCarouselItem[];
   xboxTotalCount: number;
-  xboxConsole: DealsCarouselItem[];
-  xboxConsoleTotalCount: number;
 }) {
   // 預設 Steam（內容最多，特賣會期間第一眼就有 24 款可看）。
   const [active, setActive] = useState<TabKey>("steam");
@@ -52,14 +47,12 @@ export default function DealsTabs({
     free: 1,
     steam: 1,
     xbox: 1,
-    "xbox-console": 1,
   });
 
   const counts: Record<TabKey, number> = {
     free: epicCurrent.length + epicUpcoming.length + steamFree.length,
     steam: steam.length,
     xbox: xbox.length,
-    "xbox-console": xboxConsole.length,
   };
   const totalPages = (key: TabKey) =>
     Math.max(1, Math.ceil(counts[key] / PAGE_SIZE));
@@ -122,7 +115,6 @@ export default function DealsTabs({
 
   const steamPage = pageItems("steam", steam);
   const xboxPage = pageItems("xbox", xbox);
-  const xboxConsolePage = pageItems("xbox-console", xboxConsole);
 
   return (
     <div>
@@ -244,40 +236,6 @@ export default function DealsTabs({
               rel="noopener noreferrer"
             >
               微軟商店台灣區 PC 特價頁 →
-            </a>
-          </p>
-        </section>
-      )}
-
-      {active === "xbox-console" && (
-        <section className="deals-section" aria-label="XBOX 家機">
-          {sectionHead(
-            "🟢 XBOX 家機",
-            `折扣最大的 ${xboxConsole.length} 款` +
-              (xboxConsoleTotalCount > 0
-                ? ` · 台灣區共 ${xboxConsoleTotalCount.toLocaleString("zh-Hant-TW")} 款特價`
-                : "")
-          )}
-          {xboxConsolePage.length > 0 ? (
-            <div className="deals-grid">
-              {xboxConsolePage.map((item) => (
-                <DealCard key={item.key} item={item} />
-              ))}
-            </div>
-          ) : (
-            <p className="muted">
-              目前 Xbox 家機台灣區沒有特價資訊，請稍後再試。
-            </p>
-          )}
-          {renderPager("xbox-console")}
-          <p className="muted">
-            完整清單請看{" "}
-            <a
-              href="https://www.microsoft.com/zh-tw/store/top-paid/games/xbox?isdeal=true"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              微軟商店台灣區 Xbox 特價頁 →
             </a>
           </p>
         </section>

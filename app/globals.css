@@ -1038,6 +1038,12 @@ table.price-table {
   color: #7be495;
 }
 
+.deals-badge-ps {
+  background: rgba(0, 112, 209, 0.2);
+  border: 1px solid #2d9bff;
+  color: #7dbfff;
+}
+
 .deals-item-title {
   color: var(--text);
   font-size: 20px;
