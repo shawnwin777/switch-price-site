@@ -10,12 +10,9 @@ import {
 } from "@/lib/data";
 import {
   getCachedGamesPagePublic,
-  getCachedHistoricalLowPage,
   getCachedLatestFx,
   getCachedLatestPriceUpdate,
-  getCachedNearLowPage,
   getCachedProductTypes,
-  getCachedUpcomingPage,
 } from "@/lib/cached-data";
 import { formatTaipei } from "@/lib/format";
 import {
@@ -136,24 +133,17 @@ export default async function HomePage({
     excludePurchasedIds = await getUserPurchaseGameIds(db, userId);
   }
 
-  const [pageRes, fx, lastUpdate, productTypes, nearLow, upcoming, historicalLow] =
-    await Promise.all([
-      getCachedGamesPagePublic({
-        ...params,
-        visibleCountries: cookieVisible ?? undefined,
-        mineIds,
-        excludePurchasedIds,
-      }),
-      getCachedLatestFx(),
-      getCachedLatestPriceUpdate(),
-      getCachedProductTypes(),
-      getCachedNearLowPage(1),
-      getCachedUpcomingPage(1),
-      // 歷史低價卡片的數字（2026-11-23 新增第四張卡）。
-      getCachedHistoricalLowPage(1),
-      // Steam＋Epic 已改成獨立頁面 /deals（2026-11-23），首頁不再抓輪播資料，
-      // 只放連去 /deals 的入口卡片。
-    ]);
+  const [pageRes, fx, lastUpdate, productTypes] = await Promise.all([
+    getCachedGamesPagePublic({
+      ...params,
+      visibleCountries: cookieVisible ?? undefined,
+      mineIds,
+      excludePurchasedIds,
+    }),
+    getCachedLatestFx(),
+    getCachedLatestPriceUpdate(),
+    getCachedProductTypes(),
+  ]);
   // 個人狀態即時補上（快取裡沒有個人資料）。
   const page = {
     ...pageRes,
@@ -206,71 +196,6 @@ export default async function HomePage({
             </>
           )
         )}
-      </div>
-      {/* 站內入口（2026-11-23 簡單首頁）：把站上各頁串起來，遊戲牆本身、
-          篩選、排序、分頁邏輯一律不動。Switch 卡點了捲到下方的遊戲牆。 */}
-      <h2 className="deals-section-title">站內入口</h2>
-      <div className="feature-cards">
-        <Link href="#switch-wall" className="feature-card">
-          <div className="feature-card-title">🎮 Switch 比價</div>
-          <div className="feature-card-sub">
-            就是這一頁，往下滑看遊戲牆
-          </div>
-        </Link>
-        <Link href="/deals" className="feature-card">
-          <div className="feature-card-title">💻 PC遊戲特價</div>
-          <div className="feature-card-sub">
-            Steam 特價、Epic 免費、Xbox PC
-          </div>
-        </Link>
-        <Link href="/console" className="feature-card">
-          <div className="feature-card-title">🕹️ 家機特價</div>
-          <div className="feature-card-sub">
-            Xbox 家機、XGP、PlayStation、PS Plus
-          </div>
-        </Link>
-        <Link href="/ranking" className="feature-card">
-          <div className="feature-card-title">🏆 收藏排行</div>
-          <div className="feature-card-sub">
-            大家收藏最多的遊戲 TOP 10
-          </div>
-        </Link>
-        <Link href="/upcoming" className="feature-card">
-          <div className="feature-card-title">📅 準備上市</div>
-          <div className="feature-card-sub">
-            {upcoming.unavailable || !upcoming.hasAnyReleaseDate
-              ? "上市日期資料補充中"
-              : upcoming.total > 0
-                ? `${upcoming.total} 款即將上市`
-                : "目前沒有即將上市的遊戲"}
-          </div>
-        </Link>
-        <Link href="/near-low" className="feature-card">
-          <div className="feature-card-title">📉 接近歷史低價</div>
-          <div className="feature-card-sub">
-            {nearLow.error
-              ? "資料準備中"
-              : nearLow.total > 0
-                ? `${nearLow.total} 款只比歷史低貴一點點`
-                : "目前沒有接近歷史低價的遊戲"}
-          </div>
-        </Link>
-        <Link href="/nso" className="feature-card">
-          <div className="feature-card-title">🎮 NSO 會員跨區比價</div>
-          <div className="feature-card-sub">
-            一般、擴充、家庭會員與遊戲兌換券，35 國比價
-          </div>
-        </Link>
-        <Link href="/historical-low" className="feature-card">
-          <div className="feature-card-title">💰 歷史低價</div>
-          <div className="feature-card-sub">
-            {historicalLow.error
-              ? "資料準備中"
-              : historicalLow.total > 0
-                ? `${historicalLow.total} 款正在歷史低價`
-                : "目前沒有正在歷史低價的遊戲"}
-          </div>
-        </Link>
       </div>
       <div id="switch-wall">
       <HomeClient

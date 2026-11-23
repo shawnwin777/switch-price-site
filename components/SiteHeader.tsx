@@ -34,7 +34,7 @@ export default function SiteHeader() {
   return (
     <header className="site-header">
       <div className="site-header-inner">
-        <Link href="/" className="logo" aria-label="SHAWN GAME STUDIO 首頁">
+        <Link href="/home" className="logo" aria-label="SHAWN GAME STUDIO 首頁">
           <Image
             src="/sgs-logo.png"
             alt="SHAWN GAME STUDIO"
@@ -44,7 +44,8 @@ export default function SiteHeader() {
           />
         </Link>
         <nav className="nav">
-          <Link href="/">首頁</Link>
+          <Link href="/home">首頁</Link>
+          <Link href="/">Switch 比價</Link>
           <Link href="/deals">PC遊戲特價</Link>
           <Link href="/console">家機特價</Link>
           <Link href="/taiwan">台灣完整目錄</Link>

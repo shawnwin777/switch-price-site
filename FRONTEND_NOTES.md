@@ -141,11 +141,16 @@ npm start                    # 跑 production build
 
 ## 已完成（2026-11-17 快取版）
 
-- **首頁上方站內入口卡片**（2026-11-23 簡單首頁）：首頁最上方一排卡片，
-  把站上各頁串起來——Switch 比價（點了捲到下方遊戲牆 `#switch-wall`）、
-  PC遊戲特價 `/deals`、家機特價 `/console`、收藏排行 `/ranking`，再加原本的
-  準備上市 `/upcoming`、接近歷史低價 `/near-low`、NSO 比價 `/nso`、歷史低價
-  `/historical-low`。準備上市與接近歷史低價是獨立列表頁（排行頁風格、
+- **新首頁 `/home`**（2026-11-23，shawn 定）：Shawn Game Studio 的大首頁
+  （landing page），主視覺＋三組入口卡片——比價（Switch 比價 `/`、PC遊戲特價
+  `/deals`、家機特價 `/console`）、特價情報（準備上市 `/upcoming`、接近歷史低價
+  `/near-low`、歷史低價 `/historical-low`）、會員・收藏（NSO 比價 `/nso`、收藏排行
+  `/ranking`、台灣完整目錄 `/taiwan`）。款數走與舊卡片相同的每小時快取 getter，
+  任一查詢失敗時該卡顯示備用文案。導覽列加「首頁」連 `/home`、「Switch 比價」連
+  `/`，logo 也連 `/home`。
+  - 2026-11-23 下午 shawn 否決了第一版做法（`/` 牆上方的「站內入口」卡片，
+    會亂）：入口卡片已從 `/` 拆掉，比價牆恢復成只有牆本身（搜尋、篩選、排序、
+    分頁不動）。準備上市與接近歷史低價是獨立列表頁（排行頁風格、
   每頁 12 款、與首頁同樣的 1 小時快取）。
   - 「準備上市」：`release_date` > 今天（台北日期），最近的先排；今天
     發售的不算（已上市，首頁牆上找得到）。資料來源：`games.release_date`
@@ -191,7 +196,8 @@ npm start                    # 跑 production build
   原「XBOX」分頁標籤改為「XBOX PC」，免得跟家機頁混淆。
   Epic 取 `freeGamesPromotions`（TW，`discountSetting.discountPercentage === 0` 才是免費——實測回應沒有 `discountPrice` 欄位；進行中顯示「免費／領取截止日」，下週預告顯示「即將免費／開始日」，連去 Epic 商店）。
   單一來源失敗時只顯示其他來源；全部失敗時顯示空狀態、頁面不壞。
-  首頁不再有輪播，改成站內入口卡片（2026-11-23 簡單首頁：Switch 比價／PC遊戲特價／家機特價／收藏排行＋準備上市／接近歷史低價／NSO／歷史低價）＋導覽列「PC遊戲特價」連結。
+  首頁不再有輪播；入口改放新首頁 `/home`（2026-11-23 下午，`/` 牆上方
+  的「站內入口」卡片被 shawn 否決、已拆掉）＋導覽列「PC遊戲特價」連結。
   注意：2026-11-23 實測 TW 本週無進行中免費遊戲（Mark of the Deep 只在 US 回應有），當時只有 1 款 Epic 下週預告（Bread and Fred，11/26 起免費）＋Steam 限時免費 0 款，這是資料現況、不是 bug。
   舊輪播元件 `components/DealsCarousel.tsx` 與舊 Epic 區塊 `components/EpicDealsSection.tsx` 已無引用，留在 repo 裡（push-files 不支援刪檔，之後要刪請用網頁上傳）。
 - **首頁第一頁修正**（`lib/data.ts` 的 `buildFilteredGamesQuery`，快取版與即時版共用的單一過濾點）：
