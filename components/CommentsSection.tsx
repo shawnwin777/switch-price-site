@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatTaipei } from "@/lib/format";
+import { isAdminEmail } from "@/lib/admin";
+import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 import type { CommentItem } from "@/lib/types";
 
 // 留言區：放在價格上方，依讚數排序，預設最多顯示 5 則，其餘收在「顯示全部」裡。
@@ -21,7 +23,23 @@ export default function CommentsSection({
   const [showAll, setShowAll] = useState(false);
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const router = useRouter();
+
+  // 管理員判斷：沿用 SiteHeader 的現成做法（browser client 讀登入 email
+  // ＋ isAdminEmail），刪文按鈕只對管理員顯示；真正擋人的是 API 路由。
+  useEffect(() => {
+    const db = createSupabaseBrowserClient();
+    db.auth.getUser().then(({ data }) => {
+      setIsAdmin(isAdminEmail(data.user?.email ?? null));
+    });
+    const {
+      data: { subscription },
+    } = db.auth.onAuthStateChange((_event, session) => {
+      setIsAdmin(isAdminEmail(session?.user?.email ?? null));
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   // 讚數高 → 新，留言預設照這個順序。
   const sorted = useMemo(
@@ -68,6 +86,29 @@ export default function CommentsSection({
       alert("留言失敗，請稍後再試（需先登入）。");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function deleteComment(comment: CommentItem) {
+    if (!window.confirm("確定要刪除這則留言嗎？")) return;
+    try {
+      const res = await fetch(
+        `/api/comments?id=${encodeURIComponent(comment.id)}`,
+        { method: "DELETE" }
+      );
+      if (res.status === 401) {
+        router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+        return;
+      }
+      if (res.status === 403) {
+        alert("只有管理員可以刪除留言。");
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setComments((prev) => prev.filter((c) => c.id !== comment.id));
+    } catch (e) {
+      console.error("刪除留言失敗：", e);
+      alert("刪除留言失敗，請稍後再試。");
     }
   }
 
@@ -124,6 +165,16 @@ export default function CommentsSection({
                   >
                     👍 {c.likes_count}
                   </button>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      onClick={() => deleteComment(c)}
+                      title="管理員刪除留言"
+                    >
+                      🗑️ 刪除
+                    </button>
+                  )}
                 </div>
                 <p className="comment-body">{c.body}</p>
               </article>

@@ -902,7 +902,9 @@ export async function getComments(
   return (data as Record<string, unknown>[]).map((c) => ({
     id: c.id as string,
     game_id: c.game_id as string,
-    user_id: (c.user_id as string | null) ?? null,
+    // 不回傳 user_id：前端只顯示 author_name，留言者的 UUID 不應隨詳情頁
+    // 送給所有訪客（CommentItem.user_id 欄位保留型別相容，值固定為 null）。
+    user_id: null,
     author_name:
       (c.author_name as string | null) ??
       (c.nickname as string | null) ??
