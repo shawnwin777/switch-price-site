@@ -75,6 +75,14 @@ export interface DealsPageData {
   steamFreeCount: number;
   /** Steam 台灣區特價中的總款數（搜尋 API 的 total_count）。 */
   steamTotalCount: number;
+  /** true = Steam 搜尋無結果、目前顯示的是 featuredcategories
+   *  specials 備援（只有 10 款精選），不是完整特價清單；
+   *  呼叫端應顯示「資料暫時不完整」提示（見 app/deals/page.tsx）。
+   *  備援仍會被快取 1 小時（Epic 同包在這份資料裡，拋錯會連 Epic
+   *  一起丟掉；下次快取到期重抓時會再試搜尋，恢復後自動回到 510 款）。
+   *  搜尋＋備援都失敗（Steam 全空）時 getter 端拋錯、不快取
+   *  （見 lib/cached-data.ts，跟 Xbox「0 筆就拋錯」同一套做法）。 */
+  steamFromFallback: boolean;
   epicCurrentCount: number;
   epicUpcomingCount: number;
 }
@@ -463,7 +471,9 @@ function parseEpic(data: unknown, nowMs: number): {
 /** 抓 Steam 特價＋Epic 免費遊戲（/deals 獨立頁面用，分來源回傳）。
  *  單一來源失敗不影響另一來源；兩邊都失敗回空陣列。
  *  Steam 先走特價搜尋（前 510 款、折扣大→小；100% 限時免費另外拆出）；
- *  搜尋無結果才退回 featuredcategories specials（10 款精選，當備援）。 */
+ *  搜尋無結果才退回 featuredcategories specials（10 款精選，當備援），
+ *  此時 steamFromFallback=true——備援不是完整清單，頁面要顯示
+ *  「Steam 資料暫時不完整」提示，不能當成正式結果默默呈現。 */
 export async function fetchDealsPage(): Promise<DealsPageData> {
   const nowMs = Date.now();
   const [steamSearch, epicRes] = await Promise.allSettled([
@@ -473,6 +483,7 @@ export async function fetchDealsPage(): Promise<DealsPageData> {
   let steamItems: DealsCarouselItem[] = [];
   let steamFree: DealsCarouselItem[] = [];
   let steamTotalCount = 0;
+  let steamFromFallback = false;
   if (steamSearch.status === "fulfilled") {
     steamItems = steamSearch.value.items;
     steamFree = steamSearch.value.freeItems;
@@ -486,7 +497,8 @@ export async function fetchDealsPage(): Promise<DealsPageData> {
       steamFree = fallback.filter((it) => it.sortKey === 100);
       steamItems = fallback.filter((it) => it.sortKey < 100);
       if (fallback.length > 0) {
-        console.warn("[deals-carousel] Steam 搜尋無結果，已退回 specials 備援");
+        steamFromFallback = true;
+        console.warn("[deals-carousel] Steam 搜尋無結果，已退回 specials 備援（10 款精選，非完整清單）");
       }
     } catch (e) {
       console.warn("[deals-carousel] Steam 備援 specials 也失敗：", e);
@@ -517,6 +529,7 @@ export async function fetchDealsPage(): Promise<DealsPageData> {
     steamCount: steamItems.length,
     steamFreeCount: steamFree.length,
     steamTotalCount,
+    steamFromFallback,
     epicCurrentCount: epicCurrent.length,
     epicUpcomingCount: epicUpcoming.length,
   };

@@ -68,24 +68,32 @@ import {
  *  2026-11-23 上限 200→350→510（Steam 抓 6 頁 600 列取前 510），key 換成
  *  deals-page-v6。2026-11-23 每頁 24 款→30 款（510 款剛好 17 頁），key 換成
  *  deals-page-v7。2026-11-23：四個清單全空時拋錯、不快取（見下方；
- *  key 不動，舊的好快取續用）。 */
+ *  key 不動，舊的好快取續用）。
+ *  2026-11-23 21:00 高-1：Steam 搜尋從 Vercel 抓失敗、靜默退回 10 款
+ *  specials 備援，還被當成正式結果快取 1 小時（STEAM 分頁只剩 10 款、
+ *  steamTotalCount 0）。改法：(1) Steam 全空（搜尋＋備援都沒東西，
+ *  不論 Epic 有沒有資料）就拋錯、不快取空結果——跟 Xbox／GamePass
+ *  三個分頁 18:14 的「0 筆就拋錯」同一套做法，下次請求重抓；
+ *  (2) 只有備援時（steamFromFallback）仍回傳、頁面顯示
+ *  「Steam 資料暫時不完整」提示——備援跟 Epic 同包在這份資料裡，
+ *  這裡拋錯會連 Epic 一起丟掉，標記＋提示比丟掉更實用；
+ *  (3) key 換成 deals-page-v8，立刻丟掉被 10 款備援污染的 v7 快取、馬上重抓搜尋。 */
 export const getCachedDealsPage = unstable_cache(
   async (): Promise<DealsPageData> => {
     const data = await fetchDealsPage();
-    // 全部來源都空＝上游全掛（Steam 常年上千款特價、Epic 每週都有免費
-    // 遊戲），拋錯、不把全空結果快取 1 小時；單一來源失敗仍回部分資料、
-    // 不拋錯（跟 Xbox 三個分頁 18:14 空結果中毒同一類問題）。
-    if (
-      data.steam.length === 0 &&
-      data.steamFree.length === 0 &&
-      data.epicCurrent.length === 0 &&
-      data.epicUpcoming.length === 0
-    ) {
-      throw new Error("Steam／Epic 特價全部抓取失敗（回傳 0 款）");
+    // Steam 全空＝上游 Steam 來源全掛（搜尋＋備援都沒東西；Steam 常年
+    // 上千款特價，0 款只會是抓失敗），拋錯、不把空 Steam 快取 1 小時；
+    // Epic 有資料也不救——Epic 跟 Steam 同包在這份資料裡，空 Steam 被
+    // 快取會把 STEAM 分頁鎖住 1 小時，下次請求重抓才會恢復（跟 Xbox
+    // 三個分頁 18:14 空結果中毒同一類問題）。只有備援時不拋錯
+    // （steamFromFallback=true）：備援至少有 10 款可看，頁面會標示
+    // 「資料暫時不完整」，快取到期重抓時搜尋恢復就自動回到 510 款。
+    if (data.steam.length === 0 && data.steamFree.length === 0) {
+      throw new Error("Steam 特價全部抓取失敗（回傳 0 款，不快取空結果）");
     }
     return data;
   },
-  ["deals-page-v7"],
+  ["deals-page-v8"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-page"] }
 );
 

@@ -90,6 +90,15 @@ export default async function ConsolePage() {
           ? formatTaipei(xboxConsole.fetchedAt)
           : "尚無資料"}
       </p>
+      {/* 中-5：Xbox 家機文案附註——「折扣最大的 510 款 · 台灣區共 500 款特價」
+          看起來矛盾，是因為兩個數字口徑不同：510 是去重後的有效款數，
+          500 是清單 API 回報的原始總數（分頁框內的標題與附註在
+          components/ConsoleTabs.tsx，不在本檔範圍，仍待那邊同步改寫）。 */}
+      <p className="muted">
+        Xbox 家機附註：台灣區特價清單去重後共 510 款以上，列出折扣最大的
+        510 款；「台灣區共 500 款」是清單 API 回報的原始總數（未去重），
+        與去重後的有效款數口徑不同，所以看起來比列出的 510 款少。
+      </p>
       <ConsoleTabs
         xboxConsole={xboxConsole.items}
         xboxConsoleTotalCount={xboxConsole.totalCount}

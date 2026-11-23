@@ -40,6 +40,7 @@ const EMPTY_DEALS: DealsPageData = {
   steamCount: 0,
   steamFreeCount: 0,
   steamTotalCount: 0,
+  steamFromFallback: false,
   epicCurrentCount: 0,
   epicUpcomingCount: 0,
 };
@@ -78,6 +79,26 @@ export default async function DealsPage() {
       <p className="muted">
         資料更新：
         {deals.fetchedAt ? formatTaipei(deals.fetchedAt) : "尚無資料"}
+      </p>
+      {/* 高-1：Steam 顯示的是 specials 備援（只有 10 款精選）時，在 STEAM
+          分頁上方顯示「資料暫時不完整」提示（STEAM 是預設分頁，進頁就看得到；
+          分頁框內的文案在 components/DealsTabs.tsx，不在本檔範圍）。
+          中-6：STEAM 取數範圍附註——抓前 6 頁 600 列再取前 510，
+          不是全台灣特價款裡的全域前 510（程式現況，見 lib/deals-carousel.ts）。 */}
+      {deals.steamFromFallback && (
+        <p className="muted">
+          ⚠️ Steam 資料暫時不完整：特價搜尋暫時抓不到，目前 STEAM 只顯示{" "}
+          {deals.steam.length} 款精選（不是完整特價清單）；每小時會重新抓取，
+          恢復後自動回到完整清單。Epic 免費遊戲與其他分頁不受影響。
+        </p>
+      )}
+      <p className="muted">
+        STEAM 取數範圍：先抓特價搜尋前 6 頁（600 列）再按折扣大→小取前 510
+        款，不是全台灣特價中
+        {deals.steamTotalCount > 0
+          ? ` ${deals.steamTotalCount.toLocaleString("zh-Hant-TW")} 款`
+          : "約 15,020 款"}
+        裡的全域前 510 款。
       </p>
       <DealsTabs
         epicCurrent={deals.epicCurrent}
