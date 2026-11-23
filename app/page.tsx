@@ -8,7 +8,6 @@ import {
   type HomeSortKey,
 } from "@/lib/data";
 import {
-  getCachedDealsCarousel,
   getCachedGamesPagePublic,
   getCachedLatestFx,
   getCachedLatestPriceUpdate,
@@ -20,7 +19,6 @@ import { formatTaipei } from "@/lib/format";
 import { COUNTRY_MAP } from "@/lib/countries";
 import { isAdminEmail } from "@/lib/admin";
 import HomeClient from "@/components/HomeClient";
-import DealsCarousel from "@/components/DealsCarousel";
 
 // 資料頁面用 force-dynamic：建置時不呼叫 Supabase，
 // Supabase 專案不存在時也能 npm run build 通過。
@@ -119,7 +117,7 @@ export default async function HomePage({
     excludePurchasedIds = await getUserPurchaseGameIds(db, userId);
   }
 
-  const [pageRes, fx, lastUpdate, productTypes, nearLow, upcoming, deals] =
+  const [pageRes, fx, lastUpdate, productTypes, nearLow, upcoming] =
     await Promise.all([
       getCachedGamesPagePublic({
         ...params,
@@ -131,8 +129,8 @@ export default async function HomePage({
       getCachedProductTypes(),
       getCachedNearLowPage(1),
       getCachedUpcomingPage(1),
-      // Steam＋Epic 輪播：伺服器端抓取、每小時快取（失敗回空、不影響首頁）。
-      getCachedDealsCarousel(),
+      // Steam＋Epic 已改成獨立頁面 /deals（2026-11-23），首頁不再抓輪播資料，
+      // 只放連去 /deals 的入口卡片。
     ]);
   // 個人狀態即時補上（快取裡沒有個人資料）。
   const page = {
@@ -201,8 +199,13 @@ export default async function HomePage({
                 : "目前沒有接近歷史低價的遊戲"}
           </div>
         </Link>
+        <Link href="/deals" className="feature-card">
+          <div className="feature-card-title">🎮 Steam＋Epic＋Xbox 特價</div>
+          <div className="feature-card-sub">
+            台灣區 Steam、Epic、Xbox PC 特價與免費遊戲
+          </div>
+        </Link>
       </div>
-      <DealsCarousel items={deals.items} />
       <HomeClient
         games={page.games}
         total={page.total}

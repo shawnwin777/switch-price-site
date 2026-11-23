@@ -1,25 +1,29 @@
 // ============================================================================
-// 首頁 Steam 特價＋Epic 免費遊戲輪播：伺服器端抓取（不需金鑰）。
+// Steam 特價＋Epic 免費遊戲（/deals 獨立頁面）：伺服器端抓取（不需金鑰）。
 // ----------------------------------------------------------------------------
 // 資料來源（2026-11-20 已驗證無需金鑰，2026-11-23 早上再驗證仍通）：
 //   Steam 特價：GET https://store.steampowered.com/api/featuredcategories/?cc=TW&l=tchinese
 //     specials.items：name、discount_percent、original_price／final_price
 //     （台幣，以分為單位，除以 100）、large_capsule_image、id、discount_expiration（unix 秒）。
 //     連結：https://store.steampowered.com/app/<id>/
+//     注意：只做台灣（cc=TW），不加跨區切換——跨區帳號可能被鎖。
+//     specials 目前 API 回 10 款，這裡不截斷，全部列出（未來 API 回更多
+//     就列更多，不只留輪播時代的 10 款）。
 //   Epic 免費遊戲：GET https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions?locale=zh-Hant&country=TW&allowCountries=TW
 //     data.Catalog.searchStore.elements：title、price.totalPrice（originalPrice，台幣分）、
 //     keyImages（DieselStoreFrontWide／Thumbnail）、urlSlug、promotions。
 //     連結：https://store.epicgames.com/zh-Hant/p/<urlSlug>
+//     只做台灣（country=TW），不加跨區切換。
 //   注意：Epic「免費」的判斷是 promotionalOffers 裡
 //   discountSetting.discountPercentage === 0（2026-11-23 實測：回應沒有
 //   discountPrice 欄位；Mark of the Deep 本週只在 US 回應出現，TW 回應沒有，
 //   所以 TW 本週可能沒有進行中免費遊戲——此時只顯示下週預告，不硬湊）。
 // 快取：呼叫端用 lib/cached-data.ts 的 unstable_cache 包一層（1 小時），
 // 頁面每次載入不直接打 Steam／Epic API。抓取失敗時該來源回空陣列，
-// 輪播只顯示另一來源；兩邊都失敗時回空、首頁不顯示輪播（頁面不壞）。
+// 頁面只顯示另一來源；兩邊都失敗時顯示空狀態（頁面不壞）。
 // ============================================================================
 
-export type DealsCarouselSource = "steam" | "epic";
+export type DealsCarouselSource = "steam" | "epic" | "xbox";
 
 export interface DealsCarouselItem {
   source: DealsCarouselSource;
@@ -40,8 +44,15 @@ export interface DealsCarouselItem {
   sortKey: number;
 }
 
-export interface DealsCarouselData {
+export interface DealsPageData {
+  /** 全部項目（Steam 在前、Epic 進行中、Epic 下週預告在後），舊輪播時代的扁平順序，保留供相容。 */
   items: DealsCarouselItem[];
+  /** Steam 特價完整清單（不截斷）。 */
+  steam: DealsCarouselItem[];
+  /** Epic 本週免費遊戲。 */
+  epicCurrent: DealsCarouselItem[];
+  /** Epic 下週預告。 */
+  epicUpcoming: DealsCarouselItem[];
   /** 抓取時間（ISO），除錯／快取觀察用。 */
   fetchedAt: string;
   steamCount: number;
@@ -54,10 +65,7 @@ const STEAM_URL =
 const EPIC_URL =
   "https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions?locale=zh-Hant&country=TW&allowCountries=TW";
 
-/** Steam 特價最多取幾款（API 目前回 10 款）。 */
-const MAX_STEAM_ITEMS = 10;
-
-const USER_AGENT = "switch-price-site-deals-carousel/1.0";
+const USER_AGENT = "switch-price-site-deals-page/1.0";
 
 function formatTwdCents(cents: number | null | undefined): string | null {
   if (cents == null || !Number.isFinite(cents)) return null;
@@ -122,7 +130,6 @@ function parseSteam(data: unknown): DealsCarouselItem[] {
         (it.discount_percent ?? 0) > 0
     )
     .sort((a, b) => (b.discount_percent ?? 0) - (a.discount_percent ?? 0))
-    .slice(0, MAX_STEAM_ITEMS)
     .map((it): DealsCarouselItem => {
       const finalPrice = formatTwdCents(it.final_price);
       const originalPrice = formatTwdCents(it.original_price);
@@ -257,9 +264,9 @@ function parseEpic(data: unknown, nowMs: number): {
   return { current, upcoming };
 }
 
-/** 抓 Steam 特價＋Epic 免費遊戲，合併成一組輪播項目。
+/** 抓 Steam 特價＋Epic 免費遊戲（/deals 獨立頁面用，分來源回傳）。
  *  單一來源失敗不影響另一來源；兩邊都失敗回空陣列。 */
-export async function fetchDealsCarousel(): Promise<DealsCarouselData> {
+export async function fetchDealsPage(): Promise<DealsPageData> {
   const nowMs = Date.now();
   const [steamRes, epicRes] = await Promise.allSettled([
     fetchJson(STEAM_URL),
@@ -292,6 +299,9 @@ export async function fetchDealsCarousel(): Promise<DealsCarouselData> {
   const items = [...steamItems, ...epicCurrent, ...epicUpcoming];
   return {
     items,
+    steam: steamItems,
+    epicCurrent,
+    epicUpcoming,
     fetchedAt: new Date(nowMs).toISOString(),
     steamCount: steamItems.length,
     epicCurrentCount: epicCurrent.length,

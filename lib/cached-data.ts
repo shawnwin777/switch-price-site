@@ -49,16 +49,31 @@ import {
 export const CACHE_REVALIDATE_SECONDS = 3600;
 
 import {
-  fetchDealsCarousel,
-  type DealsCarouselData,
+  fetchDealsPage,
+  type DealsPageData,
 } from "./deals-carousel";
 
-/** Steam 特價＋Epic 免費遊戲輪播（伺服器端抓取、每小時更新一次，
- *  不每次載入頁面都打 Steam／Epic API；抓取失敗時回空陣列、首頁不顯示輪播）。 */
-export const getCachedDealsCarousel = unstable_cache(
-  async (): Promise<DealsCarouselData> => fetchDealsCarousel(),
-  ["deals-carousel-v1"],
-  { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-carousel"] }
+/** Steam 特價＋Epic 免費遊戲（/deals 獨立頁面，伺服器端抓取、每小時更新一次，
+ *  不每次載入頁面都打 Steam／Epic API；抓取失敗時該來源回空陣列）。
+ *  2026-11-23 輪播改獨立頁面：快取 key 從 deals-carousel-v1 換成
+ *  deals-page-v1（資料形狀改了，舊快取沒有分來源陣列，換 key 立刻重算）。 */
+export const getCachedDealsPage = unstable_cache(
+  async (): Promise<DealsPageData> => fetchDealsPage(),
+  ["deals-page-v1"],
+  { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-page"] }
+);
+
+import {
+  fetchXboxPcDeals,
+  type XboxPcDealsData,
+} from "./xbox-deals";
+
+/** Xbox PC 特價（/deals 下方區塊，伺服器端抓取、每小時更新一次，
+ *  不每次載入頁面都打 Microsoft API；抓取失敗時回空陣列、該區塊顯示空狀態）。 */
+export const getCachedXboxPcDeals = unstable_cache(
+  async (): Promise<XboxPcDealsData> => fetchXboxPcDeals(),
+  ["xbox-pc-deals-v1"],
+  { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["xbox-pc-deals"] }
 );
 
 /** 首頁公開列表（分頁＋篩選＋排序）。key = 全部篩選條件＋個人 id 清單，

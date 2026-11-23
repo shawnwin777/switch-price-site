@@ -259,7 +259,7 @@ label.field-label {
 .feature-cards {
   display: grid;
   gap: 12px;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   margin: 14px 0 4px;
 }
 
@@ -993,6 +993,12 @@ table.price-table {
   color: #ff7dab;
 }
 
+.deals-badge-xbox {
+  background: rgba(82, 210, 115, 0.16);
+  border: 1px solid var(--green);
+  color: #7be495;
+}
+
 .deals-item-title {
   color: var(--text);
   font-size: 20px;
@@ -1084,5 +1090,89 @@ table.price-table {
     height: 36px;
     width: 36px;
   }
+}
+
+/* ---------- Steam＋Epic 特價頁（/deals） ---------- */
+.deals-section {
+  margin: 20px 0 8px;
+}
+
+.deals-section-head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-bottom: 10px;
+}
+
+.deals-section-title {
+  font-size: 19px;
+  margin: 0;
+}
+
+.deals-section-meta {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.deals-collapse-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  margin-left: auto;
+  padding: 4px 12px;
+}
+
+.deals-collapse-btn:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.deals-subhead {
+  font-size: 15px;
+  margin: 14px 0 8px;
+}
+
+.deals-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.deals-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: block;
+  overflow: hidden;
+}
+
+.deals-card:hover {
+  border-color: var(--cyan);
+  text-decoration: none;
+}
+
+.deals-card-img {
+  aspect-ratio: 16 / 9;
+  display: block;
+  object-fit: cover;
+  width: 100%;
+}
+
+.deals-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px 12px;
+}
+
+.deals-card-title {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
