@@ -130,6 +130,29 @@ export default function HomeLandingPage() {
           Microsoft、Valve、Epic 各官方商店的公開資料，僅供參考，實際價格以商店頁面為準。
           本站與任天堂、索尼、微軟、Valve、Epic 沒有任何關聯。
         </p>
+        <ul className="home-about-links">
+          <li>
+            Instagram：
+            <a
+              href="https://www.instagram.com/shawn1106_"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              shawn1106_
+            </a>
+          </li>
+          <li>
+            Threads：
+            <a
+              href="https://www.threads.net/@shawn1106_"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              shawn1106_
+            </a>
+          </li>
+          <li>Discord：shawn1106</li>
+        </ul>
       </section>
     </>
   );

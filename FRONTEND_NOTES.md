@@ -145,7 +145,9 @@ npm start                    # 跑 production build
   （landing page）。2026-11-23 下午改版成遊戲選單風格：左邊放大圖標（SGS 標誌
   `public/sgs-logo.png`）＋招牌語「遊戲比價，從這裡開始」，右邊三個選單
   （SWITCH → `/switch-price`、PC GAMES → `/deals`、Gaming console → `/console`，
-  inline SVG 圖標），最下面「關於我」（工作室／網站簡介，不編個人經歷）。
+  inline SVG 圖標），最下面「關於我」（工作室／網站簡介，不編個人經歷；
+  另放 shawn 給的社群：Instagram shawn1106_、Threads shawn1106_、Discord
+  shawn1106（只有使用者名稱、不連無效連結）；贊助連結等他選好贊助網站再補）。
   下面兩組入口卡片（特價情報：`/upcoming`、`/near-low`、`/historical-low`；
   會員・收藏：`/nso`、`/ranking`、`/taiwan`）被 shawn 說用不太到、整組刪掉，
   那些頁面本身還在、只是不在 /home 列出來。本頁純靜態、不抓資料。
