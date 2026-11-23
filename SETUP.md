@@ -223,7 +223,7 @@ Vercel 後台 → Project → **Settings → Environment Variables**，全部填
 2. Vercel 後台 → **Add New → Project** → Import 這個 GitHub repo →
    Framework Preset 選 **Next.js**（預設即可）→
    先在 Environment Variables 填好第 5 節的 5 個變數 → **Deploy**。
-3. 部署完成會拿到公開網址，例如 `https://switch-price-site.vercel.app`。
+3. 部署完成會拿到公開網址，例如 `https://shawn-game-studio.vercel.app`（舊網域 `https://switch-price-site.vercel.app` 也還能用）。
    先打開首頁確認能顯示遊戲清單（Supabase 種子資料已匯入的話）。
 
 ## 7. 部署後：把回呼網址填回三個後台（缺一不可）

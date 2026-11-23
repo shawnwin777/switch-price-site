@@ -116,8 +116,8 @@
    ```
    未具名 26,890 筆目前無 join key、不寫入（見「未解決的問題」第 5 項）。
    舊的擴大目錄匯入（`seed-expanded.mjs`，10,019 款）若尚未跑，仍按原順序先跑。
-3. **部署後驗一次**：`curl "https://switch-price-site.vercel.app/api/sync-catalog?dry_run=1" -H "Authorization: Bearer <CRON_SECRET>"`（只比對、不寫庫），
-   再驗 `curl https://switch-price-site.vercel.app/api/refresh -H "Authorization: Bearer <CRON_SECRET>"`，對照回傳的 `slice`／`pairs_in_slice`／`prices_updated`／`duration_ms`。
+3. **部署後驗一次**：`curl "https://shawn-game-studio.vercel.app/api/sync-catalog?dry_run=1" -H "Authorization: Bearer <CRON_SECRET>"`（只比對、不寫庫），
+   再驗 `curl https://shawn-game-studio.vercel.app/api/refresh -H "Authorization: Bearer <CRON_SECRET>"`，對照回傳的 `slice`／`pairs_in_slice`／`prices_updated`／`duration_ms`。
 4. **兩個決定**（見「未解決的問題」第 5、6 項）：未具名 26,890 筆是否先建檔進目錄；
    Algolia key 歸屬確認（現有 key 是官網前端 key 還是第三方函式庫 key）。
 5. 什麼都不用多做：`git push` 後 Vercel 自動部署（本次沒有推）；排程上線後自動跑。
