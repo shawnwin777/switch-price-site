@@ -29,7 +29,7 @@ export default function LikeButton({
         method: "POST",
       });
       if (res.status === 401) {
-        router.push(`/login?next=${encodeURIComponent(window.location.pathname)}`);
+        router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
         return;
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

@@ -6,7 +6,7 @@ import Link from "next/link";
 
 /** /home 首頁斜切抽屜選單（2026-11-23 shawn 定）。
  *  左邊是斜切品牌板（SGS logo＋標語），右邊是五個選單；
- *  第一排「會員登入」→ /login（首頁不顯示上方導覽列，登入入口在這裡），
+ *  第一排「會員登入」→ /login?next=/home（首頁不顯示上方導覽列，登入入口在這裡），
  *  再來 SWITCH → /switch-price、PC GAMES → /deals、
  *  GAMING CONSOLE → /console、關於我（第五格）。
  *  hover／點按任一選單時，品牌板像抽屜一樣被抽走（向左滑出＋微斜），
@@ -57,7 +57,7 @@ const MENU: {
 }[] = [
   {
     key: "login",
-    href: "/login",
+    href: "/login?next=/home",
     title: "會員登入",
     sub: "登入會員 · 收藏遊戲、同步已購買",
     icon: (
@@ -214,7 +214,7 @@ function LoginPreview() {
       <p className="home-login-preview-text">
         登入會員可以收藏喜歡的遊戲、同步已購買的遊戲，收藏的特價遊戲還會在收藏排行裡出現。
       </p>
-      <Link href="/login" className="home-login-preview-btn">
+      <Link href="/login?next=/home" className="home-login-preview-btn">
         前往登入 →
       </Link>
     </div>

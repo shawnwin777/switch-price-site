@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 import { isAdminEmail } from "@/lib/admin";
 
@@ -33,7 +33,16 @@ export default function SiteHeader() {
    *  固定在按鈕下方的下拉面板（.nav.nav-open），點連結或換頁自動收起。 */
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
+
+  /* 登入連結帶 next=目前路徑（含 query），登入完成後回到這一頁。
+   * （在 /login 本身時 next=/login，登入頁的 server 端檢查會把它
+   *  擋下、改導 /home，不會迴圈。） */
+  const search = searchParams.toString();
+  const loginHref = `/login?next=${encodeURIComponent(
+    (pathname ?? "/home") + (search ? `?${search}` : "")
+  )}`;
 
   /* 換頁時收起手機版漢堡選單。 */
   useEffect(() => {
@@ -148,7 +157,7 @@ export default function SiteHeader() {
               </button>
             </>
           ) : (
-            <Link href="/login">
+            <Link href={loginHref}>
               <NavIcon>
                 <circle cx="12" cy="8" r="4" />
                 <path d="M4 21c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5" />

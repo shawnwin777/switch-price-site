@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import SiteHeader from "@/components/SiteHeader";
 import "./globals.css";
 
@@ -16,7 +17,11 @@ export default function RootLayout({
   return (
     <html lang="zh-Hant">
       <body>
-        <SiteHeader />
+        {/* SiteHeader 用 useSearchParams 組登入連結的 next，
+            依 Next.js 規定需包在 Suspense 裡。 */}
+        <Suspense>
+          <SiteHeader />
+        </Suspense>
         <main className="container">{children}</main>
         <footer className="footer">
           <div className="container">

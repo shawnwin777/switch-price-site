@@ -12,7 +12,7 @@ export default function LoginClient() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/";
+  const next = searchParams.get("next") ?? "/home";
 
   useEffect(() => {
     const db = createSupabaseBrowserClient();

@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAnonKey, supabaseUrl } from "@/lib/supabase-env";
+import { safeNext } from "@/lib/safe-next";
 
 // Supabase Auth OAuth 回呼：GET /auth/callback?code=...&next=...
 //   Google / Discord 登入按鈕（components/LoginClient.tsx）的 redirectTo 指向這裡。
@@ -21,12 +22,6 @@ function siteUrl(request: NextRequest): string {
   );
 }
 
-/** 只允許站內相對路徑，避免 open redirect。 */
-function safeNext(raw: string | null): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/";
-  return raw;
-}
-
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");
@@ -37,8 +32,12 @@ export async function GET(request: NextRequest) {
   //（Supabase SSR 官方寫法：exchangeCodeForSession 前就要有 response 物件）。
   const response = NextResponse.redirect(`${base}${next}`);
 
+  // 缺 code／換碼失敗時回登入頁重試，next 一併帶回去，
+  // 登入成功後仍回到原本要去的頁面。
   if (!code) {
-    return NextResponse.redirect(`${base}/login?error=missing_code`);
+    return NextResponse.redirect(
+      `${base}/login?error=missing_code&next=${encodeURIComponent(next)}`
+    );
   }
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
@@ -57,7 +56,7 @@ export async function GET(request: NextRequest) {
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     return NextResponse.redirect(
-      `${base}/login?error=auth_callback_failed`
+      `${base}/login?error=auth_callback_failed&next=${encodeURIComponent(next)}`
     );
   }
 
