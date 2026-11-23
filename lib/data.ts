@@ -147,6 +147,12 @@ export interface GamesPageResult {
   total: number;
   page: number;
   totalPages: number;
+  /** 查詢失敗時帶錯誤訊息（此時 games 為空、total 為 0）；
+   *  呼叫端據此區分「查詢失敗」與「資料庫真的沒遊戲」。
+   *  2026-11-23：migration 空窗（DROP VIEW＋CREATE VIEW）寫進
+   *  快取的空結果讓首頁誤顯示「尚未匯入種子資料」，自此失敗
+   *  與空結果分開處理（見 lib/cached-data.ts）。 */
+  error?: string | null;
 }
 
 /** 搜尋字串清理：PostgREST or() 用逗號與括號分隔條件，ilike 的 % _ \ 是萬用字元。
@@ -535,7 +541,9 @@ export async function fetchGamesPagePublicCore(
   }
   if (!res || res.error || !res.data) {
     if (res?.error) console.warn("[data] 首頁查詢失敗：", res.error.message);
-    return empty;
+    // 失敗的空結果要帶 error 回去——呼叫端（快取層）靠它判斷不寫快取，
+    // 頁面靠它顯示「資料載入失敗」而非誤寫「尚未匯入種子資料」。
+    return { ...empty, error: res?.error?.message ?? "首頁查詢失敗" };
   }
   const total = res.count ?? 0;
   const totalPages = total > 0 ? Math.ceil(total / HOME_PAGE_SIZE) : 0;

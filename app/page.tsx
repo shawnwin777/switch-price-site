@@ -193,11 +193,18 @@ export default async function HomePage({
         )}
         {" ｜ "}💰 遊戲價格最後更新：
         <b>{lastUpdate ? formatTaipei(lastUpdate) : "尚無資料"}</b>
-        {page.total === 0 && !hasFilter && (
+        {pageRes.error ? (
           <>
-            {" ｜ "}
-            目前尚無遊戲資料（Supabase 尚未匯入種子資料或專案未建立）。
+            {" ｜ "}⚠️ 資料載入失敗，請稍後再試。
           </>
+        ) : (
+          page.total === 0 &&
+          !hasFilter && (
+            <>
+              {" ｜ "}
+              目前尚無遊戲資料（Supabase 尚未匯入種子資料或專案未建立）。
+            </>
+          )
         )}
       </div>
       <div className="feature-cards">
@@ -243,6 +250,7 @@ export default async function HomePage({
         total={page.total}
         page={page.page}
         totalPages={page.totalPages}
+        loadError={pageRes.error ?? null}
         filters={params}
         productTypes={productTypes}
         loggedInUserId={user?.id ?? null}

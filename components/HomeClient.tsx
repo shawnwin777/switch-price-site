@@ -40,6 +40,7 @@ export default function HomeClient({
   total,
   page,
   totalPages,
+  loadError,
   filters,
   productTypes,
   loggedInUserId,
@@ -50,6 +51,9 @@ export default function HomeClient({
   total: number;
   page: number;
   totalPages: number;
+  /** 首頁查詢失敗時的錯誤訊息（有值 = 查詢失敗、不是真的沒遊戲；
+   *  空狀態改顯示「資料載入失敗」，見下方）。 */
+  loadError?: string | null;
   filters: HomeFilters;
   productTypes: string[];
   loggedInUserId: string | null;
@@ -333,15 +337,21 @@ export default function HomeClient({
 
       {games.length === 0 ? (
         <div className="empty">
-          <p>沒有符合條件的遊戲。</p>
-          <p>
-            試試清除搜尋或篩選。
-            {isAdmin && (
-              <>
-                或到 <Link href="/add">新增遊戲</Link> 手動加入。
-              </>
-            )}
-          </p>
+          {loadError ? (
+            <p>⚠️ 資料載入失敗，請稍後再試。</p>
+          ) : (
+            <>
+              <p>沒有符合條件的遊戲。</p>
+              <p>
+                試試清除搜尋或篩選。
+                {isAdmin && (
+                  <>
+                    或到 <Link href="/add">新增遊戲</Link> 手動加入。
+                  </>
+                )}
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <>

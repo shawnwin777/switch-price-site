@@ -123,17 +123,42 @@ export const getCachedPsDeals = unstable_cache(
 );
 
 /** 首頁公開列表（分頁＋篩選＋排序）。key = 全部篩選條件＋個人 id 清單，
- *  所以不同篩選／不同使用者的排除清單不會共用同一份快取。 */
-export const getCachedGamesPagePublic = unstable_cache(
-  async (args: GamesPagePublicArgs): Promise<GamesPageResult> =>
-    fetchGamesPagePublicCore(createPublicClient(), args),
-  // v4：2026-11-23 可見國家設定改走 cookie——呼叫端把 cookie 解析出的
-  // 可見範圍（"ALL" 或代碼清單）放進 args，unstable_cache 的 key 包含
-  // args，所以不同設定不會共用同一份快取；同時換靜態 key 讓舊的 v3
-  // 快取（全是 TW/HK 範圍的舊資料）立刻重算（部署不會清 Data Cache）。
-  ["games-page-v4"],
+ *  所以不同篩選／不同使用者的排除清單不會共用同一份快取。
+ *  內層 unstable_cache：查詢失敗時直接拋錯——Next 14.2.35 的
+ *  unstable_cache 只在 cb 成功回傳後才寫 Data Cache，拋出的錯誤
+ *  不會被快取，下次請求會重新查詢，不會把 migration 空窗等短暫
+ *  錯誤的空結果鎖住 1 小時（2026-11-23 TW,HK 快取中毒事件）。
+ *  外層接住錯誤，回傳帶 error 的空結果，頁面據此顯示
+ *  「資料載入失敗」橫幅（不當成資料庫沒遊戲）。 */
+const getCachedGamesPagePublicInner = unstable_cache(
+  async (args: GamesPagePublicArgs): Promise<GamesPageResult> => {
+    const result = await fetchGamesPagePublicCore(createPublicClient(), args);
+    if (result.error) throw new Error(result.error);
+    return result;
+  },
+  // v5：2026-11-23 12:57 migration（DROP VIEW＋CREATE VIEW）空窗時，
+  // TW,HK 這把 key 寫進了空的／錯誤結果，v4 快取到現在還在吐舊的
+  // 空結果；換 key 讓它立刻重算（部署不會清 Data Cache）。
+  ["games-page-v5"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["games-page"] }
 );
+
+export async function getCachedGamesPagePublic(
+  args: GamesPagePublicArgs
+): Promise<GamesPageResult> {
+  try {
+    return await getCachedGamesPagePublicInner(args);
+  } catch (e) {
+    const page = Math.max(1, args.page ?? 1);
+    return {
+      games: [],
+      total: 0,
+      page,
+      totalPages: 0,
+      error: e instanceof Error ? e.message : "首頁查詢失敗",
+    };
+  }
+}
 
 /** 遊戲詳情公開資料（遊戲＋價格＋公開讚數／收藏數）。 */
 export const getCachedGamePublic = unstable_cache(
