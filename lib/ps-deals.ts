@@ -1,6 +1,6 @@
 // ============================================================================
 // PS 家機特價（/console 家機頁）：伺服器端抓取（不需金鑰、不需登入）。
-// 2026-11-23 上線。官方優惠清單的來源終於打通——不是之前卡住的 EMS
+// 2026-11-23 上線。官方優惠清單的來源——不是之前卡住的 EMS
 // 查詢（getDefaultView，hash 未知），而是同一支 GraphQL 的另一個
 // persisted 操作 categoryGridRetrieve，hash 是公開文件裡的
 //   mrt1m/playstation-store-api 的 OperationSha256Enum::categoryGridRetrieve
@@ -11,23 +11,32 @@
 //   GET https://web.np.playstation.com/api/graphql/v1/op
 //     ?operationName=categoryGridRetrieve
 //     &variables={"id":"<分類>","pageArgs":{"size":24,"offset":N},
-//       "sortBy":{"name":"productReleaseDate","isAscending":false},
+//       "sortBy":{"name":"sales30","isAscending":false},
 //       "filterBy":[],"facetOptions":[]}
 //     &extensions={"persistedQuery":{"version":1,"sha256Hash":"<上>"}}
 //   標頭：Accept/Content-Type application/json、
 //   apollo-require-preflight: true、x-apollo-operation-name，
 //   加瀏覽器 UA＋Referer/Origin（沒加 preflight 標頭會被擋 CSRF）。
-//   兩個特價分類都抓（同一份 enum 裡的兩個 deals 分類）：
-//     SALES  803cee19-e5a1-4d59-a463-0b6b2701bf7c（AllDeals，總數 210）
-//     OFFERS 16b8d09a-d0e3-44e3-96cb-a3b2a21b6d69（Deals group A，總數 150）
-//   兩個分類裡「目前真的有折扣」的才列（discountedPrice < basePrice）——
-//   分類裡大半品項當下其實沒折扣（原價＝特價），不篩會列出一堆沒特價的。
-//   2026-11-23 實測：SALES 210 款裡 30 款有折扣、OFFERS 150 款裡 23 款，
-//   聯集去重後 44 款（目前沒大檔期，數量就是這麼少，不是 bug；
-//   黑五前後再看會不會變多）。PS5 遊戲也在內（PS4/PS5 混著列）。
+//   分類：優惠頁「所有優惠」→「檢視全部」的分類
+//     3f772501-f6f8-49b7-abac-874a88ca4897
+//     （瀏覽器實測抓到的分類頁網址裡的 ID；pageInfo.totalCount = 2862，
+//     注意 totalCount 在 pageInfo 裡，不在頂層）。
+//   舊做法（SALES 803cee19…＋OFFERS 16b8d09a… 兩個小分類，聯集去重後
+//   只有 44 款）已棄用——那兩個分類不是完整優惠清單。
+//   關鍵：這個分類不是預先篩過折扣的——按發售日倒序（productReleaseDate）
+//   第 1 頁 24 款裡 0 款有折扣（都是剛上市的原價遊戲）；改用
+//   sortBy sales30（30 天銷量倒序）後，每頁幾乎全是有折扣的
+//   （2026-11-23 實測：offset 0～2800 抽 9 頁，每頁 19～24 款有折扣，
+//   其中 10～19 款折扣 ≥50%）。該操作沒有折扣排序（排序只有
+//   default／sales30／downloads30／productName／productReleaseDate／
+//   webBasePrice），也沒有折扣篩選——所以分段抓＋程式端篩選。
+//   做法：sales30 倒序，每批 3 頁並行，抓到 200 款折扣 ≥50%（去重後）
+//   就停，最多掃 30 頁（720 款，預期 ≥50% 約 450 款，遠夠；
+//   實測每頁約 0.5～1 秒，整輪約數秒，遠低於 Vercel 60 秒上限）。
+//   只列折扣 ≥50% 的（shawn：大致上抓到 -50% 就好），折扣大→小、前 200 款。
 // 價格：回傳的 price 是字串「NT$1,790」，basePrice／discountedPrice／
 //   discountText（「-80%」）都有；折扣％自己用原價／特價算。
-//   動態定價驗證（2026-11-23）：抽 2 款對照未登入商店產品頁內嵌價——
+//   動態定價驗證（2026-11-23）：抽 2 款對照未登入商店產品頁驗證過：
 //   Monster Harvest NT$590→59、Saints Row NT$890→133，
 //   originalPriceValue／discountPriceValue（分）完全一致。
 // 名稱：回傳的 name 尾巴常帶語言清單，如「 (日语, 简体中文, 繁体中文, 英语)」
@@ -39,8 +48,8 @@
 //   沒有特價截止日（grid 回傳沒有 endDate），subLine 放平台（PS4 · PS5）。
 // 快取：呼叫端用 lib/cached-data.ts 的 unstable_cache 包一層（1 小時），
 // 頁面每次載入不直接打 Sony API。任一段失敗回空陣列、該分頁不顯示。
-// 注意：總數會隨檔期浮動（目前 44 款），頁面顯示「台灣區共 N 款特價」
-//   時 N 就是當下真的有折扣的款數，不是分類總數。
+// 注意：總數會隨檔期浮動（2026-11-23 實測 2,862 款），頁面顯示
+//   「台灣區共 N 款特價」時 N 是優惠分類總數，不是本頁列出的 200 款。
 // ============================================================================
 
 import type { DealsCarouselItem } from "./deals-carousel";
@@ -49,9 +58,9 @@ export interface PsDealsData {
   items: DealsCarouselItem[];
   /** 抓取時間（ISO），除錯／快取觀察用。 */
   fetchedAt: string;
-  /** 目前真的有折扣的款數（SALES＋OFFERS 聯集去重後）。 */
+  /** 優惠分類總數（pageInfo.totalCount，2026-11-23 實測 2,862）。 */
   totalCount: number;
-  /** 本次列出的款數。 */
+  /** 本次列出的款數（折扣 ≥50%、去重後，前 200 款）。 */
   shownCount: number;
 }
 
@@ -60,13 +69,14 @@ const OPERATION = "categoryGridRetrieve";
 /** mrt1m/playstation-store-api OperationSha256Enum::categoryGridRetrieve。 */
 const HASH =
   "4ce7d410a4db2c8b635a48c1dcec375906ff63b19dadd87e073f8fd0c0481d35";
-/** 兩個特價分類（同一個公開 enum 裡的 SALES／OFFERS）。 */
-const CATEGORIES = [
-  "803cee19-e5a1-4d59-a463-0b6b2701bf7c", // SALES（AllDeals）
-  "16b8d09a-d0e3-44e3-96cb-a3b2a21b6d69", // OFFERS（Deals group A）
-];
+/** 優惠頁「所有優惠」→「檢視全部」的分類（瀏覽器實測抓到的 ID）。 */
+const CATEGORY = "3f772501-f6f8-49b7-abac-874a88ca4897";
 const PAGE_SIZE = 24;
+/** 只列折扣 ≥50% 的（shawn：大致上抓到 -50% 就好）。 */
+const MIN_DISCOUNT = 50;
 const MAX_ITEMS = 200;
+/** 最多掃 30 頁（720 款）；抓滿 200 款 ≥50% 就提前停。 */
+const MAX_PAGES = 30;
 const CONCURRENCY = 3;
 
 const USER_AGENT =
@@ -99,11 +109,12 @@ async function fetchJson(url: string): Promise<unknown> {
   throw lastError;
 }
 
-function gridUrl(categoryId: string, offset: number): string {
+function gridUrl(offset: number): string {
   const variables = {
-    id: categoryId,
+    id: CATEGORY,
     pageArgs: { size: PAGE_SIZE, offset },
-    sortBy: { name: "productReleaseDate", isAscending: false },
+    // sales30 倒序：每頁幾乎全是有折扣的（發售日倒序第 1 頁 0 款有折扣）。
+    sortBy: { name: "sales30", isAscending: false },
     filterBy: [],
     facetOptions: [],
   };
@@ -198,7 +209,8 @@ function toItem(p: GridProduct): DealsCarouselItem | null {
   if (!image) return null;
   const title = cleanName(rawName);
   const discount = Math.round((1 - disc / base) * 100);
-  if (discount <= 0) return null;
+  // 只列折扣 ≥50% 的。
+  if (discount < MIN_DISCOUNT) return null;
   const platforms = (p.platforms ?? []).filter(Boolean);
   return {
     source: "ps",
@@ -213,32 +225,7 @@ function toItem(p: GridProduct): DealsCarouselItem | null {
   };
 }
 
-async function fetchCategory(categoryId: string): Promise<GridProduct[]> {
-  const first = (await fetchJson(gridUrl(categoryId, 0))) as GridResponse;
-  const grid = first.data?.categoryGridRetrieve;
-  const products = [...(grid?.products ?? [])];
-  const total = grid?.pageInfo?.totalCount ?? products.length;
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  if (grid?.pageInfo?.isLast || pages <= 1) return products;
-  const offsets: number[] = [];
-  for (let i = 1; i < pages; i++) offsets.push(i * PAGE_SIZE);
-  for (let i = 0; i < offsets.length; i += CONCURRENCY) {
-    const chunk = offsets.slice(i, i + CONCURRENCY);
-    const settled = await Promise.allSettled(
-      chunk.map(async (offset) => {
-        const d = (await fetchJson(gridUrl(categoryId, offset))) as GridResponse;
-        return d.data?.categoryGridRetrieve?.products ?? [];
-      })
-    );
-    for (const s of settled) {
-      if (s.status === "fulfilled") products.push(...s.value);
-      else console.warn("[ps-deals] 分類其中一頁失敗：", s.reason);
-    }
-  }
-  return products;
-}
-
-/** 抓台灣 PS 特價（SALES＋OFFERS 聯集、目前有折扣的，折扣大→小，前 200 款）。 */
+/** 抓台灣 PS 優惠分類（sales30 倒序、分段抓、只留折扣 ≥50%、折扣大→小、前 200 款）。 */
 export async function fetchPsDeals(): Promise<PsDealsData> {
   const nowMs = Date.now();
   const empty: PsDealsData = {
@@ -247,35 +234,56 @@ export async function fetchPsDeals(): Promise<PsDealsData> {
     totalCount: 0,
     shownCount: 0,
   };
-  let products: GridProduct[] = [];
-  try {
-    const settled = await Promise.allSettled(
-      CATEGORIES.map((c) => fetchCategory(c))
-    );
-    for (const s of settled) {
-      if (s.status === "fulfilled") products.push(...s.value);
-      else console.warn("[ps-deals] 其中一個分類失敗：", s.reason);
-    }
-  } catch (e) {
-    console.warn("[ps-deals] 特價分類抓取失敗：", e);
-    return empty;
-  }
   // 同名去重（PS4／PS5 版）：留折扣最大、再留特價最低的。
   const byName = new Map<string, { item: DealsCarouselItem; disc: number }>();
-  for (const p of products) {
-    const item = toItem(p);
-    if (!item) continue;
-    const disc = parseTwd(p.price?.discountedPrice);
-    if (disc === null) continue;
-    const key = item.title.toLowerCase();
-    const prev = byName.get(key);
-    if (
-      !prev ||
-      item.sortKey > prev.item.sortKey ||
-      (item.sortKey === prev.item.sortKey && disc < prev.disc)
-    ) {
-      byName.set(key, { item, disc });
+  const addProducts = (products: GridProduct[]) => {
+    for (const p of products) {
+      const item = toItem(p);
+      if (!item) continue;
+      const disc = parseTwd(p.price?.discountedPrice);
+      if (disc === null) continue;
+      const key = item.title.toLowerCase();
+      const prev = byName.get(key);
+      if (
+        !prev ||
+        item.sortKey > prev.item.sortKey ||
+        (item.sortKey === prev.item.sortKey && disc < prev.disc)
+      ) {
+        byName.set(key, { item, disc });
+      }
     }
+  };
+
+  let totalCount = 0;
+  try {
+    const first = (await fetchJson(gridUrl(0))) as GridResponse;
+    const grid = first.data?.categoryGridRetrieve;
+    totalCount = grid?.pageInfo?.totalCount ?? 0;
+    addProducts(grid?.products ?? []);
+    const pages = Math.min(
+      MAX_PAGES,
+      Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+    );
+    // 每批 3 頁並行；抓滿 200 款 ≥50% 就停。
+    for (let start = 1; start < pages && byName.size < MAX_ITEMS; start += CONCURRENCY) {
+      const offsets: number[] = [];
+      for (let i = start; i < Math.min(start + CONCURRENCY, pages); i++) {
+        offsets.push(i * PAGE_SIZE);
+      }
+      const settled = await Promise.allSettled(
+        offsets.map(async (offset) => {
+          const d = (await fetchJson(gridUrl(offset))) as GridResponse;
+          return d.data?.categoryGridRetrieve?.products ?? [];
+        })
+      );
+      for (const s of settled) {
+        if (s.status === "fulfilled") addProducts(s.value);
+        else console.warn("[ps-deals] 優惠分類其中一頁失敗：", s.reason);
+      }
+    }
+  } catch (e) {
+    console.warn("[ps-deals] 優惠分類抓取失敗：", e);
+    return empty;
   }
   const items = [...byName.values()]
     .map((v) => v.item)
@@ -284,7 +292,7 @@ export async function fetchPsDeals(): Promise<PsDealsData> {
   return {
     items,
     fetchedAt: new Date(nowMs).toISOString(),
-    totalCount: items.length,
+    totalCount,
     shownCount: items.length,
   };
 }

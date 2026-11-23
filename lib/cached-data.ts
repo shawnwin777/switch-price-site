@@ -111,10 +111,14 @@ import { fetchPsDeals, type PsDealsData } from "./ps-deals";
  *  2026-11-23 新增：官方 GraphQL categoryGridRetrieve（persisted hash
  *  來自公開文件 mrt1m/playstation-store-api），抓 SALES＋OFFERS
  *  兩個特價分類、只列目前真的有折扣的；實測當下聯集去重後 44 款
- *  （沒大檔期所以少，不是 bug），價格已抽 2 款對照未登入商店頁驗證過。 */
+ *  （沒大檔期所以少，不是 bug），價格已抽 2 款對照未登入商店頁驗證過。
+ *  2026-11-23 擴量：改抓優惠頁「所有優惠」分類
+ *  （3f772501…，總數 2,862；瀏覽器實測抓到的分類 ID），sales30 倒序
+ *  分段抓、只列折扣 ≥50%、折扣大→小、前 200 款；key 換成 ps-deals-v2
+ *  （舊快取是 SALES＋OFFERS 的 44 款舊形狀）。 */
 export const getCachedPsDeals = unstable_cache(
   async (): Promise<PsDealsData> => fetchPsDeals(),
-  ["ps-deals-v1"],
+  ["ps-deals-v2"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["ps-deals"] }
 );
 
