@@ -388,7 +388,9 @@ export const getCachedLatestPriceUpdate = unstable_cache(
 
 export const getCachedProductTypes = unstable_cache(
   async () => getProductTypes(createPublicClient()),
-  ["product-types"],
+  // 2026-11-23：key 換 v2——舊 key 快取的是錯誤的 ["bundle"]（見
+  // lib/data.ts getProductTypes 的修正說明），不換 key 還要再錯 1 小時。
+  ["product-types-v2"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["meta"] }
 );
 

@@ -668,24 +668,30 @@ export async function getGamesPage(
   };
 }
 
-/** 商品類型選項：product_type 依字母排序後取前 1,000 列再去重——
- *  不同類型在排序後會連在一起，少量 distinct 值一定落在前 1,000 列內。 */
+/** 已知商品類型（app/switch-price/page.tsx 的 PRODUCT_TYPES 同步）。
+ *  2026-11-23 修正：舊寫法是 product_type 排序後取前 1,000 列再去重，
+ *  bundle 破千列後前 1,000 列全是 bundle，結果永遠只有 ["bundle"]，
+ *  牆上 DLC 按鈕消失。改成逐一 existence check，只回傳 DB 裡真的有的
+ *  類型；game 含 product_type 為 NULL 的舊列。不要用加大 limit 的做法，
+ *  那只是把問題往後推。 */
+const KNOWN_PRODUCT_TYPES = ["game", "dlc", "bundle", "subscription"] as const;
+
 export async function getProductTypes(
   db: SupabaseClient
 ): Promise<string[]> {
-  const { data, error } = await db
-    .from("games")
-    .select("product_type")
-    .order("product_type", { ascending: true })
-    .limit(1000);
-  if (error || !data) return ["game"];
-  const types = [
-    ...new Set(
-      (data as { product_type: string | null }[]).map(
-        (r) => r.product_type ?? "game"
-      )
-    ),
-  ];
+  const checks = await Promise.all(
+    KNOWN_PRODUCT_TYPES.map(async (t) => {
+      const query = db.from("games").select("id").limit(1);
+      const { data, error } =
+        t === "game"
+          ? await query.or("product_type.is.null,product_type.eq.game")
+          : await query.eq("product_type", t);
+      return !error && data && data.length > 0 ? t : null;
+    })
+  );
+  const types = checks.filter(
+    (t): t is (typeof KNOWN_PRODUCT_TYPES)[number] => t !== null
+  );
   return types.length > 0 ? types : ["game"];
 }
 
