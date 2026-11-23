@@ -218,10 +218,10 @@ export default async function HomePage({
                 : "目前沒有接近歷史低價的遊戲"}
           </div>
         </Link>
-        <Link href="/deals" className="feature-card">
-          <div className="feature-card-title">🎮 Steam＋Epic＋Xbox 特價</div>
+        <Link href="/nso" className="feature-card">
+          <div className="feature-card-title">🎮 NSO 會員跨區比價</div>
           <div className="feature-card-sub">
-            台灣區 Steam、Epic、Xbox PC 特價與免費遊戲
+            一般、擴充、家庭會員與遊戲兌換券，35 國比價
           </div>
         </Link>
       </div>

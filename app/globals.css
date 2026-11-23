@@ -711,6 +711,45 @@ table.price-table {
   text-align: right;
 }
 
+/* ---------- NSO 跨區比價 ---------- */
+.nso-notice {
+  background: rgba(255, 194, 51, 0.08);
+  border: 1px solid var(--amber);
+  border-radius: var(--radius);
+  margin: 12px 0 16px;
+  padding: 12px 14px;
+}
+
+.nso-notice b {
+  color: var(--amber);
+}
+
+.price-table td .twd-sub {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+}
+
+.price-table td.cheapest-cell {
+  background: rgba(255, 194, 51, 0.14);
+  font-weight: 700;
+}
+
+.price-table td.cheapest-cell .best-tag {
+  color: var(--amber);
+  display: block;
+  font-size: 12px;
+}
+
+.price-table tr.tw-row td {
+  background: rgba(0, 240, 255, 0.06);
+}
+
+.price-table td.unknown,
+.price-table td .unknown {
+  color: var(--muted);
+}
+
 /* ---------- comments ---------- */
 .comment-list {
   display: flex;
