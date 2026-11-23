@@ -235,6 +235,12 @@ npm start                    # 跑 production build
 
 - **特價卡片徽章去中間點**（2026-11-23，shawn：/console 卡片「Xbox · -90%」的中間點容易混淆）：`components/DealCard.tsx` 的徽章 `{來源} · {折扣}` 改成兩個 span，`app/globals.css` 新增 `.deals-badge { display: inline-flex; gap: 12px; }`（`.badge` 的 inline-block 同權重、後出現的規則勝出）。DealCard 是 /deals 與 /console 共用卡片，兩頁一起改好；`components/DealsCarousel.tsx` 也有同樣寫法但該元件已無引用，不動。只改顯示，不改價格或折扣邏輯。
 
+- **會員方案頁 /membership**（2026-11-23，shawn：PS 跟 Xbox 會員放同一頁、不用對比，各自差異寫上、讓玩家自己看）：`lib/membership-plans.ts`（靜態價目表）＋`app/membership/page.tsx`（純靜態頁，不抓 API）＋`app/globals.css` 的 `.plan-grid`／`.plan-card` 等；導覽列加「會員方案」入口（首頁／PC／家機之後）。
+  PS Plus 三方案：基本 12個月 NT$1,654（原 2,068，省20%）／3個月 750／1個月 290；升級 12個月 NT$2,616（原 3,488，省25%）／3個月 1,210／1個月 430；高級 12個月 NT$2,732（原 4,078，省33%）／3個月 1,430／1個月 500（截圖標「最超值」）。權益勾選照截圖：基本 6 項（每月遊戲、線上多人遊玩、專屬折扣、獨家組合包、雲端儲存 100GB、分享遊玩）、升級加遊戲目錄＋Ubisoft+ Classics、高級再加經典遊戲目錄＋遊戲試玩；12 個月優惠價至 2026/11/30（Black Friday）。
+  Xbox Game Pass 四方案（前 14 天皆 $30，之後按月）：Essential $259（50+ 款、主機＋電腦）、Premium $349（200+ 款、發佈後一年內新遊戲、2 倍 Rewards）、Ultimate $449（400+ 款、首發當日新遊戲、EA Play＋Ubisoft+ Classics、4 倍 Rewards）、僅限電腦 $339（300+ 款、僅電腦、首發當日新遊戲、EA Play、2 倍 Rewards）；隨時可取消。
+  來源與核對（2026-11-23）：價目是 shawn 傳的兩張官方商店截圖；權益用官方頁面再核對過一次——PS Plus 官方頁三級距勾選與截圖完全一致、基本 1 個月 NT$290 對得上（JSON-LD）；Xbox 官方頁四方案權益一致，但價格是遮罩的（$XX.XX，需登入），所以價格以截圖為準。頁面標註查核日期與來源，實際價格以商店為準。
+  驗證（2026-11-23 部署後 curl 實測）：/membership 回 200、三方案＋四方案價格與權益正確、導覽列有「會員方案」。
+
 - **改名「Shawn Game Studio」**（2026-11-23，shawn 決定：站名不要再用任天堂的「Switch」商標）：顯示名稱全站改成 Shawn Game Studio——`app/layout.tsx` 的 metadata title 與頁尾第一行、各頁 metadata title（/deals、/nso、/historical-low、/console、/taiwan/addons 的「｜Switch 遊戲比價」後綴）；SGS logo 不動；頁面內容的「Switch」平台名、遊戲描述不動（正當指名使用）。API 用的 User-Agent 字串（`switch-price-site/1.0` 等）不是顯示名稱，不動。
   網域還沒換：Vercel connector token 沒有 team scope（403），API 改不了網域——顯示名稱先上線，網域要 shawn 在 Vercel dashboard 做（專案 Settings → Domains：加新子網域 `shawngamestudio.vercel.app` 或 `shawn-game-studio.vercel.app`，保留舊網域 `switch-price-site.vercel.app` 作轉址／alias，舊連結才不會死）。網域換了之後連帶要更新：Vercel 環境變數 `NEXT_PUBLIC_SITE_URL`、Supabase Dashboard → Authentication → URL Configuration 的 Site URL 與 Redirect URLs、Google Cloud（switchgameinfo）與 Discord 應用程式的 OAuth redirect URI（目前都是舊網域的 `…/auth/callback` 與 Supabase callback）。GitHub repo 名（switch-price-site）不改；Google／Discord OAuth 應用程式顯示名（目前「Switch 遊戲比價」）先不動。
 

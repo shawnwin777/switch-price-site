@@ -750,6 +750,121 @@ table.price-table {
   color: var(--muted);
 }
 
+/* ---------- 會員方案 ---------- */
+.membership-section {
+  margin-top: 28px;
+}
+
+.membership-title {
+  border-left: 4px solid var(--cyan);
+  padding-left: 10px;
+}
+
+.membership-game-pass .membership-title {
+  border-left-color: var(--green);
+}
+
+.plan-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin: 14px 0;
+}
+
+.plan-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.plan-card-highlight {
+  border-color: var(--pink);
+  box-shadow: 0 0 16px rgba(255, 45, 120, 0.25);
+}
+
+.plan-name {
+  align-items: center;
+  display: flex;
+  font-size: 18px;
+  gap: 8px;
+  margin: 0;
+}
+
+.plan-tag {
+  background: var(--pink);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  padding: 2px 8px;
+}
+
+.plan-tagline {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 6px 0;
+}
+
+.plan-monthly {
+  color: var(--cyan);
+  font-size: 19px;
+  font-weight: 800;
+  margin: 8px 0;
+}
+
+.plan-prices {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+}
+
+.plan-price-row {
+  border-top: 1px dashed var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 0;
+}
+
+.plan-orig {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.plan-save {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.plan-promo {
+  color: var(--amber);
+  font-size: 12px;
+}
+
+.plan-benefits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.plan-benefits li {
+  padding: 3px 0;
+}
+
+.plan-benefits li.yes {
+  color: var(--text);
+}
+
+.plan-benefits li.no {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.plan-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 /* ---------- comments ---------- */
 .comment-list {
   display: flex;
