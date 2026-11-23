@@ -1,6 +1,10 @@
 // NSO 會員跨區比價：靜態查證價目表（v1）。
 // NSO 價格很少變動（通常一年一次），先用靜態表＋查核日期；
 // 若日後找到 NSO 訂閱的 price API 穩定抓法再改即時。
+// 匯率：2026-11-23 起改伺服器端即時抓 open.er-api.com（見
+// lib/cached-data.ts 的 getCachedNsoFx，每小時快取一次）；
+// 下面的 NSO_FX_PER_USD／NSO_FX_DATE／NSO_FX_SOURCE 是靜態快照，
+// 即時抓不到時才退回用它。價格表本身維持靜態不動。
 //
 // 價格來源（查核日期 2026-11-23）：
 // - 底表：Bulbapedia「Nintendo Switch Online」價目（標示 accurate as of 2025-11-18）。
@@ -20,11 +24,11 @@
 /** 價目查核日期（台北日期）。 */
 export const NSO_CHECK_DATE = "2026-11-23";
 
-/** 換算台幣用的匯率快照日期。 */
+/** 換算台幣用的匯率快照日期（即時抓取失敗時的退回值）。 */
 export const NSO_FX_DATE = "2026-11-23";
 export const NSO_FX_SOURCE = "open.er-api.com（USD 基準，2026-11-23 00:02 UTC 快照）";
 
-/** 每 1 美元兌各幣別（2026-11-23 快照）；台幣 = 當地價 ÷ 此值 × 32.968084。 */
+/** 每 1 美元兌各幣別（2026-11-23 快照，退回值）；台幣 = 當地價 ÷ 此值 × 32.968084。 */
 export const NSO_FX_PER_USD: Record<string, number> = {
   TWD: 32.968084,
   JPY: 158.701406,
@@ -113,16 +117,22 @@ export const NSO_ROWS: NsoRow[] = [
   { code: "TH", currency: "THB", prices: { m1: 99, m3: 249, y12: 699, fam12: 1299, exp12: 1399, expFam12: 2499 } },
 ];
 
-/** 當地價 → 約台幣（四捨五入到整數；僅供比較，實際以當地幣別扣款）。 */
-export function nsoTwd(price: number, currency: string): number {
-  const perUsd = NSO_FX_PER_USD[currency];
-  if (!perUsd) return NaN;
-  return Math.round((price / perUsd) * NSO_FX_PER_USD.TWD);
+/** 當地價 → 約台幣（四捨五入到整數；僅供比較，實際以當地幣別扣款）。
+ *  perUsd 預設靜態快照；頁面傳入即時抓到的匯率表。 */
+export function nsoTwd(
+  price: number,
+  currency: string,
+  perUsd: Record<string, number> = NSO_FX_PER_USD
+): number {
+  const rate = perUsd[currency];
+  if (!rate) return NaN;
+  return Math.round((price / rate) * perUsd.TWD);
 }
 
 /** 某品項換算台幣最便宜的國家（只比有價的格子）；兌換券只比已查證的最後販售價。 */
 export function nsoCheapest(
-  plan: NsoPlanKey | "voucher"
+  plan: NsoPlanKey | "voucher",
+  perUsd: Record<string, number> = NSO_FX_PER_USD
 ): { code: string; twd: number } | null {
   let best: { code: string; twd: number } | null = null;
   for (const row of NSO_ROWS) {
@@ -133,7 +143,7 @@ export function nsoCheapest(
           : null
         : row.prices[plan] ?? null;
     if (local == null) continue;
-    const twd = nsoTwd(local, row.currency);
+    const twd = nsoTwd(local, row.currency, perUsd);
     if (Number.isNaN(twd)) continue;
     if (!best || twd < best.twd) best = { code: row.code, twd };
   }
@@ -141,12 +151,14 @@ export function nsoCheapest(
 }
 
 /** 列表排序：一般 12 個月換算台幣由低到高；沒 12 個月價的排後面（再以家庭價排序）。 */
-export function nsoSortedRows(): NsoRow[] {
+export function nsoSortedRows(
+  perUsd: Record<string, number> = NSO_FX_PER_USD
+): NsoRow[] {
   const key = (r: NsoRow): number => {
     const y = r.prices.y12;
-    if (y != null) return nsoTwd(y, r.currency);
+    if (y != null) return nsoTwd(y, r.currency, perUsd);
     const f = r.prices.fam12;
-    if (f != null) return nsoTwd(f, r.currency) + 100000;
+    if (f != null) return nsoTwd(f, r.currency, perUsd) + 100000;
     return Infinity;
   };
   return [...NSO_ROWS].sort((a, b) => key(a) - key(b));

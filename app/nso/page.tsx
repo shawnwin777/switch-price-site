@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { COUNTRY_MAP, eshopUrl } from "@/lib/countries";
 import { formatRaw } from "@/lib/format";
+import { getCachedNsoFx } from "@/lib/cached-data";
 import {
   NSO_CHECK_DATE,
-  NSO_FX_DATE,
-  NSO_FX_SOURCE,
   NSO_PLANS,
   nsoCheapest,
   nsoSortedRows,
@@ -16,17 +15,25 @@ export const metadata = {
   title: "NSO 會員跨區比價｜Shawn Game Studio",
 };
 
+// 匯率要即時抓（每小時快取），頁面 force-dynamic 才不會在建置時
+// 把匯率寫死；價格表本身仍是靜態查證價目。
+export const dynamic = "force-dynamic";
+
 /** NSO 會員跨區比價表（靜態查證價目，v1）。
  *  價格查核日期見 lib/nso-prices.ts（NSO_CHECK_DATE）；NSO 價格很少變動
  *  （通常一年一次），先用靜態表，兌換券已停售、僅列最後販售價。
+ *  匯率 2026-11-23 起改即時：伺服器端抓 open.er-api.com，每小時快取
+ *  一次（lib/cached-data.ts 的 getCachedNsoFx），抓不到退回靜態快照。
  *  查不到的格子顯示「未查到」，絕對不編價格。 */
-export default function NsoPage() {
-  const rows = nsoSortedRows();
+export default async function NsoPage() {
+  const fx = await getCachedNsoFx();
+  const perUsd = fx.perUsd;
+  const rows = nsoSortedRows(perUsd);
   const cheapest: Record<string, string | null> = {};
   for (const p of NSO_PLANS) {
-    cheapest[p.key] = nsoCheapest(p.key)?.code ?? null;
+    cheapest[p.key] = nsoCheapest(p.key, perUsd)?.code ?? null;
   }
-  cheapest.voucher = nsoCheapest("voucher")?.code ?? null;
+  cheapest.voucher = nsoCheapest("voucher", perUsd)?.code ?? null;
 
   return (
     <>
@@ -90,7 +97,7 @@ export default function NsoPage() {
                         </td>
                       );
                     }
-                    const twd = nsoTwd(local, row.currency);
+                    const twd = nsoTwd(local, row.currency, perUsd);
                     const isBest = cheapest[p.key] === row.code;
                     return (
                       <td
@@ -113,7 +120,7 @@ export default function NsoPage() {
                         {formatRaw(row.voucher, row.currency)}
                         {row.currency !== "TWD" && (
                           <span className="twd-sub">
-                            約 NT$ {nsoTwd(row.voucher, row.currency).toLocaleString("zh-Hant-TW")}
+                            約 NT$ {nsoTwd(row.voucher, row.currency, perUsd).toLocaleString("zh-Hant-TW")}
                           </span>
                         )}
                         {row.voucherNote && (
@@ -134,7 +141,8 @@ export default function NsoPage() {
         </table>
       </div>
       <p className="muted">
-        換算台幣：匯率快照 {NSO_FX_DATE}（{NSO_FX_SOURCE}），僅供比較；
+        換算台幣：匯率{fx.live ? `即時更新 ${fx.date}` : `快照 ${fx.date}（即時抓取失敗，顯示快照）`}
+        （{fx.source}），僅供比較；
         實際扣款以當地幣別為準，跨區購買前請以任天堂官方頁面為準。
         家庭會員最多 8 個 Nintendo Account 共用（不必同一戶籍）；切換帳號地區與海外付款可能受限。
       </p>
@@ -164,6 +172,6 @@ export default function NsoPage() {
         : row.prices[plan] ?? null;
     if (local == null) return name;
     if (row.currency === "TWD") return `${name} NT$ ${local}`;
-    return `${name} 約 NT$ ${nsoTwd(local, row.currency).toLocaleString("zh-Hant-TW")}`;
+    return `${name} 約 NT$ ${nsoTwd(local, row.currency, perUsd).toLocaleString("zh-Hant-TW")}`;
   }
 }

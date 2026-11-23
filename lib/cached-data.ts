@@ -230,6 +230,88 @@ export const getCachedLatestFx = unstable_cache(
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["meta"] }
 );
 
+import {
+  NSO_FX_DATE,
+  NSO_FX_PER_USD,
+  NSO_FX_SOURCE,
+} from "./nso-prices";
+
+export interface NsoFxData {
+  /** 每 1 美元兌各幣別（與 NSO_FX_PER_USD 同形）。 */
+  perUsd: Record<string, number>;
+  /** 匯率日期（台北日期 YYYY-MM-DD）。 */
+  date: string;
+  /** 來源說明（頁面顯示用）。 */
+  source: string;
+  /** true = 即時抓到的；false = 抓不到、退回靜態快照。 */
+  live: boolean;
+}
+
+/** NSO 換算用的即時匯率（/nso 頁，2026-11-23 起不用靜態快照）。
+ *  來源 https://open.er-api.com/v6/latest/USD（站上其他地方本來就用
+ *  這個來源；er-api 每天 00:02 UTC 左右更新一次）。每小時快取一次；
+ *  抓不到（斷線、回應異常、缺幣別）就退回 lib/nso-prices.ts 的靜態
+ *  快照表（2026-11-23），頁面照常顯示、只在匯率行註明是快照。 */
+const NSO_FX_URL = "https://open.er-api.com/v6/latest/USD";
+const NSO_FX_LIVE_SOURCE = "open.er-api.com（USD 基準，即時）";
+
+async function fetchNsoFxLive(): Promise<NsoFxData> {
+  const res = await fetch(NSO_FX_URL, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "switch-price-site-nso-fx/1.0",
+    },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${NSO_FX_URL}`);
+  const data = (await res.json()) as {
+    result?: string;
+    rates?: Record<string, number>;
+    time_last_update_utc?: string;
+  };
+  if (data.result !== "success" || !data.rates) {
+    throw new Error("er-api 回應異常");
+  }
+  const perUsd: Record<string, number> = {};
+  for (const c of Object.keys(NSO_FX_PER_USD)) {
+    const v = data.rates[c];
+    if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) {
+      throw new Error(`er-api 缺 ${c} 匯率`);
+    }
+    perUsd[c] = v;
+  }
+  const updated = data.time_last_update_utc
+    ? new Date(data.time_last_update_utc)
+    : new Date();
+  const date = Number.isNaN(updated.getTime())
+    ? NSO_FX_DATE
+    : new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Taipei",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(updated);
+  return { perUsd, date, source: NSO_FX_LIVE_SOURCE, live: true };
+}
+
+export const getCachedNsoFx = unstable_cache(
+  async (): Promise<NsoFxData> => {
+    try {
+      return await fetchNsoFxLive();
+    } catch (e) {
+      console.warn("[nso-fx] 即時匯率抓取失敗，退回靜態快照：", e);
+      return {
+        perUsd: NSO_FX_PER_USD,
+        date: NSO_FX_DATE,
+        source: NSO_FX_SOURCE,
+        live: false,
+      };
+    }
+  },
+  ["nso-fx-v1"],
+  { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["nso-fx"] }
+);
+
 export const getCachedLatestPriceUpdate = unstable_cache(
   async () => getLatestPriceUpdate(createPublicClient()),
   ["latest-price-update"],
