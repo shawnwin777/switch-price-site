@@ -207,7 +207,34 @@ export default async function HomePage({
           )
         )}
       </div>
+      {/* 站內入口（2026-11-23 簡單首頁）：把站上各頁串起來，遊戲牆本身、
+          篩選、排序、分頁邏輯一律不動。Switch 卡點了捲到下方的遊戲牆。 */}
+      <h2 className="deals-section-title">站內入口</h2>
       <div className="feature-cards">
+        <Link href="#switch-wall" className="feature-card">
+          <div className="feature-card-title">🎮 Switch 比價</div>
+          <div className="feature-card-sub">
+            就是這一頁，往下滑看遊戲牆
+          </div>
+        </Link>
+        <Link href="/deals" className="feature-card">
+          <div className="feature-card-title">💻 PC遊戲特價</div>
+          <div className="feature-card-sub">
+            Steam 特價、Epic 免費、Xbox PC
+          </div>
+        </Link>
+        <Link href="/console" className="feature-card">
+          <div className="feature-card-title">🕹️ 家機特價</div>
+          <div className="feature-card-sub">
+            Xbox 家機、XGP、PlayStation、PS Plus
+          </div>
+        </Link>
+        <Link href="/ranking" className="feature-card">
+          <div className="feature-card-title">🏆 收藏排行</div>
+          <div className="feature-card-sub">
+            大家收藏最多的遊戲 TOP 10
+          </div>
+        </Link>
         <Link href="/upcoming" className="feature-card">
           <div className="feature-card-title">📅 準備上市</div>
           <div className="feature-card-sub">
@@ -245,6 +272,7 @@ export default async function HomePage({
           </div>
         </Link>
       </div>
+      <div id="switch-wall">
       <HomeClient
         games={page.games}
         total={page.total}
@@ -257,6 +285,7 @@ export default async function HomePage({
         isAdmin={isAdminEmail(user?.email)}
         serverVisibleScope={serverVisibleScope}
       />
+      </div>
     </>
   );
 }
