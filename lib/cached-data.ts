@@ -87,6 +87,20 @@ export const getCachedXboxPcDeals = unstable_cache(
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["xbox-pc-deals"] }
 );
 
+import {
+  fetchXboxConsoleDeals,
+  type XboxConsoleDealsData,
+} from "./xbox-console-deals";
+
+/** Xbox 家機特價（/deals「XBOX 家機」分頁，伺服器端抓取、每小時更新一次）。
+ *  2026-11-23 新增：與 PC 版同一條管線（Reco 清單＋Display Catalog），
+ *  只差平台 filter 為 Windows.Xbox；實測抽 50 款有 48 款是家機＋台幣折價。 */
+export const getCachedXboxConsoleDeals = unstable_cache(
+  async (): Promise<XboxConsoleDealsData> => fetchXboxConsoleDeals(),
+  ["xbox-console-deals-v1"],
+  { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["xbox-console-deals"] }
+);
+
 /** 首頁公開列表（分頁＋篩選＋排序）。key = 全部篩選條件＋個人 id 清單，
  *  所以不同篩選／不同使用者的排除清單不會共用同一份快取。 */
 export const getCachedGamesPagePublic = unstable_cache(

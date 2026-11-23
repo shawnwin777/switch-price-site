@@ -178,11 +178,12 @@ npm start                    # 跑 production build
   伺服器端抓取、每小時快取（`lib/cached-data.ts` 的 `getCachedDealsPage`，key `deals-page-v4`；`getCachedXboxPcDeals`，key `xbox-pc-deals-v2`，revalidate 3600 秒），不每次載入頁面都打 API。
   只做台灣區（Steam `cc=TW`、Epic `country=TW&locale=zh-Hant`、Xbox `market=TW`），不加跨區切換——跨區帳號可能被鎖。
   頁面大標題與導覽列標籤都是「PC遊戲特價」（2026-11-23 從「Steam＋Epic＋Xbox 特價」改短）。
-  上方三個平台分頁框（免費遊戲／STEAM／XBOX，`DealsTabs` client component，預設 Steam），點了不跳頁、不換路由，當下切換；面板永遠展開、不摺疊（2026-11-23：分頁框模式下摺疊沒意義，收合按鈕全部拿掉）。每平台取前 200 款，一次只顯示 24 款，在頁內翻頁（頁碼用 `lib/pagination.ts` 的 `pageWindow`）。
+  上方四個平台分頁框（免費遊戲／STEAM／XBOX PC／XBOX 家機，`DealsTabs` client component，預設 Steam），點了不跳頁、不換路由，當下切換；面板永遠展開、不摺疊（2026-11-23：分頁框模式下摺疊沒意義，收合按鈕全部拿掉）。每平台取前 200 款，一次只顯示 24 款，在頁內翻頁（頁碼用 `lib/pagination.ts` 的 `pageWindow`）。
   Epic 只有免費遊戲（本週＋下週預告）；Epic 特價抓不到——免費遊戲那支公開 API 不含特價資料，特價要走的 Epic GraphQL 與商店瀏覽頁都被 403 擋下（2026-11-23 實測，連瀏覽器標頭也一樣），不要再試。
   Steam 取折扣最大的前 200 款：走特價搜尋 API（`search/results/?specials=1&cc=TW`，回 results_html 要解析；2026-11-23 實測台灣區特價中 15,020 款；`sort_by=Discount_DESC` 與 `_ASC` 順序相同、不支援折扣排序，所以抓前三頁 300 列再在伺服器端按折扣大→小取前 200；搜尋結果沒有特價截止日）。舊的 `featuredcategories` specials 只回 10 款精選，搜尋失敗時才當備援。
   Steam 限時免費領取（免費遊戲分頁的 Steam 部分）：同一支特價搜尋 API 裡折扣 100% 的品項（付費遊戲降到 0 元、可永久保留；特價寫「免費」，解析器要另外認出 final 0 元，舊版 `!final` 守衛會直接把 100% 列丟掉）。跟「免費遊玩」（F2P）分得開：F2P 沒有原價也不在 `specials=1` 的結果裡（2026-11-23 實測 `maxprice=free` 前 100 列全是 F2P、0 款 100%），100% 列必須有原價才算。抓法：前三頁解析後拆出 100% 列，另外再用 `sort_by=Price_ASC` 抓一頁（特價按最終價低→高排，0 元一定在最前面，一頁就能抓齊、不怕它排在 300 列之外），兩邊合併去重。2026-11-23 實測當週台灣區 100% 品項 0 款（Price_ASC 第一頁最便宜是 NT$ 11，沒有 0 元列），所以免費分頁目前只有 Epic 的 1 款預告——這是資料現況、不是 bug；有 100% 遊戲出現時會自動列進來。
   Xbox PC 取折扣最大的前 200 款（清單第 1、2 頁各 100 個 productId，Display Catalog 每批 50 個 id、最多 3 批並行補資料；總數約 500 款，頁面註明總數並連去微軟商店台灣區 PC 特價頁看完整清單）。
+  Xbox 家機（2026-11-23 新增，`lib/xbox-console-deals.ts`＋快取 key `xbox-console-deals-v1`）：與 PC 版同一條管線（Reco 清單＋Display Catalog），只差平台 filter 為 Windows.Xbox；實測抽 50 款有 48 款是家機＋台幣折價（Forza Horizon 6、Gears of War: E-Day 等）。原「XBOX」分頁標籤改為「XBOX PC」，免得混淆。
   Epic 取 `freeGamesPromotions`（TW，`discountSetting.discountPercentage === 0` 才是免費——實測回應沒有 `discountPrice` 欄位；進行中顯示「免費／領取截止日」，下週預告顯示「即將免費／開始日」，連去 Epic 商店）。
   單一來源失敗時只顯示其他來源；全部失敗時顯示空狀態、頁面不壞。
   首頁不再有輪播，改成入口卡片（跟「準備上市」「接近歷史低價」放一起）＋導覽列「PC遊戲特價」連結。
