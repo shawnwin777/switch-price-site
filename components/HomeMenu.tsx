@@ -8,7 +8,7 @@ import Link from "next/link";
  *  左邊是斜切品牌板（SGS logo＋標語），右邊是五個選單；
  *  第一排「會員登入」→ /login（首頁不顯示上方導覽列，登入入口在這裡），
  *  再來 SWITCH → /switch-price、PC GAMES → /deals、
- *  Gaming console → /console、關於我（第五格）。
+ *  GAMING CONSOLE → /console、關於我（第五格）。
  *  hover／點按任一選單時，品牌板像抽屜一樣被抽走（向左滑出＋微斜），
  *  露出底下的預覽圖列，停在那裡不彈回；移開後延遲一下才收回。
  *  SWITCH 預覽 = 站內特價 Switch 遊戲（Nintendo CDN 封面）；
@@ -118,7 +118,7 @@ const MENU: {
   {
     key: "console",
     href: "/console",
-    title: "Gaming console",
+    title: "GAMING CONSOLE",
     sub: "家機特價 · Xbox 家機、PlayStation",
     icon: (
       <svg

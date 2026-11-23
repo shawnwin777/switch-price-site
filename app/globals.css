@@ -352,10 +352,12 @@ label.field-label {
 /* 首頁拿掉上方導覽列後空出約一格導覽列的高度，桌機版把首頁撐大一點；
  *  手機版下面 media query 已把 min-height 歸零、不受影響，
  *  選單點按目標（18px padding＋44px 圖標）維持不動、保持好點。 */
+/* 右邊選單收窄、左邊品牌板拉寬：grid 從 1.05:1 改成 1.3:0.85、gap 縮小；
+ *  選單列 padding 也收一點（點按目標仍約 74px 高，手機照樣好點）。 */
 .home-diagonal {
   display: grid;
-  gap: 48px;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 32px;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.85fr);
   margin: 0 auto;
   max-width: 1600px;
   min-height: 720px;
@@ -413,10 +415,15 @@ label.field-label {
 }
 
 /* 抽屜底層：預覽圖列，品牌板被抽走後才露出來。 */
+/* 抽屜底層：預覽圖列，品牌板被抽走後才露出來。
+ *  跟品牌板吃同一條斜線遮罩（clip-path 82%）：預覽圖沿著斜邊被裁切，
+ *  像從斜面後面露出來；drop-shadow 順著斜邊打同一道電光青邊光。 */
 .home-preview-panel {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  clip-path: polygon(0 0, 100% 0, 82% 100%, 0 100%);
+  filter: drop-shadow(3px 0 14px rgba(0, 240, 255, 0.35));
   inset: 0;
   opacity: 0;
   overflow-y: auto;
@@ -668,7 +675,7 @@ a.home-login-preview-btn:hover {
   display: flex;
   font: inherit;
   gap: 16px;
-  padding: 18px 20px;
+  padding: 15px 18px;
   text-align: left;
   text-decoration: none;
   transition: border-color 0.15s ease, transform 0.15s ease;
@@ -759,6 +766,7 @@ a.home-login-preview-btn:hover {
 
   .home-preview-panel {
     border-radius: 0 0 var(--radius) var(--radius);
+    clip-path: polygon(0 0, 100% 0, 94% 100%, 0 100%);
     inset: auto;
     max-height: 0;
     opacity: 1;

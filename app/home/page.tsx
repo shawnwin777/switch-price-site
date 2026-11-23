@@ -21,7 +21,7 @@ export const revalidate = 3600;
 /** 新首頁 /home（2026-11-23 改版，shawn 定）：斜切抽屜式遊戲選單。
  *  左邊是斜切品牌板（SGS 標誌 public/sgs-logo.png）＋招牌語，
  *  右邊四個選單：SWITCH → /switch-price、PC GAMES → /deals、
- *  Gaming console → /console、關於我（第四格，展開看社群連結）；
+ *  GAMING CONSOLE → /console、關於我（第四格，展開看社群連結）；
  *  選單整體往下移，避開左邊的斜線。
  *  hover／點按選單時品牌板像抽屜一樣向左滑出、停住，露出預覽圖列
  *  （互動邏輯在 components/HomeMenu.tsx）。
