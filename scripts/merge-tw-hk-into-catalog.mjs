@@ -71,7 +71,7 @@ async function loadHkdRate() {
   for (const endpoint of FX_ENDPOINTS) {
     try {
       const res = await fetch(endpoint, {
-        headers: { 'User-Agent': 'switch-price-site/1.0 (tw-hk merge)' },
+        headers: { 'User-Agent': 'shawn-game-studio/1.0 (tw-hk merge)' },
         signal: AbortSignal.timeout(15_000),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

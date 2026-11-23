@@ -63,7 +63,7 @@ const MS_CV = "DGU1mcuYo0WMMp+F.1";
 /** Display Catalog 一批最多 50 個 id（跟 Xbox 特價同一批大小）。 */
 const CATALOG_BATCH_SIZE = 50;
 
-const USER_AGENT = "switch-price-site-gamepass-new/1.0";
+const USER_AGENT = "shawn-game-studio-gamepass-new/1.0";
 
 /** 單一來源失敗不拋錯到上層；偶爾瞬斷時重試一次（間隔 500ms）。 */
 async function fetchJson(url: string): Promise<unknown> {

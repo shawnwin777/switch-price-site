@@ -17,7 +17,7 @@ async function fetchPrices(country, ids) {
     let data = null;
     for (let a = 0; a < 3 && !data; a++) {
       try {
-        const res = await fetch(`${PRICE_API}?country=${country}&ids=${chunk.join(',')}&lang=${langFor(country)}`, { headers: { 'User-Agent': 'switch-price-site/1.0 (count-gap probe)' }, signal: AbortSignal.timeout(30000) });
+        const res = await fetch(`${PRICE_API}?country=${country}&ids=${chunk.join(',')}&lang=${langFor(country)}`, { headers: { 'User-Agent': 'shawn-game-studio/1.0 (count-gap probe)' }, signal: AbortSignal.timeout(30000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         data = await res.json();
       } catch { await sleep(1200); }

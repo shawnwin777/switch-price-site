@@ -39,7 +39,7 @@ async function query(batch){
   let last;
   for(let attempt=0;attempt<3;attempt++){
     try{
-      const r=await fetch(url,{headers:{Accept:'application/json','User-Agent':'switch-price-site-TW-readonly-prices/1.0'},
+      const r=await fetch(url,{headers:{Accept:'application/json','User-Agent':'shawn-game-studio-TW-readonly-prices/1.0'},
         signal:AbortSignal.timeout(20000)});
       if(r.status===403)throw new Error('HTTP 403: price API access denied; stop, do not bypass');
       if(!r.ok)throw new Error('HTTP '+r.status);

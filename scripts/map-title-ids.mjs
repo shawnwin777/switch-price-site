@@ -62,7 +62,7 @@ const JP_SALES_API = 'https://ec.nintendo.com/api/JP/ja/search/sales?count=100&o
 const PRICE_API = 'https://api.ec.nintendo.com/v1/price?country=JP&ids=';
 
 const FETCH_TIMEOUT_MS = 60_000;
-const HEADERS = { 'User-Agent': 'switch-price-site/1.0 (title-id mapping)' };
+const HEADERS = { 'User-Agent': 'shawn-game-studio/1.0 (title-id mapping)' };
 
 async function fetchText(url) {
   const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });

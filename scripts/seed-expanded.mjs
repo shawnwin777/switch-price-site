@@ -158,7 +158,7 @@ async function fetchFxRates() {
   for (const endpoint of FX_ENDPOINTS) {
     try {
       const res = await fetch(endpoint, {
-        headers: { 'User-Agent': 'switch-price-site/1.0 (seed-expanded)' },
+        headers: { 'User-Agent': 'shawn-game-studio/1.0 (seed-expanded)' },
         signal: AbortSignal.timeout(15_000),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

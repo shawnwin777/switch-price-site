@@ -40,7 +40,7 @@ async function request(page) {
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
       const response = await fetch(url, {
-        headers: {'Accept':'application/json', 'User-Agent':'switch-price-site-TW-readonly-catalog/1.0'},
+        headers: {'Accept':'application/json', 'User-Agent':'shawn-game-studio-TW-readonly-catalog/1.0'},
         signal:AbortSignal.timeout(16000),
       });
       if (!response.ok) throw new Error('HTTP ' + response.status + ' page ' + page);

@@ -13,7 +13,7 @@
     "@types/react-dom": "^18.3.0",
     "typescript": "^5.5.4"
   },
-  "name": "switch-price-site",
+  "name": "shawn-game-studio",
   "private": true,
   "scripts": {
     "build": "next build",

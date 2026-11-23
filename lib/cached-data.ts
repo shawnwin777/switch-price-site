@@ -164,6 +164,8 @@ import { fetchPsDeals, type PsDealsData } from "./ps-deals";
  *  （舊快取是 SALES＋OFFERS 的 44 款舊形狀）。2026-11-23 上限 200→350→510
  *  （最多掃 50 頁、抓滿 510 款 ≥50% 就停），key 換成 ps-deals-v4。
  *  2026-11-23 每頁 24 款→30 款，key 換成 ps-deals-v5。
+ *  2026-11-23 晚：標題改繁中（X-PSN-Store-Locale-Override）＋誠實 UA，
+ *  key 換成 ps-deals-v6（舊快取是簡體標題）。
  *  2026-11-23：0 款就拋錯、不快取空結果（跟 Xbox 三個分頁 18:14
  *  空結果中毒同一類問題；「所有優惠」分類 2,862 款、≥50% 實測 510 款，
  *  真的 0 款只會是 GraphQL 抓失敗。key 不動，舊的好快取續用）。 */
@@ -175,7 +177,7 @@ export const getCachedPsDeals = unstable_cache(
     }
     return data;
   },
-  ["ps-deals-v5"],
+  ["ps-deals-v6"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["ps-deals"] }
 );
 
@@ -232,7 +234,9 @@ import { fetchPsPlusNew, type PsPlusNewData } from "./ps-plus";
  *  再用官方搜尋對應到台灣商店商品拿圖片／連結。
  *  2026-11-23：0 款就拋錯、不快取空結果（跟 Xbox 三個分頁 18:14
  *  空結果中毒同一類問題；文章存在就一定有遊戲，0 款只會是抓失敗。
- *  key 不動，舊的好快取續用）。 */
+ *  key 不動，舊的好快取續用）。
+ *  2026-11-23 晚：誠實 UA（不偽裝瀏覽器、拿掉 Referer／Origin），
+ *  key 換成 ps-plus-new-v2，強制用新 UA 重抓一次。 */
 export const getCachedPsPlusNew = unstable_cache(
   async (): Promise<PsPlusNewData> => {
     const data = await fetchPsPlusNew();
@@ -241,7 +245,7 @@ export const getCachedPsPlusNew = unstable_cache(
     }
     return data;
   },
-  ["ps-plus-new-v1"],
+  ["ps-plus-new-v2"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["ps-plus-new"] }
 );
 
@@ -337,7 +341,7 @@ async function fetchNsoFxLive(): Promise<NsoFxData> {
   const res = await fetch(NSO_FX_URL, {
     headers: {
       Accept: "application/json",
-      "User-Agent": "switch-price-site-nso-fx/1.0",
+      "User-Agent": "shawn-game-studio-nso-fx/1.0",
     },
     signal: AbortSignal.timeout(15000),
   });

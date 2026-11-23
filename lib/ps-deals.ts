@@ -16,7 +16,11 @@
 //     &extensions={"persistedQuery":{"version":1,"sha256Hash":"<上>"}}
 //   標頭：Accept/Content-Type application/json、
 //   apollo-require-preflight: true、x-apollo-operation-name，
-//   加瀏覽器 UA＋Referer/Origin（沒加 preflight 標頭會被擋 CSRF）。
+//   加誠實 UA（shawn-game-studio/1.0，不偽裝瀏覽器）＋
+//   X-PSN-Store-Locale-Override: zh-hant-tw（沒加這個回簡體標題；
+//   Accept-Language 沒用，API 不理它），不送 Referer／Origin
+//   （2026-11-23 實測：誠實 UA、無 Referer／Origin 照樣通，
+//   標題回繁中；沒加 preflight 標頭會被擋 CSRF）。
 //   分類：優惠頁「所有優惠」→「檢視全部」的分類
 //     3f772501-f6f8-49b7-abac-874a88ca4897
 //     （瀏覽器實測抓到的分類頁網址裡的 ID；pageInfo.totalCount = 2862，
@@ -80,8 +84,8 @@ const MAX_ITEMS = 510;
 const MAX_PAGES = 50;
 const CONCURRENCY = 3;
 
-const USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+/** 誠實 UA（2026-11-23 L-2：不偽裝瀏覽器；實測無 Referer／Origin 照樣通）。 */
+const USER_AGENT = "shawn-game-studio/1.0";
 
 async function fetchJson(url: string): Promise<unknown> {
   let lastError: unknown = null;
@@ -93,8 +97,7 @@ async function fetchJson(url: string): Promise<unknown> {
           "Content-Type": "application/json",
           "User-Agent": USER_AGENT,
           "Accept-Language": "zh-Hant-TW,zh;q=0.9,en;q=0.8",
-          Referer: "https://store.playstation.com/zh-hant-tw/pages/deals",
-          Origin: "https://store.playstation.com",
+          "X-PSN-Store-Locale-Override": "zh-hant-tw",
           "apollo-require-preflight": "true",
           "x-apollo-operation-name": OPERATION,
         },

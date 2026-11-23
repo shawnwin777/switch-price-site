@@ -73,7 +73,7 @@ const JP_XML_URL = 'https://www.nintendo.co.jp/data/software/xml/switch.xml';
 const PRICE_API = 'https://api.ec.nintendo.com/v1/price';
 
 const FETCH_TIMEOUT_MS = 60_000;
-const HEADERS = { 'User-Agent': 'switch-price-site/1.0 (tw-hk title-id mapping)' };
+const HEADERS = { 'User-Agent': 'shawn-game-studio/1.0 (tw-hk title-id mapping)' };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function fetchText(url, attempts = 3) {

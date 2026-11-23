@@ -80,7 +80,7 @@ const FX_ENDPOINTS = [
   'https://api.exchangerate-api.com/v4/latest/USD',
 ];
 const PLACEHOLDER_COVER = '/covers/placeholder.svg';
-const UA = 'switch-price-site/1.0 (expanded catalog builder)';
+const UA = 'shawn-game-studio/1.0 (expanded catalog builder)';
 const FETCH_TIMEOUT_MS = 20_000;
 const CHUNK_SIZE = 50; // 價格 API 一次 ids 最多 50 個
 const CONCURRENCY = 5;

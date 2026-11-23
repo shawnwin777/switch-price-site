@@ -56,7 +56,12 @@ async function fetchJson(url: string): Promise<unknown> {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const res = await fetch(url, {
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          // 可識別 UA（2026-11-23 L-3；台灣官方目錄）。
+          "User-Agent":
+            "shawn-game-studio/1.0 (contact: shawnwin777@gmail.com)",
+        },
         cache: "no-store",
         signal: AbortSignal.timeout(16000),
       });

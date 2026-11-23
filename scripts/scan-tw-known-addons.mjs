@@ -36,7 +36,7 @@ async function get(batch){
   let last;
   for(let k=0;k<3;k++){
     try{
-      const response=await fetch(url,{headers:{Accept:'application/json','User-Agent':'switch-price-site-addons-readonly/1.0'},
+      const response=await fetch(url,{headers:{Accept:'application/json','User-Agent':'shawn-game-studio-addons-readonly/1.0'},
         signal:AbortSignal.timeout(25000)});
       if(response.status===403)throw new Error('HTTP 403 blocked: do not bypass');
       if(!response.ok)throw new Error('HTTP '+response.status);

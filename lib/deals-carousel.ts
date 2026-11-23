@@ -100,7 +100,7 @@ export const DEALS_TOP_COUNT = 510;
 const EPIC_URL =
   "https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions?locale=zh-Hant&country=TW&allowCountries=TW";
 
-const USER_AGENT = "switch-price-site-deals-page/1.0";
+const USER_AGENT = "shawn-game-studio-deals-page/1.0";
 
 function formatTwdCents(cents: number | null | undefined): string | null {
   if (cents == null || !Number.isFinite(cents)) return null;

@@ -516,7 +516,7 @@ export function parseAuAlgoliaHits(hits: unknown[]): CatalogListEntry[] {
 // ---------------------------------------------------------------------------
 
 const FETCH_TIMEOUT_MS = 20_000;
-const UA = "switch-price-site/1.0 (catalog sync)";
+const UA = "shawn-game-studio/1.0 (catalog sync)";
 
 async function fetchTextRetry(
   url: string,

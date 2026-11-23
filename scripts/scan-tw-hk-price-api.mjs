@@ -52,7 +52,7 @@ import { dirname, join } from 'node:path';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CACHE_DIR = join(ROOT, 'data', '.cache');
 const PRICE_API = 'https://api.ec.nintendo.com/v1/price';
-const UA = 'switch-price-site/1.0 (tw-hk price-api scan)';
+const UA = 'shawn-game-studio/1.0 (tw-hk price-api scan)';
 const BATCH = 50;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

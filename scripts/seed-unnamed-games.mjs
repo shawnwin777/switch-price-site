@@ -174,7 +174,7 @@ async function loadFx() {
   for (const endpoint of FX_ENDPOINTS) {
     try {
       const res = await fetch(endpoint, {
-        headers: { 'User-Agent': 'switch-price-site/1.0 (seed-unnamed-games)' },
+        headers: { 'User-Agent': 'shawn-game-studio/1.0 (seed-unnamed-games)' },
         signal: AbortSignal.timeout(15_000),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

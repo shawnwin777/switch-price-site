@@ -64,7 +64,7 @@ const OUT_PATH = join(ROOT, 'data', 'tw-hk-full-ids.json');
 const TW_LIST_URL = 'https://www.nintendo.com/tw/software/switch/';
 const HK_LIST_URL = 'https://www.nintendo.com/hk/software/switch/';
 const HK_JSON_URL = 'https://www.nintendo.com.hk/data/json/switch_software.json';
-const UA = 'switch-price-site/1.0 (tw-hk full-ids merge)';
+const UA = 'shawn-game-studio/1.0 (tw-hk full-ids merge)';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function fetchText(url, tries = 3) {

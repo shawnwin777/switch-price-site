@@ -170,7 +170,7 @@ async function fetchPricesForCountry(country, titleIds) {
     for (let attempt = 0; attempt < PRICE_FETCH_MAX_ATTEMPTS && !done; attempt++) {
       try {
         const res = await fetch(url, {
-          headers: { 'User-Agent': 'switch-price-site/1.0 (fetch-region-prices)' },
+          headers: { 'User-Agent': 'shawn-game-studio/1.0 (fetch-region-prices)' },
           signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         });
         if (!res.ok) {
@@ -209,7 +209,7 @@ async function fetchFxRatesLive() {
   for (const endpoint of FX_ENDPOINTS) {
     try {
       const res = await fetch(endpoint, {
-        headers: { 'User-Agent': 'switch-price-site/1.0 (fetch-region-prices)' },
+        headers: { 'User-Agent': 'shawn-game-studio/1.0 (fetch-region-prices)' },
         signal: AbortSignal.timeout(15_000),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

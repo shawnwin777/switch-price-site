@@ -23,7 +23,7 @@ import { dirname, join } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_PATH = join(ROOT, 'data', '.cache', 'weekly-articles.json');
-const UA = 'switch-price-site/1.0 (tw-hk weekly-articles harvest)';
+const UA = 'shawn-game-studio/1.0 (tw-hk weekly-articles harvest)';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function fetchText(url, tries = 3) {

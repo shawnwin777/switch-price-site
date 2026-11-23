@@ -22,7 +22,7 @@
 // 用法：node scripts/probe-tw-hk-storefront.mjs
 // 只做讀取探測，不寫檔。全部請求帶 User-Agent、重試與節流。
 
-const UA = 'switch-price-site/1.0 (tw-hk storefront probe)';
+const UA = 'shawn-game-studio/1.0 (tw-hk storefront probe)';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function fetchText(url, tries = 3) {

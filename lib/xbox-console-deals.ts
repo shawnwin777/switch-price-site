@@ -60,7 +60,7 @@ const CATALOG_URL = "https://displaycatalog.mp.microsoft.com/v7.0/products";
 /** Display Catalog 要求的 MS-CV（固定值；+ 必須 URL-encode，見上方說明）。 */
 const MS_CV = "DGU1mcuYo0WMMp+F.1";
 
-const USER_AGENT = "switch-price-site-xbox-deals/1.0";
+const USER_AGENT = "shawn-game-studio-xbox-deals/1.0";
 
 /** 單一來源失敗不拋錯到上層；偶爾瞬斷時重試一次（間隔 500ms）。 */
 async function fetchJson(url: string): Promise<unknown> {

@@ -40,7 +40,7 @@ const AU_KEY = process.env.AU_ALGOLIA_API_KEY ?? 'c8e4e9f60190ef785d167da77ba0b4
 
 async function getJson(url, opts = {}) {
   const res = await fetch(url, {
-    headers: { 'User-Agent': 'switch-price-site/1.0 (storefront price probe)', ...(opts.headers ?? {}) },
+    headers: { 'User-Agent': 'shawn-game-studio/1.0 (storefront price probe)', ...(opts.headers ?? {}) },
     signal: AbortSignal.timeout(20_000),
     ...opts,
   });

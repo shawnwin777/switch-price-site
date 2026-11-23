@@ -67,10 +67,10 @@ const SEARCH_HASH =
 const SEARCH_PAGE_SIZE = 5;
 const SEARCH_CONCURRENCY = 3;
 
-const BLOG_UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
-const PS_UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+/** 誠實 UA（2026-11-23 L-2：不偽裝瀏覽器；實測 sitemap 與搜尋
+ *  無 Referer／Origin 照樣通）。 */
+const BLOG_UA = "shawn-game-studio/1.0";
+const PS_UA = "shawn-game-studio/1.0";
 
 /** 單一來源失敗不拋錯到上層；偶爾瞬斷時重試一次（間隔 500ms）。 */
 async function fetchText(url: string, headers: Record<string, string>): Promise<string> {
@@ -328,8 +328,6 @@ async function searchProduct(
       "Content-Type": "application/json",
       "User-Agent": PS_UA,
       "Accept-Language": "zh-Hant-TW,zh;q=0.9,en;q=0.8",
-      Referer: "https://store.playstation.com/zh-hant-tw/pages/search/",
-      Origin: "https://store.playstation.com",
       "X-PSN-Store-Locale-Override": "zh-hant-tw",
       "apollo-require-preflight": "true",
       "x-apollo-operation-name": SEARCH_OPERATION,
