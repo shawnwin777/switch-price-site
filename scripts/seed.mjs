@@ -22,7 +22,10 @@
  *   - 可重複執行：games 以 slug 為準、prices 以 (game_id, country) 為準、
  *     fx_rates 以 (date_key, currency) 為準，不會重複插入。
  *   - 封面：種子檔的 coverUrl 是 Muse artifact 的 blob 網址，匯不出來，
- *     一律改寫為本站路徑 /covers/<slug>.jpg（見 public/covers/）。
+ *     改用官方 CDN 網址（scripts/lib/seed-cover-urls.mjs 的對照表）。
+ *     2026-11-23 之前是改寫為本站路徑 /covers/<slug>.jpg，但該批圖是
+ *     官方 key art 翻拷重託管，已改為直連 CDN；public/covers/ 下的
+ *     32 張舊圖待刪除（見 DATA_NOTES.md §6）。
  *   - title_id：種子檔沒有任天堂 title ID，所以 upsert 時【不帶 title_id
  *     欄位】，絕不會覆蓋資料庫裡已經對照好的值。已經對照好的 28 款
  *     title ID 在 data/title-ids.json（登入組 scripts/map-title-ids.mjs
@@ -44,6 +47,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { SEED_COVER_URLS } from './lib/seed-cover-urls.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
@@ -175,8 +179,11 @@ async function main() {
     platform: g.platform ?? null,
     product_type: g.productType ?? null,
     has_demo: typeof g.hasDemo === 'number' ? g.hasDemo : 0,
-    // 種子檔的 blob 封面匯不出來，改用本站封面路徑
-    cover_url: `/covers/${g.slug}.jpg`,
+    // 2026-11-23 起封面直接連官方 CDN，不再用本站重託管的 /covers/*.jpg
+    // （舊檔為官方 key art 翻拷，見 DATA_NOTES.md §6 與
+    // scripts/lib/seed-cover-urls.mjs；對照表沒有的 slug 用佔位圖，
+    // 不要寫 /covers/<slug>.jpg——那個路徑不存在，且不得再自架官方圖）
+    cover_url: SEED_COVER_URLS[g.slug] ?? '/covers/placeholder.svg',
     youtube_id: g.youtubeId ?? null,
     // 種子檔沒有任天堂 title ID：upsert 刻意不帶 title_id 欄位，
     // 以免把資料庫裡已對照好的值洗回 NULL（見檔案開頭說明與下方 1b）。

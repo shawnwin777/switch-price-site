@@ -151,6 +151,23 @@
   `/covers/placeholder.svg`）。**絕對不要用文字當封面。**
 - 香港清單（`nintendo.com.hk/data/json/switch_software.json`）內容停在
   約 2022-06，且其圖片路徑已無法直接取圖，本次未採用。
+- **2026-11-23 稽核（中-侵權-2）確認：32 張皆為官方 key art 翻拷重託管。**
+  驗證：來源 A 26 款逐張下載當日日本 eShop CDN 原圖（1920×1080）與本
+  地檔做 dHash 比對，26/26 距離 0～1／256；來源 B 6 款與當日美版商店
+  圖庫圖比對，mk-world、dk-bananza、silksong 距離 0～4，hades2、
+  pokemon-za 為同一主視覺的舊版本（現行圖多了／少了獎項緞帶與
+  Switch 2 Edition 標籤，目視確認同構圖），ring-fit 與舊版商品頁首圖
+  距離 7；另目視抽查 botw、totk、stardew、hades、silksong、
+  dk-bananza 皆為官方主視覺（含正確官方 logo 與商店緞帶疊加層）。
+  32 張全數改接官方 CDN（對照表 `scripts/lib/seed-cover-urls.mjs`；
+  DB 改寫腳本 `scripts/fix-seed-covers.mjs --apply`，冪等、乾跑預設，
+  需 shawn 在家以 service role key 執行）。`scripts/seed.mjs` 與
+  `scripts/build-expanded-catalog.mjs` 已改為寫入 CDN 網址，重跑不
+  會把 `/covers/` 寫回來；但舊版 `data/catalog-expanded.json` 的 32
+  筆 coverUrl 仍是 `/covers/`，用它重跑 `scripts/seed-expanded.mjs`
+  會寫回，跑完須再跑一次 fix 腳本。32 張舊圖待 shawn 從 GitHub 網頁
+  刪除（`public/covers/` 只留 `placeholder.svg`）；此後封面一律用遠
+  端網址，不得再下載官方圖進 `public/covers/`。
 
 ## 7. 歷史低價標記：請審慎看待
 

@@ -63,6 +63,7 @@
 import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { SEED_COVER_URLS } from './lib/seed-cover-urls.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
@@ -472,7 +473,8 @@ async function main() {
   for (const e of jpById.values()) {
     const seedGame = seedByTitleId.get(e.title_id);
     if (seedGame) {
-      // 現有遊戲：欄位全部保留，只補 title_id；封面固定本地路徑
+      // 現有遊戲：欄位全部保留，只補 title_id；封面用官方 CDN 對照表
+      // （2026-11-23 起不再寫 /covers/ 本地路徑，見 seed-cover-urls.mjs）
       // 香港 thumb 另以中文名比對（日文標題比對不到中文名時用）
       const hkByZh = hkByNorm.get(normalizeTitle(seedGame.titleZh));
       games.set(e.title_id, {
@@ -486,7 +488,7 @@ async function main() {
         platform: seedGame.platform ?? null,
         productType: seedGame.productType ?? 'game',
         hasDemo: typeof seedGame.hasDemo === 'number' ? seedGame.hasDemo : 0,
-        coverUrl: `/covers/${seedGame.slug}.jpg`,
+        coverUrl: SEED_COVER_URLS[seedGame.slug] ?? PLACEHOLDER_COVER,
         youtubeId: seedGame.youtubeId ?? null,
         isSeed: true,
       });
@@ -527,7 +529,7 @@ async function main() {
         genre: g.genre ?? null, publisher: g.publisher ?? null, platform: g.platform ?? null,
         productType: g.productType ?? 'game',
         hasDemo: typeof g.hasDemo === 'number' ? g.hasDemo : 0,
-        coverUrl: `/covers/${g.slug}.jpg`, youtubeId: g.youtubeId ?? null, isSeed: true,
+        coverUrl: SEED_COVER_URLS[g.slug] ?? PLACEHOLDER_COVER, youtubeId: g.youtubeId ?? null, isSeed: true,
       });
     } else if (!tid) {
       games.set(`seed:${g.slug}`, {
@@ -536,7 +538,7 @@ async function main() {
         genre: g.genre ?? null, publisher: g.publisher ?? null, platform: g.platform ?? null,
         productType: g.productType ?? 'game',
         hasDemo: typeof g.hasDemo === 'number' ? g.hasDemo : 0,
-        coverUrl: `/covers/${g.slug}.jpg`, youtubeId: g.youtubeId ?? null, isSeed: true,
+        coverUrl: SEED_COVER_URLS[g.slug] ?? PLACEHOLDER_COVER, youtubeId: g.youtubeId ?? null, isSeed: true,
       });
     }
   }
