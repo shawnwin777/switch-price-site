@@ -1020,6 +1020,11 @@ table.price-table {
   right: 0;
 }
 
+.deals-badge {
+  display: inline-flex;
+  gap: 12px;
+}
+
 .deals-badge-steam {
   background: rgba(0, 240, 255, 0.16);
   border: 1px solid var(--cyan);

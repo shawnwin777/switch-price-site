@@ -36,7 +36,8 @@ export default function DealCard({ item }: { item: DealsCarouselItem }) {
         <span
           className={`badge deals-badge ${SOURCE_BADGE_CLASS[item.source]}`}
         >
-          {SOURCE_LABEL[item.source]} · {item.badge}
+          <span>{SOURCE_LABEL[item.source]}</span>
+          <span>{item.badge}</span>
         </span>
         <span className="deals-card-title">{item.title}</span>
         <span className="deals-price">{item.priceLine}</span>

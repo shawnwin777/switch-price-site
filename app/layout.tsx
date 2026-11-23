@@ -25,8 +25,9 @@ export default function RootLayout({
               08:00 台北時間為準。
             </p>
             <p className="footer-sub">
-              本站為玩家自發整理的比價工具，與任天堂無關。價格僅供參考，實際結帳金額以
-              eShop 為準。
+              本站為非官方網站，與任天堂、索尼互動娛樂、微軟、Valve、Epic
+              Games 無關。Nintendo Switch、PlayStation、Xbox、Steam、Epic
+              Games 等名稱與商標屬各權利人所有。價格與特價資訊取自各官方商店公開資料，僅供參考，實際價格以商店頁面為準。
             </p>
           </div>
         </footer>

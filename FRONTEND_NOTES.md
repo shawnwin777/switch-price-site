@@ -230,4 +230,8 @@ npm start                    # 跑 production build
   欄位未建時自動改走備援：`prices.is_historical_low` 旗標由 DB 先篩選（2026-11-23 實測 9,396 列／9,282 款），程式端只做去重＋排序＋切頁，顯示前再用即時價格驗證一次、過期的剔掉；備援總數比主路徑多約 11%（旗標最多約 4 天沒更新），套用 migration 後自動切回主路徑。/near-low 本身不動（仍是暫停狀態，不要修它）。
   注意：migration 需 shawn 在 Supabase SQL Editor 執行（短檔案，手機可貼）；執行前頁面走備援、執行後走主路徑，兩邊都會動。
 
+- **頁尾免責聲明**（2026-11-23，shawn 批准「省得麻煩 先加進去」）：全站共用頁尾在 `app/layout.tsx`（`.footer-sub`，12px 灰色），副行換成完整文案：「本站為非官方網站，與任天堂、索尼互動娛樂、微軟、Valve、Epic Games 無關。Nintendo Switch、PlayStation、Xbox、Steam、Epic Games 等名稱與商標屬各權利人所有。價格與特價資訊取自各官方商店公開資料，僅供參考，實際價格以商店頁面為準。」原副行只提任天堂，已被新文案涵蓋。
+
+- **特價卡片徽章去中間點**（2026-11-23，shawn：/console 卡片「Xbox · -90%」的中間點容易混淆）：`components/DealCard.tsx` 的徽章 `{來源} · {折扣}` 改成兩個 span，`app/globals.css` 新增 `.deals-badge { display: inline-flex; gap: 12px; }`（`.badge` 的 inline-block 同權重、後出現的規則勝出）。DealCard 是 /deals 與 /console 共用卡片，兩頁一起改好；`components/DealsCarousel.tsx` 也有同樣寫法但該元件已無引用，不動。只改顯示，不改價格或折扣邏輯。
+
 ## 未來規劃（目前不做，只記下來）
