@@ -21,10 +21,10 @@ const TABS: { key: TabKey; label: string }[] = [
 /** /console 家機頁的分頁框：只有四個分頁、順序固定，點了不跳頁、不換路由。
  *  面板永遠展開、不摺疊（跟 /deals 一樣）。
  *  1. XBOX 家機：Reco 清單＋Display Catalog（filter Windows.Xbox），
- *     前 350 款、折扣大→小，預設顯示。
+ *     前 510 款、折扣大→小，預設顯示。
  *  2. XGP 家機：Game Pass 最近新增（家機），官方清單順序、卡片標「新進」；
  *     下方接 Game Pass 方案價目。
- *  3. PlayStation：官方優惠分類，折扣 ≥50%、前 350 款。
+ *  3. PlayStation：官方優惠分類，折扣 ≥50%、前 510 款。
  *  4. PS Plus：PS Plus 本月新進（遊戲目錄＋每月遊戲），PS Blog 當月文章
  *     解析、官方搜尋對應商店商品；下方接 PS Plus 方案價目。
  *  2026-11-23 14:00 shawn 再定：獨立的「🎫 會員方案」分頁拿掉，

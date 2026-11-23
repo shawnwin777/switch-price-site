@@ -30,11 +30,11 @@
 //   其中 10～19 款折扣 ≥50%）。該操作沒有折扣排序（排序只有
 //   default／sales30／downloads30／productName／productReleaseDate／
 //   webBasePrice），也沒有折扣篩選——所以分段抓＋程式端篩選。
-//   做法：sales30 倒序，每批 3 頁並行，抓到 350 款折扣 ≥50%（去重後）
-//   就停，最多掃 40 頁（960 款；2026-11-23 實測 200 款要掃 16 頁，
-//   350 款約 24–28 頁。實測每頁約 0.5～1 秒，整輪約十幾秒，
+//   做法：sales30 倒序，每批 3 頁並行，抓到 510 款折扣 ≥50%（去重後）
+//   就停，最多掃 50 頁（1200 款；2026-11-23 實測 200 款要掃 16 頁，
+//   510 款約 35–40 頁。實測每頁約 0.5～1 秒，整輪約十幾秒，
 //   遠低於 Vercel 60 秒上限）。
-//   只列折扣 ≥50% 的（shawn：大致上抓到 -50% 就好），折扣大→小、前 350 款。
+//   只列折扣 ≥50% 的（shawn：大致上抓到 -50% 就好），折扣大→小、前 510 款。
 // 價格：回傳的 price 是字串「NT$1,790」，basePrice／discountedPrice／
 //   discountText（「-80%」）都有；折扣％自己用原價／特價算。
 //   動態定價驗證（2026-11-23）：抽 2 款對照未登入商店產品頁驗證過：
@@ -50,7 +50,7 @@
 // 快取：呼叫端用 lib/cached-data.ts 的 unstable_cache 包一層（1 小時），
 // 頁面每次載入不直接打 Sony API。任一段失敗回空陣列、該分頁不顯示。
 // 注意：總數會隨檔期浮動（2026-11-23 實測 2,862 款），頁面顯示
-//   「台灣區共 N 款特價」時 N 是優惠分類總數，不是本頁列出的 350 款。
+//   「台灣區共 N 款特價」時 N 是優惠分類總數，不是本頁列出的 510 款。
 // ============================================================================
 
 import type { DealsCarouselItem } from "./deals-carousel";
@@ -61,7 +61,7 @@ export interface PsDealsData {
   fetchedAt: string;
   /** 優惠分類總數（pageInfo.totalCount，2026-11-23 實測 2,862）。 */
   totalCount: number;
-  /** 本次列出的款數（折扣 ≥50%、去重後，前 350 款）。 */
+  /** 本次列出的款數（折扣 ≥50%、去重後，前 510 款）。 */
   shownCount: number;
 }
 
@@ -75,9 +75,9 @@ const CATEGORY = "3f772501-f6f8-49b7-abac-874a88ca4897";
 const PAGE_SIZE = 24;
 /** 只列折扣 ≥50% 的（shawn：大致上抓到 -50% 就好）。 */
 const MIN_DISCOUNT = 50;
-const MAX_ITEMS = 350;
-/** 最多掃 40 頁（960 款）；抓滿 350 款 ≥50% 就提前停。 */
-const MAX_PAGES = 40;
+const MAX_ITEMS = 510;
+/** 最多掃 50 頁（1200 款）；抓滿 510 款 ≥50% 就提前停。 */
+const MAX_PAGES = 50;
 const CONCURRENCY = 3;
 
 const USER_AGENT =
@@ -226,7 +226,7 @@ function toItem(p: GridProduct): DealsCarouselItem | null {
   };
 }
 
-/** 抓台灣 PS 優惠分類（sales30 倒序、分段抓、只留折扣 ≥50%、折扣大→小、前 350 款）。 */
+/** 抓台灣 PS 優惠分類（sales30 倒序、分段抓、只留折扣 ≥50%、折扣大→小、前 510 款）。 */
 export async function fetchPsDeals(): Promise<PsDealsData> {
   const nowMs = Date.now();
   const empty: PsDealsData = {
@@ -265,7 +265,7 @@ export async function fetchPsDeals(): Promise<PsDealsData> {
       MAX_PAGES,
       Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
     );
-    // 每批 3 頁並行；抓滿 350 款 ≥50% 就停。
+    // 每批 3 頁並行；抓滿 510 款 ≥50% 就停。
     for (let start = 1; start < pages && byName.size < MAX_ITEMS; start += CONCURRENCY) {
       const offsets: number[] = [];
       for (let i = start; i < Math.min(start + CONCURRENCY, pages); i++) {

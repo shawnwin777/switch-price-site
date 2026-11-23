@@ -12,8 +12,8 @@
 //        ?gl=TW&hl=zh-Hant-TW&listName=Deal&pgNo=1&noItems=100
 //        &filteredCategories=AllProducts&mediaType=games
 //      → 台灣商店特價清單的 productId（productsList[].productId）。
-//      實測 totalCount 約 500 款；這裡取第 1–4 頁（共 400 個 id），
-//      折扣大→小取前 350 款，頁面註明總數並連去微軟商店看完整清單
+//      實測 totalCount 約 500 款；這裡取第 1–6 頁（共 600 個 id），
+//      折扣大→小取前 510 款，頁面註明總數並連去微軟商店看完整清單
 //      （一次抓 500 款太重）。
 //      注意：這份清單 PC／家機混在一起，家機靠第 2 步的平台 filter 分出來。
 //   2. 補資料：GET https://displaycatalog.mp.microsoft.com/v7.0/products
@@ -46,12 +46,13 @@ const LIST_BASE =
   "https://apps.microsoft.com/api/Reco/GetComputedProductsList" +
   "?gl=TW&hl=zh-Hant-TW&listName=Deal" +
   "&filteredCategories=AllProducts&mediaType=games";
-/** 清單取前 400 個 id（4 頁 × 100），折扣大→小取前 350 款
- *  （2026-11-23 從 200 改成 350）；補資料每批 50 個 id、最多 3 批並行
- *  （20 款約 1 MB，50 款一批約 2.5 MB；8 批跑約數秒，在 60 秒內）。 */
-const LIST_PAGES = 4;
+/** 清單取前 600 個 id（6 頁 × 100），折扣大→小取前 510 款
+ *  （2026-11-23 從 200 改成 350、再改成 510）；補資料每批 50 個 id、最多 3 批並行
+ *  （20 款約 1 MB，50 款一批約 2.5 MB；12 批跑約數秒，在 60 秒內）。
+ *  Reco 台灣區總數約 500，510 可能取不滿——取到的就全列。 */
+const LIST_PAGES = 6;
 /** 本分頁列出的上限款數（折扣大→小）。 */
-const TOP_COUNT = 350;
+const TOP_COUNT = 510;
 const LIST_PAGE_SIZE = 100;
 const CATALOG_BATCH_SIZE = 50;
 const CATALOG_CONCURRENCY = 3;
@@ -230,7 +231,7 @@ function parseProducts(data: unknown): DealsCarouselItem[] {
   return items;
 }
 
-/** 抓台灣家機商店特價（前 350 款，折扣大→小）。單一環節失敗回空。 */
+/** 抓台灣家機商店特價（前 510 款，折扣大→小）。單一環節失敗回空。 */
 export async function fetchXboxConsoleDeals(): Promise<XboxConsoleDealsData> {
   const nowMs = Date.now();
   const empty: XboxConsoleDealsData = {
