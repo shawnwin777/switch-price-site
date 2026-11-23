@@ -336,6 +336,13 @@ export default function HomeClient({
         </div>
       </div>
 
+      {(filters.productType === "dlc" || filters.productType === "bundle") && (
+        <p className="muted">
+          以下{productTypeLabel(filters.productType)}
+          名稱為 TitleDB 候選名，非官方譯名。
+        </p>
+      )}
+
       <CountrySettings blocked={blocked} onChange={setBlocked} />
 
       {games.length === 0 ? (

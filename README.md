@@ -11,7 +11,7 @@ app/                  Next.js 頁面與 API 路由
   page.tsx            首頁：搜尋、篩選、35 國切換、國家封鎖、收藏特價提醒
   games/[slug]/       遊戲詳細頁：台幣排序價格表、歷史低價、留言區（在價格上方）
   ranking/            收藏排行 TOP 10（預設只看特價中）
-  add/                手動新增遊戲
+  add/                已移除（2026-11-23：直接 redirect 到 /home）
   login/              登入頁（Google / Discord）
   auth/callback/      OAuth 回呼
   api/collections     切換收藏
@@ -154,7 +154,7 @@ curl https://<你的網址>/api/refresh -H "Authorization: Bearer <CRON_SECRET>"
 - 收藏（要登入）、我的收藏篩選、進站上方收藏特價提醒、詳細頁特價提醒 ✅
 - 收藏排行 TOP 10，預設只看特價中、可切全部 ✅
 - 留言區在價格上方，遊戲讚加留言讚（要登入），依讚數排序、預設五則、其餘收在顯示全部 ✅
-- 新增遊戲表單（手把圖示佔位封面、目前價格即歷史低價）✅
+- ~~新增遊戲表單~~已於 2026-11-23 移除（/add 直接 redirect 到 /home）
 - 登入只做收藏、不收集 Gmail / Discord 資料（登入頁已寫明）✅
 - 每天台北時間 08:00 更新匯率與價格、顯示價格最後更新時間 ✅
 

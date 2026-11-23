@@ -140,7 +140,6 @@ export default function SiteHeader() {
             </NavIcon>
             收藏排行
           </Link>
-          {email && isAdminEmail(email) && <Link href="/add">新增遊戲</Link>}
           {email ? (
             <>
               <span className="user-chip">{email}</span>
