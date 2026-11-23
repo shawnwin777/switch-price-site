@@ -330,6 +330,28 @@ async function fetchGamesPageRows(
 
   const { data, count, error } = await base.range(from, to);
   if (error || !data) {
+    // 越界頁碼（PostgREST 416）：先跑一次 head count 取正確總數，
+    // 回空頁＋正確 totalPages，不要把錯誤當成 error 回傳，
+    // 頁面層的「越界導回最後一頁」才能生效。head count 不帶已購買
+    // 排除——跟下面排除時的總數重算一致（總數顯示維持全站總數）。
+    if (error && isRangeNotSatisfiableError(error)) {
+      const totalQuery = buildFilteredGamesQuery(
+        db,
+        opts,
+        source,
+        useStats,
+        true,
+        lists.mineIds,
+        filterUnnamed,
+        filterCountry
+      );
+      if (totalQuery) {
+        const { count: totalCount, error: totalError } = await totalQuery;
+        if (!totalError && totalCount != null) {
+          return { data: [], count: totalCount, error: null };
+        }
+      }
+    }
     return {
       data: (data as Game[] | null) ?? null,
       count: count ?? null,
@@ -434,6 +456,18 @@ function isPriceCountryListColumnError(
 function isUnnamedColumnError(error: RawGamesPage["error"]): boolean {
   if (!error) return false;
   return /is_unnamed/i.test(error.message ?? "");
+}
+
+/** PostgREST 416「Requested range not satisfiable」（PGRST103）：
+ *  .range() 的頁碼超出總筆數。不是查詢失敗——呼叫端應改跑一次
+ *  head count 取正確總數、回空頁＋正確 totalPages，讓頁面層的
+ *  「越界導回最後一頁」生效，而不是把錯誤當成 error 回傳。 */
+function isRangeNotSatisfiableError(
+  error: { message?: string | null; code?: string | null } | null
+): boolean {
+  if (!error) return false;
+  if (error.code === "PGRST103") return true;
+  return /requested range not satisfiable/i.test(error.message ?? "");
 }
 
 /** 當頁 12 款的價格、讚數、收藏數（公開資料，可快取；不含個人狀態）。 */
@@ -1163,24 +1197,54 @@ async function fetchNearLowPageByView(
 ): Promise<NearLowPageResult> {
   const p = Math.max(1, page);
   const from = (p - 1) * NEAR_LOW_PAGE_SIZE;
-  const run = async (filterUnnamed: boolean) => {
+  const build = (filterUnnamed: boolean, headCount: boolean) => {
     let q = db
       .from("games_with_price_stats")
-      .select("id,near_low_ratio", { count: "exact" })
+      .select(
+        "id,near_low_ratio",
+        headCount ? { count: "exact", head: true } : { count: "exact" }
+      )
       .eq("is_near_historical_low", true)
       .or("product_type.eq.game,product_type.is.null")
       .order("near_low_ratio", { ascending: true, nullsFirst: false })
       .order("id", { ascending: true });
     if (filterUnnamed) q = q.eq("is_unnamed", false);
     if (country) q = q.eq("cheapest_country", country);
-    return q.range(from, from + NEAR_LOW_PAGE_SIZE - 1);
+    return q;
   };
-  let res = await run(true);
+  // 越界頁碼的 head count（PostgREST 416 時用）：回正確 total，
+  // 不要把 416 當錯誤，頁面層的「越界導回最後一頁」才能生效。
+  const fetchTotal = async (filterUnnamed: boolean): Promise<number | null> => {
+    const res = await build(filterUnnamed, true);
+    if (res.error) {
+      if (/is_unnamed/i.test(res.error.message) && filterUnnamed) {
+        return fetchTotal(false);
+      }
+      return null;
+    }
+    return res.count ?? null;
+  };
+  let filterUnnamed = true;
+  let res = await build(true, false).range(from, from + NEAR_LOW_PAGE_SIZE - 1);
   if (res.error && /is_unnamed/i.test(res.error.message)) {
     // is_unnamed 欄位不存在時退回不過濾（migration 未跑的舊庫才會發生）。
-    res = await run(false);
+    filterUnnamed = false;
+    res = await build(false, false).range(from, from + NEAR_LOW_PAGE_SIZE - 1);
   }
   if (res.error) {
+    if (isRangeNotSatisfiableError(res.error)) {
+      const total = await fetchTotal(filterUnnamed);
+      if (total != null) {
+        return {
+          games: [],
+          ratios: {},
+          total,
+          page: p,
+          totalPages: total > 0 ? Math.ceil(total / NEAR_LOW_PAGE_SIZE) : 0,
+          error: null,
+        };
+      }
+    }
     return {
       games: [],
       ratios: {},
@@ -1293,51 +1357,66 @@ async function fetchHistoricalLowPageByView(
 ): Promise<HistoricalLowPageResult> {
   const p = Math.max(1, page);
   const from = (p - 1) * HISTORICAL_LOW_PAGE_SIZE;
-  let q = db
-    .from("games_with_price_stats")
-    .select("id", { count: "exact" })
-    .eq("is_at_historical_low", true)
-    .eq("is_unnamed", false)
-    .or("product_type.eq.game,product_type.is.null")
-    .order("max_discount_pct", { ascending: false, nullsFirst: false })
-    .order("cheapest_twd", { ascending: true, nullsFirst: false })
-    .order("id", { ascending: true });
-  if (country) q = q.eq("cheapest_country", country);
-  const { data, count, error } = await q.range(
+  const build = (filterUnnamed: boolean, headCount: boolean) => {
+    let q = db
+      .from("games_with_price_stats")
+      .select(
+        "id",
+        headCount ? { count: "exact", head: true } : { count: "exact" }
+      )
+      .eq("is_at_historical_low", true)
+      .or("product_type.eq.game,product_type.is.null")
+      .order("max_discount_pct", { ascending: false, nullsFirst: false })
+      .order("cheapest_twd", { ascending: true, nullsFirst: false })
+      .order("id", { ascending: true });
+    if (filterUnnamed) q = q.eq("is_unnamed", false);
+    if (country) q = q.eq("cheapest_country", country);
+    return q;
+  };
+  // 越界頁碼的 head count（PostgREST 416 時用）：回正確 total，
+  // 不要把 416 當錯誤，頁面層的「越界導回最後一頁」才能生效。
+  const fetchTotal = async (filterUnnamed: boolean): Promise<number | null> => {
+    const res = await build(filterUnnamed, true);
+    if (res.error) {
+      if (/is_unnamed/i.test(res.error.message) && filterUnnamed) {
+        return fetchTotal(false);
+      }
+      return null;
+    }
+    return res.count ?? null;
+  };
+  let filterUnnamed = true;
+  let res = await build(true, false).range(
     from,
     from + HISTORICAL_LOW_PAGE_SIZE - 1
   );
-  if (error) {
+  if (res.error && /is_unnamed/i.test(res.error.message)) {
     // is_unnamed 欄位不存在時退回不過濾（migration 未跑的舊庫才會發生）。
-    if (/is_unnamed/i.test(error.message)) {
-      let q2 = db
-        .from("games_with_price_stats")
-        .select("id", { count: "exact" })
-        .eq("is_at_historical_low", true)
-        .or("product_type.eq.game,product_type.is.null")
-        .order("max_discount_pct", { ascending: false, nullsFirst: false })
-        .order("cheapest_twd", { ascending: true, nullsFirst: false })
-        .order("id", { ascending: true });
-      if (country) q2 = q2.eq("cheapest_country", country);
-      const retry = await q2.range(from, from + HISTORICAL_LOW_PAGE_SIZE - 1);
-      if (retry.error)
-        return { games: [], total: 0, page: p, totalPages: 0, error: retry.error.message };
-      const ids = (retry.data as { id: string }[] | null ?? []).map((r) => r.id);
-      const games = await fetchGamesByIdsPublic(db, ids);
-      const total = retry.count ?? 0;
-      return {
-        games,
-        total,
-        page: p,
-        totalPages: total > 0 ? Math.ceil(total / HISTORICAL_LOW_PAGE_SIZE) : 0,
-        error: null,
-      };
-    }
-    return { games: [], total: 0, page: p, totalPages: 0, error: error.message };
+    filterUnnamed = false;
+    res = await build(false, false).range(
+      from,
+      from + HISTORICAL_LOW_PAGE_SIZE - 1
+    );
   }
-  const ids = (data as { id: string }[] | null ?? []).map((r) => r.id);
+  if (res.error) {
+    if (isRangeNotSatisfiableError(res.error)) {
+      const total = await fetchTotal(filterUnnamed);
+      if (total != null) {
+        return {
+          games: [],
+          total,
+          page: p,
+          totalPages:
+            total > 0 ? Math.ceil(total / HISTORICAL_LOW_PAGE_SIZE) : 0,
+          error: null,
+        };
+      }
+    }
+    return { games: [], total: 0, page: p, totalPages: 0, error: res.error.message };
+  }
+  const ids = ((res.data as { id: string }[] | null) ?? []).map((r) => r.id);
   const games = await fetchGamesByIdsPublic(db, ids);
-  const total = count ?? 0;
+  const total = res.count ?? 0;
   return {
     games,
     total,
@@ -1529,6 +1608,30 @@ export async function fetchUpcomingPagePublic(
     .order("id", { ascending: true })
     .range((p - 1) * UPCOMING_PAGE_SIZE, p * UPCOMING_PAGE_SIZE - 1);
   if (error || !data) {
+    // 越界頁碼（PostgREST 416）：先跑一次 head count 取正確總數，
+    // 回空頁＋正確 totalPages，不要把錯誤當成 unavailable，
+    // 頁面層的「越界導回最後一頁」才能生效。
+    if (error && isRangeNotSatisfiableError(error)) {
+      const { count: totalCount, error: totalError } = await db
+        .from("games")
+        .select("id", { count: "exact", head: true })
+        .gt("release_date", today);
+      if (!totalError && totalCount != null) {
+        const { count: datedCount } = await db
+          .from("games")
+          .select("id", { count: "exact", head: true })
+          .not("release_date", "is", null);
+        const total = totalCount;
+        return {
+          games: [],
+          total,
+          page: p,
+          totalPages: total > 0 ? Math.ceil(total / UPCOMING_PAGE_SIZE) : 0,
+          hasAnyReleaseDate: (datedCount ?? 0) > 0,
+          unavailable: false,
+        };
+      }
+    }
     if (error) console.warn("[data] 準備上市查詢失敗：", error.message);
     return empty;
   }

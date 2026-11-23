@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getCachedNearLowPage } from "@/lib/cached-data";
 import { cheapestPrice, NEAR_LOW_PAGE_SIZE } from "@/lib/data";
 import { COUNTRY_MAP } from "@/lib/countries";
@@ -38,6 +39,10 @@ export default async function NearLowPage({
   // 分頁連結要帶著國家篩選，不然翻頁就回到全部國家。
   const pageHref = (p: number) =>
     country ? `/near-low?page=${p}&country=${country}` : `/near-low?page=${p}`;
+  // 頁數超出範圍時導回最後一頁（保留國家篩選）。
+  if (!result.error && result.total > 0 && page > result.totalPages) {
+    redirect(pageHref(result.totalPages));
+  }
 
   return (
     <>

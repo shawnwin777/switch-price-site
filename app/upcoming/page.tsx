@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getCachedUpcomingPage } from "@/lib/cached-data";
 import { cheapestPrice, UPCOMING_PAGE_SIZE } from "@/lib/data";
 import { pageWindow } from "@/lib/pagination";
@@ -37,6 +38,10 @@ export default async function UpcomingPage({
     };
   }
   const offset = (result.page - 1) * UPCOMING_PAGE_SIZE;
+  // 頁數超出範圍時導回最後一頁。
+  if (!result.unavailable && result.total > 0 && page > result.totalPages) {
+    redirect(`/upcoming?page=${result.totalPages}`);
+  }
 
   return (
     <>
