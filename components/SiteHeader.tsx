@@ -28,8 +28,16 @@ function NavIcon({ children }: { children: ReactNode }) {
 
 export default function SiteHeader() {
   const [email, setEmail] = useState<string | null>(null);
+  /* 手機版漢堡選單：預設收起，點按鈕才展開；展開的選單在文件流裡，
+   *  不 sticky、不蓋畫面（見 globals.css 手機 media query）。 */
+  const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+
+  /* 換頁時收起手機版漢堡選單。 */
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     const db = createSupabaseBrowserClient();
@@ -67,7 +75,21 @@ export default function SiteHeader() {
             priority
           />
         </Link>
-        <nav className="nav">
+        <button
+          type="button"
+          className="nav-toggle"
+          aria-expanded={menuOpen}
+          aria-controls="site-nav"
+          aria-label={menuOpen ? "關閉選單" : "開啟選單"}
+          onClick={() => setMenuOpen((v) => !v)}
+        >
+          {menuOpen ? "✕" : "☰"}
+        </button>
+        <nav
+          id="site-nav"
+          className={`nav${menuOpen ? " nav-open" : ""}`}
+          onClick={() => setMenuOpen(false)}
+        >
           <Link href="/home">
             <NavIcon>
               <path d="M4 11l8-7 8 7" />

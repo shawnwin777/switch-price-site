@@ -355,6 +355,27 @@ export default function HomeClient({
         </div>
       ) : (
         <>
+          {totalPages > 1 && (
+            <nav className="pagination pagination-top" aria-label="分頁（上方）">
+              <button
+                type="button"
+                className="btn"
+                disabled={page <= 1}
+                onClick={() => goPage(page - 1)}
+              >
+                ← 上一頁
+              </button>
+              <span className="muted">第 {page} / {totalPages} 頁</span>
+              <button
+                type="button"
+                className="btn"
+                disabled={page >= totalPages}
+                onClick={() => goPage(page + 1)}
+              >
+                下一頁 →
+              </button>
+            </nav>
+          )}
           <div className="game-grid">
             {games.map((g) => (
               <GameCard key={g.id} game={g} visibleCountries={visibleCountries} />

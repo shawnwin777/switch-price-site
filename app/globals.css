@@ -141,6 +141,74 @@ a:hover {
   margin-left: 6px;
 }
 
+/* 漢堡選單按鈕：桌機版不用，手機版才顯示（見下方手機 media query）。 */
+.nav-toggle {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  /* 手機導覽列：收成單排（logo＋漢堡按鈕），不要 sticky 跟著捲動；
+   *  點漢堡才展開選單，展開的選單在文件流裡往下推內容、不蓋畫面，
+   *  連結直排、每排至少 44px 高，總高度收斂。 */
+  .site-header {
+    position: static;
+  }
+
+  .site-header-inner {
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 4px 12px;
+  }
+
+  .logo img {
+    height: 44px;
+  }
+
+  .nav-toggle {
+    align-items: center;
+    background: var(--card-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--cyan);
+    cursor: pointer;
+    display: inline-flex;
+    flex: none;
+    font-size: 20px;
+    justify-content: center;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0;
+  }
+
+  .nav {
+    align-items: stretch;
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    padding-bottom: 6px;
+    width: 100%;
+  }
+
+  .nav.nav-open {
+    display: flex;
+  }
+
+  .nav a {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  .nav .user-chip {
+    margin: 0;
+    padding: 10px 12px;
+  }
+
+  .nav .btn {
+    align-self: flex-start;
+    min-height: 44px;
+  }
+}
+
 /* ---------- footer ---------- */
 .footer {
   border-top: 1px solid var(--line);
@@ -791,7 +859,32 @@ a.home-login-preview-btn:hover {
   }
 
   .home-menu-list {
+    gap: 10px;
     padding-top: 0;
+  }
+
+  /* 手機選單列收矮：padding、字級、圖標都收一點，
+   *  每排約 64px、仍遠高於 44px 點按底線。 */
+  .home-menu-item {
+    gap: 12px;
+    padding: 10px 14px;
+  }
+
+  .home-menu-icon {
+    height: 36px;
+    width: 36px;
+  }
+
+  .home-menu-item-title {
+    font-size: 19px;
+  }
+
+  .home-menu-item-sub {
+    font-size: 12px;
+  }
+
+  .home-menu-arrow {
+    font-size: 18px;
   }
 }
 
@@ -944,6 +1037,39 @@ a.home-login-preview-btn:hover {
 
 .pagination .ellipsis {
   color: var(--muted);
+}
+
+/* 手機牆上方的小分頁：桌機版不顯示，手機版才出現（在 HomeClient 裡渲染）。 */
+.pagination-top {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  /* 手機分頁：只留上一頁／目前頁／下一頁，三顆集中置中、不拉到兩端；
+   *  按鈕至少 44px 高，好點。 */
+  .pagination {
+    gap: 10px;
+    margin: 16px 0;
+  }
+
+  .pagination .page-num:not(.active),
+  .pagination .ellipsis {
+    display: none;
+  }
+
+  .pagination .btn {
+    min-height: 44px;
+    padding: 10px 18px;
+  }
+
+  .pagination .page-num.active {
+    min-height: 44px;
+  }
+
+  .pagination-top {
+    display: flex;
+    margin: 0 0 12px;
+  }
 }
 
 /* ---------- country settings ---------- */
@@ -1133,6 +1259,52 @@ a.home-login-preview-btn:hover {
 .icon-btn.active {
   border-color: var(--pink);
   color: var(--pink);
+}
+
+@media (max-width: 760px) {
+  /* 手機牆：改一排兩張、間距收小，卡片內文跟著縮小，
+   *  一頁 18 張從 18 排變成 9 排，滑到底、分頁都近很多。 */
+  .game-grid {
+    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game-card-body {
+    gap: 4px;
+    padding: 8px 10px 10px;
+  }
+
+  .game-card-title {
+    font-size: 14px;
+  }
+
+  .game-card-en {
+    font-size: 11px;
+  }
+
+  .game-card-price .price-value {
+    font-size: 17px;
+  }
+
+  .game-card-foot {
+    margin-top: 6px;
+    padding-top: 6px;
+  }
+
+  /* /deals、/console 的特價牆也一樣改一排兩張。 */
+  .deals-grid {
+    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .deals-card-body {
+    gap: 3px;
+    padding: 8px 10px 10px;
+  }
+
+  .deals-card-title {
+    font-size: 14px;
+  }
 }
 
 /* ---------- detail page ---------- */
