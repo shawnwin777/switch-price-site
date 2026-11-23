@@ -1,0 +1,30 @@
+name: Diagnose Taiwan homepage count (read-only)
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/audit-live-home-counts.mjs'
+      - '.github/workflows/audit-live-home-counts.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check audit script syntax
+        run: node --check scripts/audit-live-home-counts.mjs
+      - name: Count games, visible filters and Taiwan prices (HEAD only)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: node scripts/audit-live-home-counts.mjs
