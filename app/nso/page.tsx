@@ -13,7 +13,7 @@ import {
 } from "@/lib/nso-prices";
 
 export const metadata = {
-  title: "NSO 會員跨區比價｜Switch 遊戲比價",
+  title: "NSO 會員跨區比價｜Shawn Game Studio",
 };
 
 /** NSO 會員跨區比價表（靜態查證價目，v1）。

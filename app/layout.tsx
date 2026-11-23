@@ -5,7 +5,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   description:
     "Switch / Switch 2 遊戲跨區比價：35 國 eShop 價格、歷史低價、特價提醒、收藏排行。",
-  title: "Switch 遊戲比價",
+  title: "Shawn Game Studio",
 };
 
 export default function RootLayout({
@@ -21,7 +21,7 @@ export default function RootLayout({
         <footer className="footer">
           <div className="container">
             <p>
-              Switch 遊戲比價 ｜ 價格來自各區 Nintendo eShop 官方價格 API，匯率以當天
+              Shawn Game Studio ｜ 價格來自各區 Nintendo eShop 官方價格 API，匯率以當天
               08:00 台北時間為準。
             </p>
             <p className="footer-sub">

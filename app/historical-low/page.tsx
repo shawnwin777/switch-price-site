@@ -10,7 +10,7 @@ import NearLowCountryFilter from "@/components/NearLowCountryFilter";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "歷史低價｜Switch 遊戲比價",
+  title: "歷史低價｜Shawn Game Studio",
 };
 
 /** 歷史低價頁（/historical-low，2026-11-23 新增）：

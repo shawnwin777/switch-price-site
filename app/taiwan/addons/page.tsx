@@ -24,7 +24,7 @@ function money(v:number|null,currency:string|null){
   if(currency==="TWD")return "NT$"+new Intl.NumberFormat("zh-TW").format(v);
   return (currency??"") + " " + new Intl.NumberFormat("zh-TW").format(v);
 }
-export const metadata={title:"台灣 DLC、組合包資料｜Switch 比價"};
+export const metadata={title:"台灣 DLC、組合包資料｜Shawn Game Studio"};
 export default function TaiwanAddonsPage({searchParams}:{searchParams:Params}){
   const data=snapshot as unknown as Catalog;
   const q=val(searchParams.q).trim().slice(0,100);

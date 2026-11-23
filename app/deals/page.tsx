@@ -9,7 +9,7 @@ import DealsTabs from "@/components/DealsTabs";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "PC遊戲特價（台灣）｜Switch 遊戲比價",
+  title: "PC遊戲特價（台灣）｜Shawn Game Studio",
 };
 
 /** PC 遊戲特價完整清單頁（只做台灣區）。

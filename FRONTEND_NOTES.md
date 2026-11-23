@@ -234,4 +234,7 @@ npm start                    # 跑 production build
 
 - **特價卡片徽章去中間點**（2026-11-23，shawn：/console 卡片「Xbox · -90%」的中間點容易混淆）：`components/DealCard.tsx` 的徽章 `{來源} · {折扣}` 改成兩個 span，`app/globals.css` 新增 `.deals-badge { display: inline-flex; gap: 12px; }`（`.badge` 的 inline-block 同權重、後出現的規則勝出）。DealCard 是 /deals 與 /console 共用卡片，兩頁一起改好；`components/DealsCarousel.tsx` 也有同樣寫法但該元件已無引用，不動。只改顯示，不改價格或折扣邏輯。
 
+- **改名「Shawn Game Studio」**（2026-11-23，shawn 決定：站名不要再用任天堂的「Switch」商標）：顯示名稱全站改成 Shawn Game Studio——`app/layout.tsx` 的 metadata title 與頁尾第一行、各頁 metadata title（/deals、/nso、/historical-low、/console、/taiwan/addons 的「｜Switch 遊戲比價」後綴）；SGS logo 不動；頁面內容的「Switch」平台名、遊戲描述不動（正當指名使用）。API 用的 User-Agent 字串（`switch-price-site/1.0` 等）不是顯示名稱，不動。
+  網域還沒換：Vercel connector token 沒有 team scope（403），API 改不了網域——顯示名稱先上線，網域要 shawn 在 Vercel dashboard 做（專案 Settings → Domains：加新子網域 `shawngamestudio.vercel.app` 或 `shawn-game-studio.vercel.app`，保留舊網域 `switch-price-site.vercel.app` 作轉址／alias，舊連結才不會死）。網域換了之後連帶要更新：Vercel 環境變數 `NEXT_PUBLIC_SITE_URL`、Supabase Dashboard → Authentication → URL Configuration 的 Site URL 與 Redirect URLs、Google Cloud（switchgameinfo）與 Discord 應用程式的 OAuth redirect URI（目前都是舊網域的 `…/auth/callback` 與 Supabase callback）。GitHub repo 名（switch-price-site）不改；Google／Discord OAuth 應用程式顯示名（目前「Switch 遊戲比價」）先不動。
+
 ## 未來規劃（目前不做，只記下來）

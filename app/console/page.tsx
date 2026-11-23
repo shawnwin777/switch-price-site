@@ -6,7 +6,7 @@ import ConsoleTabs from "@/components/ConsoleTabs";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "家機特價（台灣）｜Switch 遊戲比價",
+  title: "家機特價（台灣）｜Shawn Game Studio",
 };
 
 /** 家機特價頁（/console，2026-11-23 新增）：
