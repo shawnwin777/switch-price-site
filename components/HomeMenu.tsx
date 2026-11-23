@@ -5,11 +5,15 @@ import Image from "next/image";
 import Link from "next/link";
 
 /** /home 首頁斜切抽屜選單（2026-11-23 shawn 定）。
- *  左邊是斜切品牌板（SGS logo＋標語），右邊是四個選單；
+ *  左邊是斜切品牌板（SGS logo＋標語），右邊是五個選單；
+ *  第一排「會員登入」→ /login（首頁不顯示上方導覽列，登入入口在這裡），
+ *  再來 SWITCH → /switch-price、PC GAMES → /deals、
+ *  Gaming console → /console、關於我（第五格）。
  *  hover／點按任一選單時，品牌板像抽屜一樣被抽走（向左滑出＋微斜），
  *  露出底下的預覽圖列，停在那裡不彈回；移開後延遲一下才收回。
  *  SWITCH 預覽 = 站內特價 Switch 遊戲（Nintendo CDN 封面）；
  *  PC 預覽 = Steam＋Xbox PC 特價（官方圖）；家機預覽 = Xbox＋PS 特價；
+ *  會員登入預覽 = 一句登入好處＋前往登入按鈕；
  *  關於我預覽 = 介紹文字＋IG／Threads／Discord 圖標。
  *  預覽圖由 server 端 page.tsx 抓好當 props 傳進來，失敗時這裡
  *  顯示漸層佔位、不讓整頁掛掉。手機沒有 hover：點一下先展開預覽，
@@ -35,7 +39,7 @@ export interface HomePreviews {
   console: HomePreviewItem[];
 }
 
-type MenuKey = "switch" | "pc" | "console" | "about";
+type MenuKey = "login" | "switch" | "pc" | "console" | "about";
 
 /** 關抽屜前的停頓（毫秒）：滑鼠離開選單／預覽區後先等一下，
  *  避免在兩個區域之間移動時閃爍、也做出「停在那裡」的感覺。 */
@@ -48,6 +52,28 @@ const MENU: {
   sub: string;
   icon: ReactNode;
 }[] = [
+  {
+    key: "login",
+    href: "/login",
+    title: "會員登入",
+    sub: "登入會員 · 收藏遊戲、同步已購買",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <circle cx="9" cy="11" r="2" />
+        <path d="M5.5 16.5c.8-2 2-2.8 3.5-2.8s2.7.8 3.5 2.8" />
+        <path d="M15.5 9.5h4" />
+        <path d="M15.5 13h4" />
+      </svg>
+    ),
+  },
   {
     key: "switch",
     href: "/switch-price",
@@ -174,6 +200,20 @@ function PreviewTiles({ items }: { items: HomePreviewItem[] }) {
           </Link>
         );
       })}
+    </div>
+  );
+}
+
+/** 會員登入預覽：一句登入好處＋前往登入按鈕，不多做。 */
+function LoginPreview() {
+  return (
+    <div className="home-login-preview">
+      <p className="home-login-preview-text">
+        登入會員可以收藏喜歡的遊戲、同步已購買的遊戲，收藏的特價遊戲還會在收藏排行裡出現。
+      </p>
+      <Link href="/login" className="home-login-preview-btn">
+        前往登入 →
+      </Link>
     </div>
   );
 }
@@ -330,6 +370,8 @@ export default function HomeMenu({ previews }: { previews: HomePreviews }) {
         >
           {active === "about" ? (
             <AboutPreview key="about" />
+          ) : active === "login" ? (
+            <LoginPreview key="login" />
           ) : active ? (
             <PreviewTiles key={active} items={previewItems} />
           ) : null}

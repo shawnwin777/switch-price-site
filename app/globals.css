@@ -108,14 +108,31 @@ a:hover {
 }
 
 .nav a {
+  align-items: center;
   border-radius: 8px;
   color: var(--text);
+  display: inline-flex;
+  gap: 7px;
   padding: 6px 10px;
 }
 
 .nav a:hover {
   background: var(--card-2);
   text-decoration: none;
+}
+
+/* 導覽列連結圖標：跟首頁選單同一套，18px、電光青。 */
+.nav-link-icon {
+  color: var(--cyan);
+  flex: none;
+  height: 18px;
+  width: 18px;
+}
+
+.nav-link-icon svg {
+  display: block;
+  height: 100%;
+  width: 100%;
 }
 
 .nav .user-chip {
@@ -332,18 +349,21 @@ label.field-label {
  *  右邊四個選單整體往下移、避開斜線；hover／點按選單時品牌板像抽屜
  *  一樣向左滑出、停住，露出底下的預覽圖列（見 components/HomeMenu.tsx）。
  *  舊的 .home-about 區塊已併進第四格「關於我」預覽，不再單獨列在頁面下方。 */
+/* 首頁拿掉上方導覽列後空出約一格導覽列的高度，桌機版把首頁撐大一點；
+ *  手機版下面 media query 已把 min-height 歸零、不受影響，
+ *  選單點按目標（18px padding＋44px 圖標）維持不動、保持好點。 */
 .home-diagonal {
   display: grid;
   gap: 48px;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
   margin: 0 auto;
   max-width: 1600px;
-  min-height: 640px;
+  min-height: 720px;
   padding: 40px 16px 48px;
 }
 
 .home-drawer-zone {
-  min-height: 560px;
+  min-height: 640px;
   overflow: hidden;
   position: relative;
 }
@@ -595,6 +615,38 @@ a.home-about-social-link:hover {
 .home-about-social-handle {
   color: var(--muted);
   font-size: 13px;
+}
+
+/* 會員登入預覽：一句登入好處＋前往登入按鈕。 */
+.home-login-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  height: 100%;
+  justify-content: center;
+}
+
+.home-login-preview-text {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.8;
+  margin: 0;
+}
+
+.home-login-preview-btn {
+  align-self: flex-start;
+  background: var(--cyan);
+  border-radius: 10px;
+  color: #04121a;
+  font-weight: 800;
+  padding: 12px 20px;
+  text-decoration: none;
+  transition: filter 0.15s ease;
+}
+
+a.home-login-preview-btn:hover {
+  filter: brightness(1.15);
+  text-decoration: none;
 }
 
 /* 右邊選單：整體往下移，避開左邊品牌板的斜線。 */
