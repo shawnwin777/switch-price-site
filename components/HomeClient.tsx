@@ -68,6 +68,9 @@ export default function HomeClient({
   const [blocked, setBlocked] = useState<string[]>(DEFAULT_BLOCKED_CODES);
   const [blockedLoaded, setBlockedLoaded] = useState(false);
   const [userId, setUserId] = useState<string | null>(loggedInUserId);
+  // 浮動分頁的跳頁彈框：點中間「第 X / Y 頁」才打開，輸入頁數後前往。
+  const [jumpOpen, setJumpOpen] = useState(false);
+  const [jumpValue, setJumpValue] = useState("");
 
   // 封鎖清單：localStorage（只在瀏覽器讀，避免 SSR / hydration 不一致）。
   useEffect(() => {
@@ -355,27 +358,6 @@ export default function HomeClient({
         </div>
       ) : (
         <>
-          {totalPages > 1 && (
-            <nav className="pagination pagination-top" aria-label="分頁（上方）">
-              <button
-                type="button"
-                className="btn"
-                disabled={page <= 1}
-                onClick={() => goPage(page - 1)}
-              >
-                ← 上一頁
-              </button>
-              <span className="muted">第 {page} / {totalPages} 頁</span>
-              <button
-                type="button"
-                className="btn"
-                disabled={page >= totalPages}
-                onClick={() => goPage(page + 1)}
-              >
-                下一頁 →
-              </button>
-            </nav>
-          )}
           <div className="game-grid">
             {games.map((g) => (
               <GameCard key={g.id} game={g} visibleCountries={visibleCountries} />
@@ -416,6 +398,77 @@ export default function HomeClient({
               >
                 下一頁 →
               </button>
+            </nav>
+          )}
+          {/* 手機浮動分頁：固定左下角（見 globals.css），一排三顆；
+              點中間頁數可跳頁；跟最下面的分頁並存、看使用者喜歡用哪個，
+              牆上方那組已拿掉，手機版只有這兩組。 */}
+          {totalPages > 1 && (
+            <nav className="pagination-fab" aria-label="分頁（浮動）">
+              <button
+                type="button"
+                className="btn"
+                disabled={page <= 1}
+                onClick={() => {
+                  setJumpOpen(false);
+                  goPage(page - 1);
+                }}
+                aria-label="上一頁"
+              >
+                ← 上一頁
+              </button>
+              <button
+                type="button"
+                className="pagination-fab-page"
+                onClick={() => {
+                  setJumpValue(String(page));
+                  setJumpOpen((v) => !v);
+                }}
+                aria-expanded={jumpOpen}
+                aria-label="跳到指定頁數"
+              >
+                第 {page} / {totalPages} 頁
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={page >= totalPages}
+                onClick={() => {
+                  setJumpOpen(false);
+                  goPage(page + 1);
+                }}
+                aria-label="下一頁"
+              >
+                下一頁 →
+              </button>
+              {jumpOpen && (
+                <form
+                  className="pagination-fab-jump"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const n = Math.max(
+                      1,
+                      Math.min(totalPages, Number(jumpValue) || page)
+                    );
+                    setJumpOpen(false);
+                    if (n !== page) goPage(n);
+                  }}
+                >
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={totalPages}
+                    value={jumpValue}
+                    onChange={(e) => setJumpValue(e.target.value)}
+                    aria-label="頁數"
+                    autoFocus
+                  />
+                  <button type="submit" className="btn">
+                    前往
+                  </button>
+                </form>
+              )}
             </nav>
           )}
         </>

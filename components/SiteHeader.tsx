@@ -28,8 +28,9 @@ function NavIcon({ children }: { children: ReactNode }) {
 
 export default function SiteHeader() {
   const [email, setEmail] = useState<string | null>(null);
-  /* 手機版漢堡選單：預設收起，點按鈕才展開；展開的選單在文件流裡，
-   *  不 sticky、不蓋畫面（見 globals.css 手機 media query）。 */
+  /* 手機版導覽：橫條整個隱藏，改成右上角一顆 48×48 浮動小方塊
+   *  （.nav-fab，position: fixed，跟著捲動一直在）；點開後選單是
+   *  固定在按鈕下方的下拉面板（.nav.nav-open），點連結或換頁自動收起。 */
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -64,28 +65,31 @@ export default function SiteHeader() {
   if (pathname === "/home" || pathname === "/") return null;
 
   return (
-    <header className="site-header">
-      <div className="site-header-inner">
-        <Link href="/home" className="logo" aria-label="SHAWN GAME STUDIO 首頁">
-          <Image
-            src="/sgs-logo.png"
-            alt="SHAWN GAME STUDIO"
-            width={2172}
-            height={724}
-            priority
-          />
-        </Link>
-        <button
-          type="button"
-          className="nav-toggle"
-          aria-expanded={menuOpen}
-          aria-controls="site-nav"
-          aria-label={menuOpen ? "關閉選單" : "開啟選單"}
-          onClick={() => setMenuOpen((v) => !v)}
-        >
-          {menuOpen ? "✕" : "☰"}
-        </button>
-        <nav
+    <>
+      {/* 手機版浮動導覽小方塊：桌機版不顯示（見 globals.css），只在
+          ≤760px 出現，固定右上角、跟著捲動；點開／收起下拉選單。 */}
+      <button
+        type="button"
+        className="nav-fab"
+        aria-expanded={menuOpen}
+        aria-controls="site-nav"
+        aria-label={menuOpen ? "關閉選單" : "開啟選單"}
+        onClick={() => setMenuOpen((v) => !v)}
+      >
+        {menuOpen ? "✕" : "☰"}
+      </button>
+      <header className="site-header">
+        <div className="site-header-inner">
+          <Link href="/home" className="logo" aria-label="SHAWN GAME STUDIO 首頁">
+            <Image
+              src="/sgs-logo.png"
+              alt="SHAWN GAME STUDIO"
+              width={2172}
+              height={724}
+              priority
+            />
+          </Link>
+          <nav
           id="site-nav"
           className={`nav${menuOpen ? " nav-open" : ""}`}
           onClick={() => setMenuOpen(false)}
@@ -156,5 +160,6 @@ export default function SiteHeader() {
         </nav>
       </div>
     </header>
+    </>
   );
 }
