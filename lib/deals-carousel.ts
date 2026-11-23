@@ -12,6 +12,15 @@
 //     切換——跨區帳號可能被鎖。搜尋結果沒有特價截止日，subLine 為空。
 //     舊的 featuredcategories specials 只回 10 款精選，搜尋失敗時才當備援。
 //     連結：https://store.steampowered.com/app/<id>/
+//   Steam 限時免費領取（免費遊戲分頁的 Steam 部分）：同一支特價搜尋 API
+//     裡折扣 100% 的品項（付費遊戲降到 0 元、可永久保留；特價寫「免費」）。
+//     跟「免費遊玩」（F2P）分得開：F2P 沒有原價也不在 specials=1 的結果裡，
+//     100% 列必須有原價才算。抓法：前三頁解析後拆出 100% 列，另外再用
+//     sort_by=Price_ASC 抓一頁（特價按最終價低→高排，0 元一定在最前面，
+//     一頁就能抓齊、不怕 100% 品項排在 300 列之外）；兩邊合併去重。
+//     2026-11-23 實測：當週台灣區 100% 品項 0 款（Price_ASC 第一頁最便宜
+//     是 NT$ 11，沒有 0 元列），所以免費分頁目前只有 Epic 的 1 款預告——
+//     這是資料現況、不是 bug；有 100% 遊戲出現時會自動列進來。
 //   Epic 免費遊戲：GET https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions?locale=zh-Hant&country=TW&allowCountries=TW
 //     data.Catalog.searchStore.elements：title、price.totalPrice（originalPrice，台幣分）、
 //     keyImages（DieselStoreFrontWide／Thumbnail）、urlSlug、promotions。
@@ -50,8 +59,10 @@ export interface DealsCarouselItem {
 export interface DealsPageData {
   /** 全部項目（Steam 在前、Epic 進行中、Epic 下週預告在後），舊輪播時代的扁平順序，保留供相容。 */
   items: DealsCarouselItem[];
-  /** Steam 特價完整清單（不截斷）。 */
+  /** Steam 特價完整清單（不截斷；不含 100% 限時免費，那些在 steamFree）。 */
   steam: DealsCarouselItem[];
+  /** Steam 限時免費領取（折扣 100% 的付費遊戲，可永久保留）。 */
+  steamFree: DealsCarouselItem[];
   /** Epic 本週免費遊戲。 */
   epicCurrent: DealsCarouselItem[];
   /** Epic 下週預告。 */
@@ -59,6 +70,7 @@ export interface DealsPageData {
   /** 抓取時間（ISO），除錯／快取觀察用。 */
   fetchedAt: string;
   steamCount: number;
+  steamFreeCount: number;
   /** Steam 台灣區特價中的總款數（搜尋 API 的 total_count）。 */
   steamTotalCount: number;
   epicCurrentCount: number;
@@ -67,10 +79,11 @@ export interface DealsPageData {
 
 const STEAM_URL =
   "https://store.steampowered.com/api/featuredcategories/?cc=TW&l=tchinese";
-/** Steam 特價搜尋 API（回 results_html；一次最多 100 列，抓前兩頁）。 */
+/** Steam 特價搜尋 API（回 results_html；一次最多 100 列）。
+ *  sort_by 由呼叫端帶（預設 _ASC；限時免費另用 Price_ASC 抓一頁）。 */
 const STEAM_SEARCH_URL =
   "https://store.steampowered.com/search/results/?query" +
-  "&dynamic_data=&sort_by=_ASC&specials=1&infinite=1&cc=TW&l=tchinese";
+  "&dynamic_data=&specials=1&infinite=1&cc=TW&l=tchinese";
 /** 每平台分頁取的前 200 款。 */
 export const DEALS_TOP_COUNT = 200;
 const EPIC_URL =
@@ -144,8 +157,14 @@ function parseSteam(data: unknown): DealsCarouselItem[] {
     .map((it): DealsCarouselItem => {
       const finalPrice = formatTwdCents(it.final_price);
       const originalPrice = formatTwdCents(it.original_price);
-      const priceLine =
-        finalPrice && originalPrice && originalPrice !== finalPrice
+      // 100% 折扣＝限時免費領取（付費遊戲降到 0 元，須有原價才算）。
+      const isFree =
+        (it.discount_percent ?? 0) === 100 &&
+        (it.final_price ?? -1) === 0 &&
+        (it.original_price ?? 0) > 0;
+      const priceLine = isFree
+        ? `免費（原價 ${originalPrice}）`
+        : finalPrice && originalPrice && originalPrice !== finalPrice
           ? `${finalPrice}（原價 ${originalPrice}）`
           : (finalPrice ?? originalPrice ?? "特價中");
       const expiration =
@@ -160,7 +179,7 @@ function parseSteam(data: unknown): DealsCarouselItem[] {
         title: it.name as string,
         image: it.large_capsule_image as string,
         url: `https://store.steampowered.com/app/${it.id}/`,
-        badge: `-${it.discount_percent}%`,
+        badge: isFree ? "限時免費" : `-${it.discount_percent}%`,
         priceLine,
         subLine: expiration ? `特價至 ${expiration}` : null,
         sortKey: it.discount_percent ?? 0,
@@ -213,14 +232,31 @@ function parseSteamSearchPage(html: string): DealsCarouselItem[] {
     const origM = /discount_original_price">([^<]*)</.exec(body);
     const finalM = /discount_final_price">([^<]*)</.exec(body);
     const original = parseTwdAmount(origM?.[1]);
-    const final = parseTwdAmount(finalM?.[1]);
-    if (original && final && final < original) {
+    // 100% 折扣的特價寫「免費」（final 0 元），parseTwdAmount 會回 null，
+    // 要另外認出它——沒有原價就不是付費遊戲降價（免費遊玩沒有原價），
+    // 所以 100% 列必須有原價才算限時免費領取。
+    const finalText = (finalM?.[1] ?? "").trim();
+    const final = /免費/.test(finalText)
+      ? 0
+      : parseTwdAmount(finalM?.[1]);
+    if (original && final != null && final < original) {
       discount = Math.round((1 - final / original) * 100);
     }
-    if (!Number.isFinite(discount) || discount <= 0 || !final) continue;
-    const priceLine = original
-      ? `${formatTwdAmount(final)}（原價 ${formatTwdAmount(original)}）`
-      : formatTwdAmount(final);
+    if (!Number.isFinite(discount) || discount <= 0) continue;
+    const isFree = discount === 100;
+    if (isFree) {
+      // 限時免費領取：付費遊戲降到 0 元（有原價、特價 0 元）才算；
+      // 免費遊玩（F2P）不會出現在 specials=1 的結果裡，萬一混進來
+      // 也會因沒有原價在這裡被擋掉。
+      if (!original || final !== 0) continue;
+    } else if (final == null || final <= 0) {
+      continue;
+    }
+    const priceLine = isFree
+      ? `免費（原價 ${formatTwdAmount(original as number)}）`
+      : original
+        ? `${formatTwdAmount(final as number)}（原價 ${formatTwdAmount(original)}）`
+        : formatTwdAmount(final as number);
     items.push({
       source: "steam",
       key: `steam-${appId}`,
@@ -228,7 +264,7 @@ function parseSteamSearchPage(html: string): DealsCarouselItem[] {
       // 搜尋列只有 231x87 小圖；卡片用標準 460x215 header 圖。
       image: `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg`,
       url: `https://store.steampowered.com/app/${appId}/`,
-      badge: `-${discount}%`,
+      badge: isFree ? "限時免費" : `-${discount}%`,
       priceLine,
       // 搜尋結果沒有特價截止日。
       subLine: null,
@@ -238,37 +274,58 @@ function parseSteamSearchPage(html: string): DealsCarouselItem[] {
   return items;
 }
 
-/** 抓 Steam 特價搜尋前三頁（300 列），去重後按折扣大→小取前 200 款。
+/** 抓一頁 Steam 特價搜尋（results_html 解析；失敗時拋錯，呼叫端處理）。 */
+async function fetchSteamSearchPage(
+  start: number,
+  count: number,
+  sortBy = "_ASC"
+): Promise<{ items: DealsCarouselItem[]; totalCount: number }> {
+  const res = await fetch(
+    `${STEAM_SEARCH_URL}&sort_by=${sortBy}&start=${start}&count=${count}`,
+    {
+      headers: { Accept: "application/json", "User-Agent": USER_AGENT },
+      signal: AbortSignal.timeout(20000),
+    }
+  );
+  if (!res.ok)
+    throw new Error(`HTTP ${res.status} Steam 搜尋 start=${start}`);
+  const data = (await res.json()) as {
+    results_html?: string;
+    total_count?: number;
+  };
+  return {
+    items: parseSteamSearchPage(data.results_html ?? ""),
+    totalCount: data.total_count ?? 0,
+  };
+}
+
+/** 抓 Steam 特價搜尋前三頁（300 列），去重後按折扣大→小取前 200 款
+ *  （不含 100% 限時免費，那些另外進免費分頁，不佔特價名額）。
  *  （兩頁 200 列實測會有 1 款重複、只剩 199 款，所以多抓一頁補滿。）
+ *  限時免費另外用 sort_by=Price_ASC 抓一頁（特價按最終價低→高排，
+ *  0 元的 100% 折扣一定在最前面，一頁就能抓齊、不怕它排在 300 列之外）。
  *  同時回傳台灣區特價總款數（total_count）。任一頁失敗回空陣列。 */
 async function fetchSteamSearchTop(): Promise<{
   items: DealsCarouselItem[];
+  freeItems: DealsCarouselItem[];
   totalCount: number;
 }> {
-  const pages = await Promise.allSettled(
-    [0, 100, 200].map(async (start) => {
-      const res = await fetch(`${STEAM_SEARCH_URL}&start=${start}&count=100`, {
-        headers: { Accept: "application/json", "User-Agent": USER_AGENT },
-        signal: AbortSignal.timeout(20000),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status} Steam 搜尋 start=${start}`);
-      const data = (await res.json()) as {
-        results_html?: string;
-        total_count?: number;
-      };
-      return {
-        items: parseSteamSearchPage(data.results_html ?? ""),
-        totalCount: data.total_count ?? 0,
-      };
-    })
-  );
+  const [pages, freeByPrice] = await Promise.all([
+    Promise.allSettled(
+      [0, 100, 200].map((start) => fetchSteamSearchPage(start, 100))
+    ),
+    fetchSteamSearchPage(0, 100, "Price_ASC").catch(() => ({
+      items: [],
+      totalCount: 0,
+    })),
+  ]);
   const ok = pages
     .filter(
       (p): p is PromiseFulfilledResult<{ items: DealsCarouselItem[]; totalCount: number }> =>
         p.status === "fulfilled"
     )
     .map((p) => p.value);
-  if (ok.length === 0) return { items: [], totalCount: 0 };
+  if (ok.length === 0) return { items: [], freeItems: [], totalCount: 0 };
   const seen = new Set<string>();
   const merged = ok
     .flatMap((p) => p.items)
@@ -277,9 +334,20 @@ async function fetchSteamSearchTop(): Promise<{
       seen.add(it.key);
       return true;
     })
-    .sort((a, b) => b.sortKey - a.sortKey || a.key.localeCompare(b.key))
+    .sort((a, b) => b.sortKey - a.sortKey || a.key.localeCompare(b.key));
+  // 100% 限時免費領取進免費分頁（兩邊來源合併去重）；其餘按折扣取前 200。
+  const freeSeen = new Set<string>();
+  const freeItems = [...merged, ...freeByPrice.items]
+    .filter((it) => it.sortKey === 100)
+    .filter((it) => {
+      if (freeSeen.has(it.key)) return false;
+      freeSeen.add(it.key);
+      return true;
+    });
+  const items = merged
+    .filter((it) => it.sortKey < 100)
     .slice(0, DEALS_TOP_COUNT);
-  return { items: merged, totalCount: ok[0]?.totalCount ?? 0 };
+  return { items, freeItems, totalCount: ok[0]?.totalCount ?? 0 };
 }
 
 interface EpicOffer {
@@ -390,8 +458,8 @@ function parseEpic(data: unknown, nowMs: number): {
 
 /** 抓 Steam 特價＋Epic 免費遊戲（/deals 獨立頁面用，分來源回傳）。
  *  單一來源失敗不影響另一來源；兩邊都失敗回空陣列。
- *  Steam 先走特價搜尋（前 200 款、折扣大→小）；搜尋無結果才退回
- *  featuredcategories specials（10 款精選，當備援）。 */
+ *  Steam 先走特價搜尋（前 200 款、折扣大→小；100% 限時免費另外拆出）；
+ *  搜尋無結果才退回 featuredcategories specials（10 款精選，當備援）。 */
 export async function fetchDealsPage(): Promise<DealsPageData> {
   const nowMs = Date.now();
   const [steamSearch, epicRes] = await Promise.allSettled([
@@ -399,17 +467,21 @@ export async function fetchDealsPage(): Promise<DealsPageData> {
     fetchJson(EPIC_URL),
   ]);
   let steamItems: DealsCarouselItem[] = [];
+  let steamFree: DealsCarouselItem[] = [];
   let steamTotalCount = 0;
   if (steamSearch.status === "fulfilled") {
     steamItems = steamSearch.value.items;
+    steamFree = steamSearch.value.freeItems;
     steamTotalCount = steamSearch.value.totalCount;
   } else {
     console.warn("[deals-carousel] Steam 搜尋失敗：", steamSearch.reason);
   }
-  if (steamItems.length === 0) {
+  if (steamItems.length === 0 && steamFree.length === 0) {
     try {
-      steamItems = parseSteam(await fetchJson(STEAM_URL));
-      if (steamItems.length > 0) {
+      const fallback = parseSteam(await fetchJson(STEAM_URL));
+      steamFree = fallback.filter((it) => it.sortKey === 100);
+      steamItems = fallback.filter((it) => it.sortKey < 100);
+      if (fallback.length > 0) {
         console.warn("[deals-carousel] Steam 搜尋無結果，已退回 specials 備援");
       }
     } catch (e) {
@@ -434,10 +506,12 @@ export async function fetchDealsPage(): Promise<DealsPageData> {
   return {
     items,
     steam: steamItems,
+    steamFree,
     epicCurrent,
     epicUpcoming,
     fetchedAt: new Date(nowMs).toISOString(),
     steamCount: steamItems.length,
+    steamFreeCount: steamFree.length,
     steamTotalCount,
     epicCurrentCount: epicCurrent.length,
     epicUpcomingCount: epicUpcoming.length,

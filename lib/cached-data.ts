@@ -64,10 +64,11 @@ import {
  *  2026-11-23 分頁改版：Steam 改走特價搜尋 API 取前 200 款，key 再換成
  *  deals-page-v2（舊快取的 Steam 只有 10 款精選）。抓取頁數 2 頁→3 頁
  *  時 key 再換成 deals-page-v3（Data Cache 存在磁碟、部署也不會清，
- *  2 頁版算出的 199 款會一直被 v2 快取吃到）。 */
+ *  2 頁版算出的 199 款會一直被 v2 快取吃到）。2026-11-23 再加 Steam
+ *  限時免費（steamFree 欄位）與分頁改名，key 換成 deals-page-v4。 */
 export const getCachedDealsPage = unstable_cache(
   async (): Promise<DealsPageData> => fetchDealsPage(),
-  ["deals-page-v3"],
+  ["deals-page-v4"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-page"] }
 );
 

@@ -8,21 +8,24 @@ import DealCard from "./DealCard";
 /** 每頁顯示款數（shawn 定：一次只呈現 24 款）。 */
 const PAGE_SIZE = 24;
 
-type TabKey = "epic" | "steam" | "xbox";
+type TabKey = "free" | "steam" | "xbox";
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: "epic", label: "Epic 免費" },
-  { key: "steam", label: "Steam 特價" },
-  { key: "xbox", label: "Xbox PC 特價" },
+  { key: "free", label: "免費遊戲" },
+  { key: "steam", label: "STEAM" },
+  { key: "xbox", label: "XBOX" },
 ];
 
-/** /deals 分頁框：同一頁上方三個平台分頁，點了不跳頁、不換路由，
+/** /deals 分頁框：同一頁上方三個分頁，點了不跳頁、不換路由，
  *  當下就切換顯示該平台的遊戲（client-side 切換）。
  *  面板永遠展開、不摺疊（2026-11-23：分頁框模式下摺疊沒意義）。
+ *  免費遊戲分頁：Epic 免費遊戲（本週＋下週預告）＋Steam 限時免費領取
+ *  （折扣 100% 的付費遊戲，可永久保留；免費遊玩 F2P 不在這裡）。
  *  每平台取前 200 款，一次只顯示 24 款，在頁內翻頁。 */
 export default function DealsTabs({
   epicCurrent,
   epicUpcoming,
+  steamFree,
   steam,
   steamTotalCount,
   xbox,
@@ -30,6 +33,7 @@ export default function DealsTabs({
 }: {
   epicCurrent: DealsCarouselItem[];
   epicUpcoming: DealsCarouselItem[];
+  steamFree: DealsCarouselItem[];
   steam: DealsCarouselItem[];
   steamTotalCount: number;
   xbox: DealsCarouselItem[];
@@ -38,12 +42,13 @@ export default function DealsTabs({
   // 預設 Steam（內容最多，特賣會期間第一眼就有 24 款可看）。
   const [active, setActive] = useState<TabKey>("steam");
   const [pages, setPages] = useState<Record<TabKey, number>>({
-    epic: 1,
+    free: 1,
     steam: 1,
     xbox: 1,
   });
+
   const counts: Record<TabKey, number> = {
-    epic: epicCurrent.length + epicUpcoming.length,
+    free: epicCurrent.length + epicUpcoming.length + steamFree.length,
     steam: steam.length,
     xbox: xbox.length,
   };
@@ -121,21 +126,21 @@ export default function DealsTabs({
             className={`deals-tab ${active === t.key ? "active" : ""}`}
             onClick={() => setActive(t.key)}
           >
-            {t.label}（{counts[t.key]}）
+            {t.label} ({counts[t.key]})
           </button>
         ))}
       </div>
 
-      {active === "epic" && (
-        <section className="deals-section" aria-label="Epic 免費遊戲">
+      {active === "free" && (
+        <section className="deals-section" aria-label="免費遊戲">
           {sectionHead(
-            "🎮 Epic 免費遊戲",
-            `本週 ${epicCurrent.length} 款 · 下週預告 ${epicUpcoming.length} 款`
+            "🎮 免費遊戲",
+            `Epic 本週 ${epicCurrent.length} 款 · 下週預告 ${epicUpcoming.length} 款 · Steam 限時免費 ${steamFree.length} 款`
           )}
           <div className="deals-section-body">
             {epicCurrent.length > 0 ? (
               <>
-                <h3 className="deals-subhead">本週免費領取</h3>
+                <h3 className="deals-subhead">Epic 本週免費領取</h3>
                 <div className="deals-grid">
                   {epicCurrent.map((item) => (
                     <DealCard key={item.key} item={item} />
@@ -144,12 +149,12 @@ export default function DealsTabs({
               </>
             ) : (
               <p className="muted">
-                本週台灣區暫無進行中的免費遊戲，下週預告如下。
+                本週 Epic 台灣區暫無進行中的免費遊戲，下週預告如下。
               </p>
             )}
             {epicUpcoming.length > 0 && (
               <>
-                <h3 className="deals-subhead">下週預告</h3>
+                <h3 className="deals-subhead">Epic 下週預告</h3>
                 <div className="deals-grid">
                   {epicUpcoming.map((item) => (
                     <DealCard key={item.key} item={item} />
@@ -157,9 +162,19 @@ export default function DealsTabs({
                 </div>
               </>
             )}
-            {counts.epic === 0 && (
+            {steamFree.length > 0 && (
+              <>
+                <h3 className="deals-subhead">Steam 限時免費領取</h3>
+                <div className="deals-grid">
+                  {steamFree.map((item) => (
+                    <DealCard key={item.key} item={item} />
+                  ))}
+                </div>
+              </>
+            )}
+            {counts.free === 0 && (
               <p className="muted">
-                目前 Epic 台灣區沒有免費遊戲資訊，請稍後再試。
+                目前 Epic 與 Steam 台灣區都沒有免費遊戲資訊，請稍後再試。
               </p>
             )}
           </div>
@@ -167,9 +182,9 @@ export default function DealsTabs({
       )}
 
       {active === "steam" && (
-        <section className="deals-section" aria-label="Steam 特價">
+        <section className="deals-section" aria-label="STEAM">
           {sectionHead(
-            "🔥 Steam 特價",
+            "🔥 STEAM",
             `折扣大→小 · 前 ${steam.length} 款` +
               (steamTotalCount > 0
                 ? ` · 台灣區特價中 ${steamTotalCount.toLocaleString("zh-Hant-TW")} 款`
@@ -191,9 +206,9 @@ export default function DealsTabs({
       )}
 
       {active === "xbox" && (
-        <section className="deals-section" aria-label="Xbox PC 特價">
+        <section className="deals-section" aria-label="XBOX">
           {sectionHead(
-            "🟢 Xbox PC 特價",
+            "🟢 XBOX",
             `折扣最大的 ${xbox.length} 款` +
               (xboxTotalCount > 0
                 ? ` · 台灣區共 ${xboxTotalCount.toLocaleString("zh-Hant-TW")} 款特價`
