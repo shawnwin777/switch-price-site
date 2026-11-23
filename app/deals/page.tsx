@@ -19,6 +19,9 @@ export const metadata = {
  *  上方三個分頁框（免費遊戲／STEAM／XBOX PC），點了不跳頁、
  *  不換路由，當下就切換顯示該平台的遊戲；面板永遠展開、不摺疊
  *  （2026-11-23：用分頁框的模式摺疊就沒意義了，收合按鈕全部拿掉）。
+ *  分頁狀態進 URL（低 B-3，2026-11-23）：?tab= 決定初始分頁（無效值
+ *  回預設 STEAM），?page= 決定該分頁初始頁碼；切換時元件用
+ *  router.push／replace 更新 URL，上一頁能還原分頁。
  *  每平台取前 510 款（2026-11-23 從 200 改成 350、再改成 510），一次只顯示 30 款，在頁內翻頁（510 款剛好 17 頁）。
  *  免費遊戲分頁：Epic 免費遊戲（本週＋下週預告；Epic 特價抓不到——
  *  官網 403 擋機器人）＋Steam 限時免費領取（折扣 100% 的付費遊戲）；
@@ -57,7 +60,24 @@ const EMPTY_GAMEPASS: GamePassNewData = {
   shownCount: 0,
 };
 
-export default async function DealsPage() {
+export default async function DealsPage({
+  searchParams,
+}: {
+  searchParams: { tab?: string; page?: string };
+}) {
+  // ?tab= 決定初始分頁（無效值回預設 steam），?page= 決定該分頁初始頁碼。
+  const rawTab = searchParams.tab;
+  const initialTab: "free" | "steam" | "xbox" | "gamepass" =
+    rawTab === "free" ||
+    rawTab === "steam" ||
+    rawTab === "xbox" ||
+    rawTab === "gamepass"
+      ? rawTab
+      : "steam";
+  const initialPage = Math.max(
+    1,
+    parseInt(searchParams.page ?? "1", 10) || 1
+  );
   // 單一來源抓失敗時（getter 拋錯、空結果不進快取）只讓該分頁顯示空狀態，
   // 不拖垮整頁；下次請求會重抓（2026-11-23 Xbox 三分頁 18:14 中毒的教訓）。
   const [deals, xbox, gamepassPc] = await Promise.all([
@@ -111,6 +131,8 @@ export default async function DealsPage() {
         xboxTotalCount={xbox.totalCount}
         gamepass={gamepassPc.items}
         gamepassTotalCount={gamepassPc.totalCount}
+        initialTab={initialTab}
+        initialPage={initialPage}
       />
     </>
   );

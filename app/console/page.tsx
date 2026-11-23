@@ -28,6 +28,9 @@ export const metadata = {
  *  會員方案。
  *  XBOX 家機：Reco 特價清單＋Display Catalog（filter Windows.Xbox，
  *  與 PC 版同一條管線），前 510 款、每頁 30 款、折扣大→小，每小時快取。
+ *  分頁狀態進 URL（低 B-3，2026-11-23）：?tab= 決定初始分頁（無效值
+ *  回預設 XBOX 家機），?page= 決定該分頁初始頁碼；切換時元件用
+ *  router.push／replace 更新 URL，上一頁能還原分頁。
  *  PS 家機（2026-11-23 上線，2026-11-23 擴量）：官方 GraphQL categoryGridRetrieve
  *  （persisted hash 來自公開文件，見 lib/ps-deals.ts），抓優惠頁「所有優惠」
  *  分類（總數 2,862），sales30 倒序分段抓、只列折扣 ≥50% 的，折扣大→小、
@@ -63,7 +66,24 @@ const EMPTY_PS_PLUS: PsPlusNewData = {
   shownCount: 0,
 };
 
-export default async function ConsolePage() {
+export default async function ConsolePage({
+  searchParams,
+}: {
+  searchParams: { tab?: string; page?: string };
+}) {
+  // ?tab= 決定初始分頁（無效值回預設 xbox-console），?page= 決定該分頁初始頁碼。
+  const rawTab = searchParams.tab;
+  const initialTab: "xbox-console" | "gamepass" | "ps" | "psplus" =
+    rawTab === "xbox-console" ||
+    rawTab === "gamepass" ||
+    rawTab === "ps" ||
+    rawTab === "psplus"
+      ? rawTab
+      : "xbox-console";
+  const initialPage = Math.max(
+    1,
+    parseInt(searchParams.page ?? "1", 10) || 1
+  );
   // 單一來源抓失敗時（getter 拋錯、空結果不進快取）只讓該分頁顯示空狀態，
   // 不拖垮整頁；下次請求會重抓（2026-11-23 Xbox 三分頁 18:14 中毒的教訓）。
   const [xboxConsole, ps, gamepassConsole, psplus] = await Promise.all([
@@ -113,6 +133,8 @@ export default async function ConsolePage() {
         psplusMonth={psplus.month}
         psplusCatalogUrl={psplus.catalogUrl}
         psplusMonthlyUrl={psplus.monthlyUrl}
+        initialTab={initialTab}
+        initialPage={initialPage}
       />
     </>
   );

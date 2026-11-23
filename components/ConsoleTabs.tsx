@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import type { DealsCarouselItem } from "@/lib/deals-carousel";
 import { pageWindow } from "@/lib/pagination";
 import DealCard from "./DealCard";
@@ -18,14 +19,21 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "psplus", label: "PS Plus" },
 ];
 
-/** /console 家機頁的分頁框：只有四個分頁、順序固定，點了不跳頁、不換路由。
+/** /console 家機頁的分頁框：只有四個分頁、順序固定，點了不跳頁
+ *  （同路由，只更新 ?tab=／?page=，見下方 URL 同步）。
+ *  分頁狀態進 URL（低 B-3，2026-11-23）：server 從 ?tab=／?page=
+ *  讀初始分頁／頁碼（app/console/page.tsx 傳 initialTab／initialPage），
+ *  切分頁用 router.push（上一頁能還原分頁），同分頁翻頁用
+ *  router.replace；瀏覽器上一頁／下一頁靠 popstate 把 URL 讀回
+ *  state（元件不重掛，useSearchParams 會要 Suspense 包裝所以不用它）。
  *  面板永遠展開、不摺疊（跟 /deals 一樣）。
  *  1. XBOX 家機：Reco 清單＋Display Catalog（filter Windows.Xbox），
  *     最多 510 款、折扣大→小，預設顯示；實際去重後有效款數以 live 為準
  *     （中-5：寫死 510 會在款數浮動到 470 時變錯）。
  *  2. XGP 家機：Game Pass 最近新增（家機），官方清單順序、卡片標「新進」；
  *     下方接 Game Pass 方案價目。
- *  3. PlayStation：官方優惠分類，折扣 ≥50%、前 510 款。
+ *  3. PlayStation：官方優惠分類，折扣 ≥50%、折扣大→小；列出款數與
+ *     分類原始總數都用 live 數字（見 PS 分頁附註，不寫死 510／2,862）。
  *  4. PS Plus：PS Plus 本月新進（遊戲目錄＋每月遊戲），PS Blog 當月文章
  *     解析、官方搜尋對應商店商品；下方接 PS Plus 方案價目。
  *  2026-11-23 14:00 shawn 再定：獨立的「🎫 會員方案」分頁拿掉，
@@ -45,6 +53,8 @@ export default function ConsoleTabs({
   psplusMonth,
   psplusCatalogUrl,
   psplusMonthlyUrl,
+  initialTab,
+  initialPage,
 }: {
   xboxConsole: DealsCarouselItem[];
   xboxConsoleTotalCount: number;
@@ -56,18 +66,62 @@ export default function ConsoleTabs({
   psplusMonth?: string | null;
   psplusCatalogUrl?: string | null;
   psplusMonthlyUrl?: string | null;
+  /** server 從 ?tab=／?page= 讀到的初始分頁／頁碼（無效值已在 page 層濾掉）。 */
+  initialTab?: TabKey;
+  initialPage?: number;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
   // 四個分頁永遠顯示（XGP 家機、PS Plus 裡有靜態方案價目，
   // 新進遊戲沒資料時分頁也不消失，只在遊戲區顯示空狀態）。
   const tabs = TABS;
-  // 預設 XBOX 家機（第一分頁）。
-  const [active, setActive] = useState<TabKey>("xbox-console");
+  // 預設 XBOX 家機（第一分頁）；?tab= 有值時用它。
+  const [active, setActive] = useState<TabKey>(initialTab ?? "xbox-console");
   const [pages, setPages] = useState<Record<TabKey, number>>({
     "xbox-console": 1,
     gamepass: 1,
     ps: 1,
     psplus: 1,
+    ...(initialTab && initialPage && initialPage > 1
+      ? { [initialTab]: initialPage }
+      : {}),
   });
+
+  /** 分頁 URL：?tab= 一定帶，?page= 只有 >1 才帶（第 1 頁保持短網址）。 */
+  const tabUrl = (tab: TabKey, page: number) =>
+    page > 1 ? `${pathname}?tab=${tab}&page=${page}` : `${pathname}?tab=${tab}`;
+
+  /** 切分頁：push 進歷史紀錄，瀏覽器上一頁能還原上一個分頁。 */
+  const switchTab = (key: TabKey) => {
+    if (key === active) return;
+    setJumpOpen(false);
+    setActive(key);
+    router.push(tabUrl(key, pages[key] ?? 1), { scroll: false });
+  };
+
+  // 瀏覽器上一頁／下一頁：URL 變了但元件不重掛，靠 popstate 把
+  // ?tab=／?page= 讀回 state（router.push／replace 不觸發 popstate，
+  // 所以這裡不會跟切換邏輯打架）。
+  useEffect(() => {
+    const onPopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const rawTab = params.get("tab");
+      const tab: TabKey | null =
+        rawTab === "xbox-console" ||
+        rawTab === "gamepass" ||
+        rawTab === "ps" ||
+        rawTab === "psplus"
+          ? rawTab
+          : null;
+      if (!tab) return;
+      const page = Math.max(1, parseInt(params.get("page") ?? "1", 10) || 1);
+      setJumpOpen(false);
+      setActive(tab);
+      setPages((prev) => ({ ...prev, [tab]: page }));
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   const counts: Record<TabKey, number> = {
     "xbox-console": xboxConsole.length,
@@ -81,8 +135,12 @@ export default function ConsoleTabs({
     const p = Math.min(Math.max(1, pages[key]), totalPages(key));
     return all.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
   };
-  const goPage = (key: TabKey, p: number) =>
-    setPages((prev) => ({ ...prev, [key]: p }));
+  const goPage = (key: TabKey, p: number) => {
+    const next = Math.min(Math.max(1, p), totalPages(key));
+    setPages((prev) => ({ ...prev, [key]: next }));
+    // 同分頁翻頁用 replace（不污染上一頁紀錄），URL 的 ?page= 跟著變。
+    if (key === active) router.replace(tabUrl(key, next), { scroll: false });
+  };
 
   // 浮動分頁的跳頁彈框：點中間「第 X / Y 頁」才打開（跟牆頁同一套做法）。
   const [jumpOpen, setJumpOpen] = useState(false);
@@ -227,8 +285,7 @@ export default function ConsoleTabs({
             aria-selected={active === t.key}
             className={`deals-tab ${active === t.key ? "active" : ""}`}
             onClick={() => {
-              setJumpOpen(false);
-              setActive(t.key);
+              switchTab(t.key);
             }}
           >
             {t.label} ({counts[t.key]})
@@ -300,9 +357,18 @@ export default function ConsoleTabs({
             <p className="muted">目前 PlayStation 台灣區沒有特價資訊，請稍後再試。</p>
           )}
           {renderPager("ps")}
+          {/* 低 B-3 併入遺留：PS 附註與 Xbox 區同一口徑——標題的 N 是去重後
+              有效款數，「台灣區共 M 款」是優惠分類回報的原始總數（未篩
+              折扣 ≥50%、未去重），兩者口徑不同；數字一律 live 插值，
+              不寫死「前 510 款」「台灣區共 2,862 款」。 */}
           <p className="muted">
-            PlayStation 特價取自官方商店的優惠分類（所有優惠，台灣區共 2,862
-            款），只列折扣 ≥50% 的遊戲、折扣大→小、前 510 款；款數會隨檔期浮動。
+            PlayStation 特價取自官方商店的優惠分類（所有優惠），只列折扣
+            ≥50% 的遊戲、折扣大→小；本頁列出折扣最大的 {ps?.length ?? 0}
+            款（去重後的有效款數）
+            {psTotalCount != null && psTotalCount > 0
+              ? `；「台灣區共 ${psTotalCount.toLocaleString("zh-Hant-TW")} 款」是優惠分類回報的原始總數（未篩折扣 ≥50%、未去重），與去重後的有效款數口徑不同。`
+              : "；優惠分類回報的原始總數（未篩折扣 ≥50%、未去重）與去重後的有效款數口徑不同。"}
+            款數會隨檔期浮動。
           </p>
         </section>
       )}
