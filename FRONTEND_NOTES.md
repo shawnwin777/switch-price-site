@@ -14,7 +14,7 @@
 | `app/page.tsx` | 首頁（force-dynamic） |
 | `app/games/[slug]/page.tsx` | 遊戲詳細頁（force-dynamic） |
 | `app/ranking/page.tsx` | 收藏排行 TOP 10（force-dynamic，`?sale=all` 切全部） |
-| `app/add/page.tsx` | 已移除：直接 redirect 到 /home（2026-11-23） |
+| `app/add/page.tsx` | 已刪除（2026-11-23，shawn 從 GitHub 刪除；/add 現為 404） |
 | `app/login/page.tsx` + `components/LoginClient.tsx` | 登入頁（Suspense 包 useSearchParams） |
 | `lib/supabase-client.ts` / `lib/supabase-server.ts` / `lib/supabase-env.ts` | 瀏覽器／伺服器端 Supabase client（拆開是因為 `next/headers` 不能被 client component 間接 import） |
 | `lib/data.ts` | 讀遊戲、價格、匯率、留言、排行、收藏的函式 |
@@ -33,12 +33,12 @@
 | `components/CollectionButton.tsx` | 愛心收藏（POST /api/collections） |
 | `components/LikeButton.tsx` | 遊戲讚（POST /api/likes） |
 | `components/LoginClient.tsx` | Google / Discord 登入按鈕 |
-| `public/covers/placeholder.svg` | 手把圖示佔位封面（原手動新增遊戲用；/add 已於 2026-11-23 移除，檔案暫留） |
+| `public/covers/placeholder.svg` | 手把圖示佔位封面（原手動新增遊戲用；/add 已於 2026-11-23 刪除） |
 
 **沒有寫的（登入組的）**：`app/auth/callback`、`app/api/refresh`、`app/api/collections`、
 `app/api/purchases`、`app/api/likes`、`app/api/comments`、`middleware.ts`、`vercel.json`。
 **沒有動的（資料組的）**：`supabase/`、`scripts/`、`public/covers/` 既有封面
-（只新增了 `public/covers/placeholder.svg` 這一個佔位檔，原任務要求手動新增遊戲用它；/add 已於 2026-11-23 移除）。
+（只新增了 `public/covers/placeholder.svg` 這一個佔位檔，原任務要求手動新增遊戲用它；/add 已於 2026-11-23 刪除）。
 
 ## 本地跑起來
 
@@ -55,8 +55,8 @@ npm start                    # 跑 production build
 
 - 全部讀取都走 `lib/data.ts`，直接用 Supabase client 讀公開資料（`games`、`prices`、
   `fx_rates`、`collections`、`game_likes`、`comments`、`comment_likes`）。
-- 寫入只走 API 合約（見下節）。「新增遊戲」已於 2026-11-23 移除（/add 直接 redirect
-  到 /home），不再有瀏覽器端 Supabase client insert `games` + `prices` 的路徑。
+- 寫入只走 API 合約（見下節）。「新增遊戲」已於 2026-11-23 刪除（/add 頁面由 shawn
+  從 GitHub 刪除，現為 404），不再有瀏覽器端 Supabase client insert `games` + `prices` 的路徑。
 - 資料頁面全部 `export const dynamic = "force-dynamic"`，建置時不呼叫 Supabase。
 - Supabase 專案還不存在時，`lib/supabase-env.ts` 用 placeholder URL / key 建立 client，
   查詢失敗時 `lib/data.ts` 回傳空陣列、頁面顯示「尚無資料」，**`npm run build`
@@ -94,7 +94,7 @@ npm start                    # 跑 production build
   （**沒有用 iframe 內嵌**，YouTube error 153 的教訓）；各區官方 eShop 首頁連結；
   已收藏且特價中時頁面有明顯提醒。
 - `/ranking` 收藏排行 TOP 10，預設只顯示特價中，`?sale=all` 切全部。
-- `/add` 已移除：直接 redirect 到 /home（2026-11-23，shawn：新增遊戲直接拔掉，用不到了）。
+- `/add` 已刪除：頁面由 shawn 從 GitHub 刪除（2026-11-23），現為 404（shawn：新增遊戲直接拔掉，用不到了）。
 - `/login` 登入頁：Google / Discord 按鈕（`supabase.auth.signInWithOAuth`），
   頁面明寫「登入只用來做收藏，不收集任何 Gmail 或 Discord 資料、不存其他資料」。
 
@@ -119,7 +119,7 @@ npm start                    # 跑 production build
    若登入組的 `POST /api/comments` 回傳欄位不同，請對照 `CommentsSection.tsx` 調整。
 3. `has_demo` 對照：0 無試玩、1 免費 Demo、2 免費試玩（好友通行證等）、3 NSO 限時試玩
    （種子檔只有 0／1／2）。2 已確認為「免費試玩」（唯一一款是雙人成行，好友通行證免費試玩）。
-4. 「新增遊戲」已於 2026-11-23 移除：/add 直接 redirect 到 /home，不再有瀏覽器端
+4. 「新增遊戲」已於 2026-11-23 刪除：/add 頁面不存在（404），不再有瀏覽器端
    insert `games`／`prices` 的路徑。
 5. 35 國清單（`lib/countries.ts`）含 SG / MY / TH 三國，種子檔 32 國價格沒有它們；
    資料組補上價格後自動出現，不需改前端。

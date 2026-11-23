@@ -352,14 +352,7 @@ export default function HomeClient({
           ) : (
             <>
               <p>沒有符合條件的遊戲。</p>
-              <p>
-                試試清除搜尋或篩選。
-                {isAdmin && (
-                  <>
-                    或到 <Link href="/add">新增遊戲</Link> 手動加入。
-                  </>
-                )}
-              </p>
+              <p>試試清除搜尋或篩選。</p>
             </>
           )}
         </div>
