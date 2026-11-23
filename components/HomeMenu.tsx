@@ -1,0 +1,404 @@
+"use client";
+
+import { useRef, useState, type MouseEvent, type ReactNode } from "react";
+import Image from "next/image";
+import Link from "next/link";
+
+/** /home 首頁斜切抽屜選單（2026-11-23 shawn 定）。
+ *  左邊是斜切品牌板（SGS logo＋標語），右邊是四個選單；
+ *  hover／點按任一選單時，品牌板像抽屜一樣被抽走（向左滑出＋微斜），
+ *  露出底下的預覽圖列，停在那裡不彈回；移開後延遲一下才收回。
+ *  SWITCH 預覽 = 站內特價 Switch 遊戲（Nintendo CDN 封面）；
+ *  PC 預覽 = Steam＋Xbox PC 特價（官方圖）；家機預覽 = Xbox＋PS 特價；
+ *  關於我預覽 = 介紹文字＋IG／Threads／Discord 圖標。
+ *  預覽圖由 server 端 page.tsx 抓好當 props 傳進來，失敗時這裡
+ *  顯示漸層佔位、不讓整頁掛掉。手機沒有 hover：點一下先展開預覽，
+ *  再點一下才進連結。 */
+
+export interface HomePreviewItem {
+  key: string;
+  title: string;
+  /** 官方圖（Nintendo／Steam／Microsoft／PlayStation CDN）。 */
+  image: string;
+  url: string;
+  badge: string;
+  priceLine: string;
+  /** 來源標籤：Switch／Steam／Xbox PC／Xbox／PlayStation。 */
+  source: string;
+  /** true = 外站商店連結（新分頁開）；false = 站內遊戲頁。 */
+  external: boolean;
+}
+
+export interface HomePreviews {
+  switch: HomePreviewItem[];
+  pc: HomePreviewItem[];
+  console: HomePreviewItem[];
+}
+
+type MenuKey = "switch" | "pc" | "console" | "about";
+
+/** 關抽屜前的停頓（毫秒）：滑鼠離開選單／預覽區後先等一下，
+ *  避免在兩個區域之間移動時閃爍、也做出「停在那裡」的感覺。 */
+const CLOSE_DELAY_MS = 450;
+
+const MENU: {
+  key: MenuKey;
+  href: string | null;
+  title: string;
+  sub: string;
+  icon: ReactNode;
+}[] = [
+  {
+    key: "switch",
+    href: "/switch-price",
+    title: "SWITCH",
+    sub: "Switch 比價 · 35 國 eShop 跨區比價",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="2.5" y="6" width="19" height="12" rx="3" />
+        <rect x="8" y="9" width="8" height="6" rx="1" />
+        <circle cx="5.5" cy="12" r="0.9" fill="currentColor" stroke="none" />
+        <circle cx="18.5" cy="12" r="0.9" fill="currentColor" stroke="none" />
+      </svg>
+    ),
+  },
+  {
+    key: "pc",
+    href: "/deals",
+    title: "PC GAMES",
+    sub: "PC遊戲特價 · Steam、Xbox PC、Epic 免費遊戲",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3" y="4" width="18" height="12" rx="2" />
+        <path d="M9 20h6" />
+        <path d="M12 16v4" />
+      </svg>
+    ),
+  },
+  {
+    key: "console",
+    href: "/console",
+    title: "Gaming console",
+    sub: "家機特價 · Xbox 家機、PlayStation",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M7 7h10a5 5 0 0 1 5 5v1a3 3 0 0 1-3 3c-1.2 0-2-.7-2.6-1.8H7.6C7 15.3 6.2 16 5 16a3 3 0 0 1-3-3v-1a5 5 0 0 1 5-5Z" />
+        <path d="M8 10.5v3M6.5 12h3" />
+        <circle cx="16" cy="11" r="0.8" fill="currentColor" stroke="none" />
+        <circle cx="18" cy="13" r="0.8" fill="currentColor" stroke="none" />
+      </svg>
+    ),
+  },
+  {
+    key: "about",
+    href: null,
+    title: "關於我",
+    sub: "SHAWN GAME STUDIO · Instagram／Threads／Discord",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5" />
+      </svg>
+    ),
+  },
+];
+
+function PreviewTiles({ items }: { items: HomePreviewItem[] }) {
+  if (items.length === 0) {
+    return (
+      <div className="home-preview-empty">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="home-preview-tile home-preview-tile-empty" aria-hidden="true">
+            <span className="home-preview-tile-shimmer" />
+            <span className="home-preview-tile-text">預覽準備中…</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="home-preview-grid">
+      {items.map((item) => {
+        const inner = (
+          <>
+            <span className="home-preview-thumb">
+              <img src={item.image} alt={item.title} loading="lazy" />
+              {item.badge ? <span className="home-preview-badge">{item.badge}</span> : null}
+              <span className="home-preview-source">{item.source}</span>
+            </span>
+            <span className="home-preview-tile-title">{item.title}</span>
+            <span className="home-preview-tile-price">{item.priceLine}</span>
+          </>
+        );
+        return item.external ? (
+          <a
+            key={item.key}
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="home-preview-tile"
+          >
+            {inner}
+          </a>
+        ) : (
+          <Link key={item.key} href={item.url} className="home-preview-tile">
+            {inner}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+function AboutPreview() {
+  return (
+    <div className="home-about-preview">
+      <p className="home-about-preview-text">
+        SHAWN GAME STUDIO
+        是個人經營的非官方遊戲比價站：Switch 跨區比價、PC
+        與家機特價、NSO 會員跨區比價與歷史低價，價格取自 Nintendo、Sony、
+        Microsoft、Valve、Epic 各官方商店的公開資料，僅供參考，實際價格以商店頁面為準。
+        本站與任天堂、索尼、微軟、Valve、Epic 沒有任何關聯。
+      </p>
+      <ul className="home-about-social">
+        <li>
+          <a
+            href="https://www.instagram.com/shawn1106_"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="home-about-social-link"
+          >
+            <span className="home-about-social-icon" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="5" />
+                <circle cx="12" cy="12" r="4" />
+                <circle cx="17.2" cy="6.8" r="0.9" fill="currentColor" stroke="none" />
+              </svg>
+            </span>
+            <span className="home-about-social-text">
+              <span className="home-about-social-name">Instagram</span>
+              <span className="home-about-social-handle">shawn1106_</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a
+            href="https://www.threads.net/@shawn1106_"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="home-about-social-link"
+          >
+            <span className="home-about-social-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect
+                  x="3"
+                  y="3"
+                  width="18"
+                  height="18"
+                  rx="5"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                />
+                <text
+                  x="12"
+                  y="16.5"
+                  textAnchor="middle"
+                  fontSize="11"
+                  fontWeight="800"
+                  fill="currentColor"
+                >
+                  @
+                </text>
+              </svg>
+            </span>
+            <span className="home-about-social-text">
+              <span className="home-about-social-name">Threads</span>
+              <span className="home-about-social-handle">shawn1106_</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <span className="home-about-social-link home-about-social-static">
+            <span className="home-about-social-icon" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M8 17c-2.5 0-4.5-1.8-4.5-4.5v-1C3.5 8 6 5.5 9 5.5h6c3 0 5.5 2.5 5.5 5.5v1C20.5 15.2 18.5 17 16 17c-1 0-1.8-.5-2.4-1.3H10.4C9.8 16.5 9 17 8 17Z" />
+                <circle cx="9" cy="11" r="0.9" fill="currentColor" stroke="none" />
+                <circle cx="15" cy="11" r="0.9" fill="currentColor" stroke="none" />
+              </svg>
+            </span>
+            <span className="home-about-social-text">
+              <span className="home-about-social-name">Discord</span>
+              <span className="home-about-social-handle">shawn1106</span>
+            </span>
+          </span>
+        </li>
+      </ul>
+    </div>
+  );
+}
+
+export default function HomeMenu({ previews }: { previews: HomePreviews }) {
+  const [active, setActive] = useState<MenuKey | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelClose = () => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = setTimeout(() => setActive(null), CLOSE_DELAY_MS);
+  };
+
+  const open = (key: MenuKey) => {
+    cancelClose();
+    setActive(key);
+  };
+
+  /** 手機（沒有 hover）點連結：第一次點先展開預覽、留在本頁，
+   *  已經展開時再點才真的進連結；桌機 hover 不受影響。 */
+  const handleLinkClick = (key: MenuKey, e: MouseEvent) => {
+    if (typeof window !== "undefined" && window.matchMedia("(hover: none)").matches) {
+      if (active !== key) {
+        e.preventDefault();
+        open(key);
+      }
+    }
+  };
+
+  const previewItems: HomePreviewItem[] =
+    active === "switch" ? previews.switch : active === "pc" ? previews.pc : active === "console" ? previews.console : [];
+
+  return (
+    <section
+      className={`home-diagonal${active ? " drawer-open" : ""}`}
+      data-active={active ?? ""}
+      onMouseLeave={scheduleClose}
+    >
+      <div className="home-drawer-zone">
+        {/* 抽屜底層：預覽圖列，品牌板被抽走後露出來 */}
+        <div
+          className="home-preview-panel"
+          onMouseEnter={cancelClose}
+          onMouseLeave={scheduleClose}
+          aria-hidden={active === null}
+        >
+          {active === "about" ? (
+            <AboutPreview key="about" />
+          ) : active ? (
+            <PreviewTiles key={active} items={previewItems} />
+          ) : null}
+        </div>
+
+        {/* 抽屜前板：斜切品牌區，hover 時向左滑出 */}
+        <div className="home-brand-panel" onMouseEnter={cancelClose}>
+          <Image
+            src="/sgs-logo.png"
+            alt="SHAWN GAME STUDIO"
+            width={2172}
+            height={724}
+            priority
+            className="home-menu-logo"
+          />
+          <h1 className="home-hero-title">
+            遊戲比價，<span>從這裡開始</span>
+          </h1>
+          <p className="home-hero-sub">
+            Switch 跨區比價、PC 與家機特價、NSO 會員跨區比價、歷史低價——
+            價格取自各官方商店公開資料，僅供參考。
+          </p>
+        </div>
+      </div>
+
+      <nav className="home-menu-list" aria-label="遊戲選單">
+        {MENU.map((item) => {
+          const isActive = active === item.key;
+          const body = (
+            <>
+              <span className="home-menu-icon" aria-hidden="true">
+                {item.icon}
+              </span>
+              <span className="home-menu-item-text">
+                <span className="home-menu-item-title">{item.title}</span>
+                <span className="home-menu-item-sub">{item.sub}</span>
+              </span>
+              <span className="home-menu-arrow" aria-hidden="true">
+                →
+              </span>
+            </>
+          );
+          const common = {
+            className: `home-menu-item${isActive ? " is-active" : ""}`,
+            onMouseEnter: () => open(item.key),
+            onFocus: () => open(item.key),
+          };
+          return item.href ? (
+            <Link
+              key={item.key}
+              href={item.href}
+              {...common}
+              onClick={(e) => handleLinkClick(item.key, e)}
+            >
+              {body}
+            </Link>
+          ) : (
+            <button
+              key={item.key}
+              type="button"
+              {...common}
+              aria-expanded={isActive}
+              onClick={() => (isActive ? setActive(null) : open(item.key))}
+            >
+              {body}
+            </button>
+          );
+        })}
+      </nav>
+    </section>
+  );
+}

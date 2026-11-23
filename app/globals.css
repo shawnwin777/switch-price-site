@@ -327,13 +327,49 @@ label.field-label {
   text-decoration: none;
 }
 
-/* ---------- 新首頁 /home 遊戲選單（2026-11-23 改版） ---------- */
-.home-menu {
-  align-items: center;
+/* ---------- 新首頁 /home 斜切抽屜選單（2026-11-23 改版） ----------
+ *  左邊斜切品牌板（clip-path 斜邊＋drop-shadow 霓虹邊光，logo 微斜 2°），
+ *  右邊四個選單整體往下移、避開斜線；hover／點按選單時品牌板像抽屜
+ *  一樣向左滑出、停住，露出底下的預覽圖列（見 components/HomeMenu.tsx）。
+ *  舊的 .home-about 區塊已併進第四格「關於我」預覽，不再單獨列在頁面下方。 */
+.home-diagonal {
   display: grid;
-  gap: 40px;
+  gap: 48px;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-  padding: 56px 16px 24px;
+  margin: 0 auto;
+  max-width: 1600px;
+  min-height: 640px;
+  padding: 40px 16px 48px;
+}
+
+.home-drawer-zone {
+  min-height: 560px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 抽屜前板：斜切品牌區。右邊緣從右上斜到左下（跟 shawn 截圖的白斜線同方向），
+ *  drop-shadow 順著 clip-path 形狀在斜邊上打一道電光青邊光。 */
+.home-brand-panel {
+  background:
+    radial-gradient(420px 220px at 18% 12%, rgba(0, 240, 255, 0.16), transparent 70%),
+    radial-gradient(360px 260px at 85% 88%, rgba(255, 45, 120, 0.12), transparent 70%),
+    linear-gradient(140deg, #0a1030 0%, #050816 62%);
+  border: 1px solid var(--line);
+  clip-path: polygon(0 0, 100% 0, 82% 100%, 0 100%);
+  display: flex;
+  flex-direction: column;
+  filter: drop-shadow(3px 0 14px rgba(0, 240, 255, 0.35));
+  inset: 0;
+  justify-content: center;
+  padding: 32px 72px 32px 28px;
+  position: absolute;
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 2;
+}
+
+.home-diagonal.drawer-open .home-brand-panel {
+  transform: translateX(-104%) skewX(-3deg);
 }
 
 .home-menu-logo {
@@ -341,24 +377,233 @@ label.field-label {
   filter: drop-shadow(0 0 28px rgba(0, 240, 255, 0.22));
   height: auto;
   max-width: 520px;
+  transform: rotate(-2deg);
   width: 100%;
 }
 
-.home-menu-brand .home-hero-title {
+.home-brand-panel .home-hero-title {
   margin-top: 28px;
   text-align: left;
 }
 
-.home-menu-brand .home-hero-sub {
+.home-brand-panel .home-hero-sub {
   margin: 14px 0 0;
-  max-width: 520px;
+  max-width: 460px;
   text-align: left;
 }
 
+/* 抽屜底層：預覽圖列，品牌板被抽走後才露出來。 */
+.home-preview-panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  inset: 0;
+  opacity: 0;
+  overflow-y: auto;
+  padding: 20px;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-18px);
+  transition: opacity 0.45s ease 0.08s, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.08s;
+  z-index: 1;
+}
+
+.home-diagonal.drawer-open .home-preview-panel {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.home-preview-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.home-preview-empty {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.home-preview-tile {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.home-preview-tile:hover {
+  border-color: var(--cyan);
+  text-decoration: none;
+  transform: translateY(-2px);
+}
+
+.home-preview-thumb {
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(135deg, #0a1030, #12081f);
+  display: block;
+  overflow: hidden;
+  position: relative;
+}
+
+.home-preview-thumb img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.home-preview-badge {
+  background: rgba(255, 45, 120, 0.92);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  left: 8px;
+  padding: 2px 7px;
+  position: absolute;
+  top: 8px;
+}
+
+.home-preview-source {
+  background: rgba(5, 8, 22, 0.82);
+  border-radius: 6px;
+  bottom: 8px;
+  color: var(--cyan);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  position: absolute;
+  right: 8px;
+}
+
+.home-preview-tile-title {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow: hidden;
+  padding: 10px 10px 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-preview-tile-price {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 2px 10px 10px;
+}
+
+.home-preview-tile-empty {
+  min-height: 150px;
+}
+
+.home-preview-tile-shimmer {
+  animation: home-preview-shimmer 1.6s ease-in-out infinite alternate;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(100deg, #0a1030 30%, #16205a 50%, #0a1030 70%);
+  display: block;
+}
+
+@keyframes home-preview-shimmer {
+  from { opacity: 0.6; }
+  to { opacity: 1; }
+}
+
+.home-preview-tile-text {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 10px;
+}
+
+/* 關於我預覽：介紹文字＋三個社群圖標列。 */
+.home-about-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  height: 100%;
+  justify-content: center;
+}
+
+.home-about-preview-text {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.8;
+  margin: 0;
+}
+
+.home-about-social {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.home-about-social-link {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: flex;
+  gap: 14px;
+  padding: 12px 14px;
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+}
+
+a.home-about-social-link:hover {
+  border-color: var(--cyan);
+  text-decoration: none;
+}
+
+.home-about-social-static {
+  cursor: default;
+}
+
+.home-about-social-icon {
+  color: var(--cyan);
+  flex: none;
+  height: 34px;
+  width: 34px;
+}
+
+.home-about-social-icon svg {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.home-about-social-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.home-about-social-name {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.home-about-social-handle {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* 右邊選單：整體往下移，避開左邊品牌板的斜線。 */
 .home-menu-list {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  justify-content: flex-start;
+  padding-top: 168px;
 }
 
 .home-menu-item {
@@ -366,17 +611,27 @@ label.field-label {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  color: var(--text);
+  cursor: pointer;
   display: flex;
+  font: inherit;
   gap: 16px;
   padding: 18px 20px;
+  text-align: left;
   text-decoration: none;
   transition: border-color 0.15s ease, transform 0.15s ease;
+  width: 100%;
 }
 
-.home-menu-item:hover {
+.home-menu-item:hover,
+.home-menu-item.is-active {
   border-color: var(--cyan);
   text-decoration: none;
   transform: translateY(-2px);
+}
+
+.home-menu-item.is-active {
+  box-shadow: 0 0 0 1px var(--cyan), 0 0 24px rgba(0, 240, 255, 0.18);
 }
 
 .home-menu-icon {
@@ -417,41 +672,77 @@ label.field-label {
   margin-left: auto;
 }
 
-.home-about {
-  border-top: 1px solid var(--line);
-  margin-top: 44px;
-  padding: 28px 16px 48px;
-}
-
-.home-about p {
-  color: var(--muted);
-  font-size: 14px;
-  max-width: 760px;
-}
-
-.home-about-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 24px;
-  list-style: none;
-  margin: 16px 0 0;
-  padding: 0;
-}
-
-.home-about-links li {
-  color: var(--muted);
-  font-size: 14px;
-}
-
 @media (max-width: 860px) {
-  .home-menu {
-    gap: 28px;
+  /* 手機：斜切角度收小、上下直排；品牌板不滑走，
+   *  點選單時預覽直接在品牌板下方展開（max-height 過渡），不出現橫向捲軸。 */
+  .home-diagonal {
+    gap: 20px;
     grid-template-columns: 1fr;
-    padding-top: 36px;
+    min-height: 0;
+    padding-top: 28px;
   }
 
-  .home-menu-brand .home-menu-logo {
+  .home-drawer-zone {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .home-brand-panel {
+    clip-path: polygon(0 0, 100% 0, 94% 100%, 0 100%);
+    justify-content: center;
+    min-height: 300px;
+    padding: 28px 48px 28px 20px;
+    position: static;
+  }
+
+  .home-diagonal.drawer-open .home-brand-panel {
+    transform: none;
+  }
+
+  .home-menu-logo {
     max-width: 420px;
+  }
+
+  .home-preview-panel {
+    border-radius: 0 0 var(--radius) var(--radius);
+    inset: auto;
+    max-height: 0;
+    opacity: 1;
+    order: 2;
+    overflow: hidden;
+    padding: 0 16px;
+    pointer-events: none;
+    position: static;
+    transform: none;
+    transition: max-height 0.5s cubic-bezier(0.22, 1, 0.36, 1), padding 0.5s ease;
+  }
+
+  .home-diagonal.drawer-open .home-preview-panel {
+    max-height: 1200px;
+    padding: 16px;
+    pointer-events: auto;
+  }
+
+  .home-preview-grid,
+  .home-preview-empty {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-menu-list {
+    padding-top: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .home-preview-grid,
+  .home-preview-empty {
+    grid-template-columns: 1fr;
+  }
+
+  .home-brand-panel {
+    padding-right: 28px;
   }
 }
 
