@@ -10,3 +10,7 @@
   §6 與 `scripts/lib/seed-cover-urls.mjs` 的驗證記錄），已改接官方 CDN
   網址（`scripts/fix-seed-covers.mjs --apply`），32 張舊圖待從 GitHub
   網頁刪除。自架官方圖比單純連官方 CDN 嚴重，不要再放回來。
+
+- 觸發重新部署：2026-11-23（第二輪稽核 M-1）——已刪的 32 張圖 live 仍有
+  29 張回 200，部署停在刪除序列早期的 commit；本行只為觸發 Vercel 重新
+  部署 HEAD、確認已刪圖片下線，不改任何程式邏輯。

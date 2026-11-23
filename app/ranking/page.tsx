@@ -77,6 +77,12 @@ export default async function RankingPage({
                     </>
                   )}
                 </div>
+                {(entry.game.product_type === "dlc" ||
+                  entry.game.product_type === "bundle") && (
+                  <div className="muted">
+                    名稱來源：TitleDB 候選名（非官方譯名）
+                  </div>
+                )}
                 {entry.on_sale && (
                   <div>
                     <span className="badge badge-sale">特價中</span>
