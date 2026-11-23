@@ -83,6 +83,83 @@ export default function ConsoleTabs({
   const goPage = (key: TabKey, p: number) =>
     setPages((prev) => ({ ...prev, [key]: p }));
 
+  // 浮動分頁的跳頁彈框：點中間「第 X / Y 頁」才打開（跟牆頁同一套做法）。
+  const [jumpOpen, setJumpOpen] = useState(false);
+  const [jumpValue, setJumpValue] = useState("");
+
+  /** 手機浮動分頁（跟牆頁同一套：左下角 fixed、一排三顆、點中間跳頁；
+   *  只有當前分頁超過 1 頁時才出現）。 */
+  const renderFab = () => {
+    const total = totalPages(active);
+    if (total <= 1) return null;
+    const p = Math.min(Math.max(1, pages[active]), total);
+    return (
+      <nav className="pagination-fab" aria-label="分頁（浮動）">
+        <button
+          type="button"
+          className="btn"
+          disabled={p <= 1}
+          onClick={() => {
+            setJumpOpen(false);
+            goPage(active, p - 1);
+          }}
+          aria-label="上一頁"
+        >
+          ← 上一頁
+        </button>
+        <button
+          type="button"
+          className="pagination-fab-page"
+          onClick={() => {
+            setJumpValue(String(p));
+            setJumpOpen((v) => !v);
+          }}
+          aria-expanded={jumpOpen}
+          aria-label="跳到指定頁數"
+        >
+          第 {p} / {total} 頁
+        </button>
+        <button
+          type="button"
+          className="btn"
+          disabled={p >= total}
+          onClick={() => {
+            setJumpOpen(false);
+            goPage(active, p + 1);
+          }}
+          aria-label="下一頁"
+        >
+          下一頁 →
+        </button>
+        {jumpOpen && (
+          <form
+            className="pagination-fab-jump"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const n = Math.max(1, Math.min(total, Number(jumpValue) || p));
+              setJumpOpen(false);
+              if (n !== p) goPage(active, n);
+            }}
+          >
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={total}
+              value={jumpValue}
+              onChange={(e) => setJumpValue(e.target.value)}
+              aria-label="頁數"
+              autoFocus
+            />
+            <button type="submit" className="btn">
+              前往
+            </button>
+          </form>
+        )}
+      </nav>
+    );
+  };
+
   const renderPager = (key: TabKey) => {
     const total = totalPages(key);
     if (total <= 1) return null;
@@ -148,7 +225,10 @@ export default function ConsoleTabs({
             role="tab"
             aria-selected={active === t.key}
             className={`deals-tab ${active === t.key ? "active" : ""}`}
-            onClick={() => setActive(t.key)}
+            onClick={() => {
+              setJumpOpen(false);
+              setActive(t.key);
+            }}
           >
             {t.label} ({counts[t.key]})
           </button>
@@ -292,6 +372,8 @@ export default function ConsoleTabs({
           <MembershipServiceSection serviceId="ps-plus" />
         </section>
       )}
+
+      {renderFab()}
     </div>
   );
 }

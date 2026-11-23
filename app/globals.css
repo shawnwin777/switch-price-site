@@ -1388,48 +1388,58 @@ a.home-login-preview-btn:hover {
 }
 
 @media (max-width: 760px) {
-  /* 手機牆：改一排兩張、間距收小，卡片內文跟著縮小，
-   *  一頁 18 張從 18 排變成 9 排，滑到底、分頁都近很多。 */
+  /* 手機牆：改一排三張（2026-11-23 第 3 輪，shawn 嫌兩張太大）、間距收小，
+   *  卡片內文跟著縮小；英文副標藏起來省一行，頁底按鈕縮小、允許換行，
+   *  避免在約 114px 寬的卡片裡溢出或互疊。 */
   .game-grid {
-    gap: 10px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .game-card-body {
-    gap: 4px;
-    padding: 8px 10px 10px;
+    gap: 3px;
+    padding: 6px 8px 8px;
   }
 
   .game-card-title {
-    font-size: 14px;
+    font-size: 13px;
   }
 
+  /* 三欄時英文副標佔一整行、卡片變很高，先藏起來（第 1 輪就提過的選項）。 */
   .game-card-en {
+    display: none;
+  }
+
+  .game-card-badges {
+    gap: 4px;
+  }
+
+  .game-card .badge {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+
+  .game-card-price .price-label {
     font-size: 11px;
   }
 
   .game-card-price .price-value {
-    font-size: 17px;
+    font-size: 15px;
+  }
+
+  .game-card-price .price-value small {
+    font-size: 10px;
   }
 
   .game-card-foot {
+    flex-wrap: wrap;
     margin-top: 6px;
     padding-top: 6px;
   }
 
-  /* /deals、/console 的特價牆也一樣改一排兩張。 */
-  .deals-grid {
-    gap: 10px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .deals-card-body {
-    gap: 3px;
-    padding: 8px 10px 10px;
-  }
-
-  .deals-card-title {
-    font-size: 14px;
+  .game-card-foot .icon-btn {
+    font-size: 12px;
+    padding: 4px 6px;
   }
 }
 
@@ -2182,5 +2192,42 @@ table.price-table {
   font-size: 15px;
   font-weight: 700;
   line-height: 1.35;
+}
+
+/* ---------- 手機 3 欄：/deals、/console 的特價卡 ----------
+ *  注意：.deals-grid／.deals-card-body／.deals-card-title 的 base 定義
+ *  就在上面這個檔尾區段，第 1 輪放在 1390 行 media query 裡的手機規則
+ *  因為 source order 在 base 之前、同 specificity 而被蓋掉，從來沒生效
+ *  ——所以 /deals、/console 手機上一直是一欄全寬大卡。真正的手機規則
+ *  必須放在 base 定義之後，也就是這個檔尾區塊；以後改 deals 手機樣式
+ *  只改這裡，不要再寫回 1390 行那組。
+ *  （.deals-price 手機 15px 已由 2065 行那組 media query 生效，不重寫。） */
+@media (max-width: 760px) {
+  .deals-grid {
+    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .deals-card-body {
+    gap: 3px;
+    padding: 6px 8px 8px;
+  }
+
+  .deals-card-title {
+    font-size: 13px;
+  }
+
+  .deals-card .badge {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+
+  .deals-badge {
+    gap: 6px;
+  }
+
+  .deals-sub {
+    font-size: 11px;
+  }
 }
 
