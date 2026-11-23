@@ -70,7 +70,7 @@ export default async function ConsolePage() {
         psplusMonthlyUrl={psplus.monthlyUrl}
       />
       <p>
-        <Link href="/">← 回首頁</Link>
+        <Link href="/home">← 回首頁</Link>
       </p>
     </>
   );

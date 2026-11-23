@@ -93,6 +93,6 @@ export default async function TaiwanOfficialPage({searchParams}: {searchParams:P
         {page<totalPages?<Link href={urlFor(q,currentPlatform,page+1)}>下一頁</Link>:<span>下一頁</span>}
       </div>
     </>}
-    <p className={styles.bottom}>若要查看全球價格、收藏與史低，請前往 <Link href="/">Switch 跨區比價首頁</Link>。台灣 DLC 的獨立商品關聯正在安全驗證中。</p>
+    <p className={styles.bottom}>若要查看全球價格、收藏與史低，請前往 <Link href="/switch-price">Switch 跨區比價首頁</Link>。台灣 DLC 的獨立商品關聯正在安全驗證中。</p>
   </section>;
 }

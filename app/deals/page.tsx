@@ -61,7 +61,7 @@ export default async function DealsPage() {
         gamepassTotalCount={gamepassPc.totalCount}
       />
       <p>
-        <Link href="/">← 回首頁</Link>
+        <Link href="/home">← 回首頁</Link>
       </p>
     </>
   );

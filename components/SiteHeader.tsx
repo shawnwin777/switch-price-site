@@ -45,7 +45,7 @@ export default function SiteHeader() {
         </Link>
         <nav className="nav">
           <Link href="/home">首頁</Link>
-          <Link href="/">Switch 比價</Link>
+          <Link href="/switch-price">Switch 比價</Link>
           <Link href="/deals">PC遊戲特價</Link>
           <Link href="/console">家機特價</Link>
           <Link href="/taiwan">台灣完整目錄</Link>

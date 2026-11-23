@@ -153,7 +153,7 @@ export default async function NsoPage() {
         lib/nso-prices.ts 檔頭註解）。兌換券停售資訊見任天堂支援 FAQ。
       </p>
       <p>
-        <Link href="/">← 回首頁</Link>
+        <Link href="/home">← 回首頁</Link>
       </p>
     </>
   );

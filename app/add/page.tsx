@@ -143,7 +143,7 @@ export default function AddGamePage() {
           只有網站管理員（{ADMIN_EMAIL}）可以新增遊戲。
         </div>
         <p>
-          <Link href="/">回首頁 →</Link>
+          <Link href="/home">回首頁 →</Link>
         </p>
       </div>
     );

@@ -38,14 +38,14 @@ export default async function UpcomingPage({
             補好後這裡會列出即將上市的遊戲。
           </p>
           <p>
-            <Link href="/">回首頁 →</Link>
+            <Link href="/home">回首頁 →</Link>
           </p>
         </div>
       ) : result.total === 0 ? (
         <div className="empty">
           <p>目前沒有即將上市的遊戲。</p>
           <p>
-            <Link href="/">回首頁 →</Link>
+            <Link href="/home">回首頁 →</Link>
           </p>
         </div>
       ) : (
