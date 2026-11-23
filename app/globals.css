@@ -1559,6 +1559,18 @@ table.price-table {
   margin-top: 18px;
 }
 
+/* 登入頁提醒：目前僅支援 Switch 比價（黃色警告框，放在 Google 按鈕上方；
+ *  沿用站上琥珀色警示風格：黃底／黃框／黃字，同 .nso-notice 的做法）。 */
+.login-alert {
+  background: rgba(255, 194, 51, 0.1);
+  border: 1px solid var(--amber);
+  border-radius: var(--radius);
+  color: var(--amber);
+  font-weight: 700;
+  margin: 0;
+  padding: 12px 14px;
+}
+
 .login-btns .btn {
   font-size: 16px;
   padding: 12px;

@@ -75,6 +75,9 @@ export default function LoginClient() {
         </>
       ) : (
         <div className="login-btns">
+          <div className="login-alert" role="alert">
+            ⚠️ 目前僅支援 Switch 比價
+          </div>
           <button
             type="button"
             className="btn btn-primary"
@@ -93,7 +96,6 @@ export default function LoginClient() {
           </button>
           <p className="muted">
             登入後即可收藏遊戲、按讚、留言，並在首頁看到「你收藏的遊戲正在特價」的提醒。
-            目前僅支援 Switch 比價。
           </p>
         </div>
       )}
