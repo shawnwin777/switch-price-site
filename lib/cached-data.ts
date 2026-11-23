@@ -56,10 +56,14 @@ import {
 /** Steam 特價＋Epic 免費遊戲（/deals 獨立頁面，伺服器端抓取、每小時更新一次，
  *  不每次載入頁面都打 Steam／Epic API；抓取失敗時該來源回空陣列）。
  *  2026-11-23 輪播改獨立頁面：快取 key 從 deals-carousel-v1 換成
- *  deals-page-v1（資料形狀改了，舊快取沒有分來源陣列，換 key 立刻重算）。 */
+ *  deals-page-v1（資料形狀改了，舊快取沒有分來源陣列，換 key 立刻重算）。
+ *  2026-11-23 分頁改版：Steam 改走特價搜尋 API 取前 200 款，key 再換成
+ *  deals-page-v2（舊快取的 Steam 只有 10 款精選）。抓取頁數 2 頁→3 頁
+ *  時 key 再換成 deals-page-v3（Data Cache 存在磁碟、部署也不會清，
+ *  2 頁版算出的 199 款會一直被 v2 快取吃到）。 */
 export const getCachedDealsPage = unstable_cache(
   async (): Promise<DealsPageData> => fetchDealsPage(),
-  ["deals-page-v1"],
+  ["deals-page-v3"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-page"] }
 );
 
@@ -69,10 +73,12 @@ import {
 } from "./xbox-deals";
 
 /** Xbox PC 特價（/deals 下方區塊，伺服器端抓取、每小時更新一次，
- *  不每次載入頁面都打 Microsoft API；抓取失敗時回空陣列、該區塊顯示空狀態）。 */
+ *  不每次載入頁面都打 Microsoft API；抓取失敗時回空陣列、該區塊顯示空狀態）。
+ *  2026-11-23 分頁改版：從前 50 款擴到前 200 款，key 換成
+ *  xbox-pc-deals-v2（舊快取只有 50 款）。 */
 export const getCachedXboxPcDeals = unstable_cache(
   async (): Promise<XboxPcDealsData> => fetchXboxPcDeals(),
-  ["xbox-pc-deals-v1"],
+  ["xbox-pc-deals-v2"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["xbox-pc-deals"] }
 );
 

@@ -3,10 +3,10 @@
 // ----------------------------------------------------------------------------
 // 兩段式（2026-11-23 實測台灣區都通）：
 //   1. 清單：GET https://apps.microsoft.com/api/Reco/GetComputedProductsList
-//        ?gl=TW&hl=zh-Hant-TW&listName=Deal&pgNo=1&noItems=50
+//        ?gl=TW&hl=zh-Hant-TW&listName=Deal&pgNo=1&noItems=100
 //        &filteredCategories=AllProducts&mediaType=games
 //      → 台灣 PC 商店特價清單的 productId（productsList[].productId）。
-//      實測 totalCount 約 500 款；這裡只取第 1 頁 50 款，
+//      實測 totalCount 約 500 款；這裡取第 1、2 頁（共 200 款），
 //      頁面註明總數並連去微軟商店看完整清單（一次抓 500 款太重）。
 //   2. 補資料：GET https://displaycatalog.mp.microsoft.com/v7.0/products
 //        ?market=TW&languages=zh-Hant&bigIds=<id,...>&MS-CV=<值>
@@ -34,10 +34,16 @@ export interface XboxPcDealsData {
   shownCount: number;
 }
 
-const LIST_URL =
+const LIST_BASE =
   "https://apps.microsoft.com/api/Reco/GetComputedProductsList" +
-  "?gl=TW&hl=zh-Hant-TW&listName=Deal&pgNo=1&noItems=50" +
+  "?gl=TW&hl=zh-Hant-TW&listName=Deal" +
   "&filteredCategories=AllProducts&mediaType=games";
+/** 清單取前 200 款（2 頁 × 100）；補資料每批 50 個 id、最多 3 批並行
+ *  （20 款約 1 MB，50 款一批約 2.5 MB；4 批並行跑約數秒，在 60 秒內）。 */
+const LIST_PAGES = 2;
+const LIST_PAGE_SIZE = 100;
+const CATALOG_BATCH_SIZE = 50;
+const CATALOG_CONCURRENCY = 3;
 const CATALOG_URL = "https://displaycatalog.mp.microsoft.com/v7.0/products";
 /** Display Catalog 要求的 MS-CV（固定值；+ 必須 URL-encode，見上方說明）。 */
 const MS_CV = "DGU1mcuYo0WMMp+F.1";
@@ -213,7 +219,7 @@ function parseProducts(data: unknown): DealsCarouselItem[] {
   return items;
 }
 
-/** 抓台灣 PC 商店特價（前 50 款，折扣大→小）。單一環節失敗回空。 */
+/** 抓台灣 PC 商店特價（前 200 款，折扣大→小）。單一環節失敗回空。 */
 export async function fetchXboxPcDeals(): Promise<XboxPcDealsData> {
   const nowMs = Date.now();
   const empty: XboxPcDealsData = {
@@ -225,26 +231,66 @@ export async function fetchXboxPcDeals(): Promise<XboxPcDealsData> {
   let ids: string[] = [];
   let totalCount = 0;
   try {
-    const list = (await fetchJson(LIST_URL)) as {
-      productsList?: { productId?: string }[];
-      totalCount?: number;
-    };
-    ids = (list.productsList ?? [])
-      .map((p) => p.productId)
-      .filter((x): x is string => typeof x === "string" && x.length > 0);
-    totalCount = list.totalCount ?? 0;
+    const pages = await Promise.allSettled(
+      Array.from({ length: LIST_PAGES }, (_, i) =>
+        fetchJson(
+          `${LIST_BASE}&pgNo=${i + 1}&noItems=${LIST_PAGE_SIZE}`
+        )
+      )
+    );
+    for (const p of pages) {
+      if (p.status !== "fulfilled") continue;
+      const list = p.value as {
+        productsList?: { productId?: string }[];
+        totalCount?: number;
+      };
+      totalCount = totalCount || list.totalCount || 0;
+      for (const prod of list.productsList ?? []) {
+        if (typeof prod.productId === "string" && prod.productId) {
+          ids.push(prod.productId);
+        }
+      }
+    }
+    ids = [...new Set(ids)].slice(0, LIST_PAGES * LIST_PAGE_SIZE);
   } catch (e) {
     console.warn("[xbox-deals] 特價清單抓取失敗：", e);
     return empty;
   }
   if (ids.length === 0) return { ...empty, totalCount };
+  // 補資料：每批 50 個 id，最多 3 批並行。
+  const batches: string[][] = [];
+  for (let i = 0; i < ids.length; i += CATALOG_BATCH_SIZE) {
+    batches.push(ids.slice(i, i + CATALOG_BATCH_SIZE));
+  }
   let items: DealsCarouselItem[] = [];
   try {
-    const url =
-      `${CATALOG_URL}?market=TW&languages=zh-Hant` +
-      `&bigIds=${encodeURIComponent(ids.join(","))}` +
-      `&MS-CV=${encodeURIComponent(MS_CV)}`;
-    items = parseProducts(await fetchJson(url));
+    const results: DealsCarouselItem[][] = [];
+    for (let i = 0; i < batches.length; i += CATALOG_CONCURRENCY) {
+      const chunk = batches.slice(i, i + CATALOG_CONCURRENCY);
+      const settled = await Promise.allSettled(
+        chunk.map(async (batch) => {
+          const url =
+            `${CATALOG_URL}?market=TW&languages=zh-Hant` +
+            `&bigIds=${encodeURIComponent(batch.join(","))}` +
+            `&MS-CV=${encodeURIComponent(MS_CV)}`;
+          return parseProducts(await fetchJson(url));
+        })
+      );
+      for (const s of settled) {
+        if (s.status === "fulfilled") results.push(s.value);
+        else console.warn("[xbox-deals] Display Catalog 其中一批失敗：", s.reason);
+      }
+    }
+    const seen = new Set<string>();
+    items = results
+      .flat()
+      .filter((it) => {
+        if (seen.has(it.key)) return false;
+        seen.add(it.key);
+        return true;
+      })
+      .sort((a, b) => b.sortKey - a.sortKey)
+      .slice(0, LIST_PAGES * LIST_PAGE_SIZE);
   } catch (e) {
     console.warn("[xbox-deals] Display Catalog 補資料失敗：", e);
     return { ...empty, totalCount };

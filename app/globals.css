@@ -1131,6 +1131,39 @@ table.price-table {
   color: var(--cyan);
 }
 
+.deals-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 4px;
+}
+
+.deals-tab {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 18px;
+}
+
+.deals-tab:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.deals-tab.active {
+  background: rgba(0, 240, 255, 0.18);
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.deals-pager {
+  margin: 16px 0 8px;
+}
+
 .deals-subhead {
   font-size: 15px;
   margin: 14px 0 8px;

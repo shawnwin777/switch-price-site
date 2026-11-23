@@ -170,23 +170,19 @@ npm start                    # 跑 production build
 
 ## 已完成（2026-11-23：Steam＋Epic 輪播、首頁第一頁修正）
 
-- **Steam 特價＋Epic 免費遊戲獨立頁面 /deals**（2026-11-23 上午先上首頁輪播，當天中午依 shawn 決定改成獨立頁面，輪播下架）：
-  `app/deals/page.tsx`＋`components/DealCard.tsx`＋`components/EpicDealsSection.tsx`＋`lib/deals-carousel.ts`（檔名未改，內容已是 /deals 用）。
-  伺服器端抓取、每小時快取（`lib/cached-data.ts` 的 `getCachedDealsPage`，key `deals-page-v1`，revalidate 3600 秒），不每次載入頁面都打 API。
-  只做台灣區（Steam `cc=TW&l=tchinese`、Epic `country=TW&locale=zh-Hant`），不加跨區切換——跨區帳號可能被鎖。
-  Epic 區塊在上、可摺疊（預設展開，`EpicDealsSection` client component），本週免費＋下週預告；
-  Steam 區塊在下，`specials.items` 全部列出（不截斷，輪播時代的 10 款上限已拿掉；API 目前回 10 款），折扣大→小，顯示折扣與台幣價、特價至日期，連去 Steam 商店。
+- **Steam 特價＋Epic 免費遊戲＋Xbox PC 特價獨立頁面 /deals**（2026-11-23 上午先上首頁輪播，當天中午依 shawn 決定改成獨立頁面，輪播下架；當天下午再改成分頁框）：
+  `app/deals/page.tsx`＋`components/DealCard.tsx`＋`components/DealsTabs.tsx`＋`lib/deals-carousel.ts`＋`lib/xbox-deals.ts`（檔名未改，內容已是 /deals 用）。
+  伺服器端抓取、每小時快取（`lib/cached-data.ts` 的 `getCachedDealsPage`，key `deals-page-v3`；`getCachedXboxPcDeals`，key `xbox-pc-deals-v2`，revalidate 3600 秒），不每次載入頁面都打 API。
+  只做台灣區（Steam `cc=TW`、Epic `country=TW&locale=zh-Hant`、Xbox `market=TW`），不加跨區切換——跨區帳號可能被鎖。
+  上方三個平台分頁框（Epic／Steam／Xbox PC，`DealsTabs` client component，預設 Steam），點了不跳頁、不換路由，當下切換；三個平台各自都能摺疊（標題旁「▾ 收合／▸ 展開」，預設展開，收起時連分頁控制一起收）。每平台取前 200 款，一次只顯示 24 款，在頁內翻頁（頁碼用 `lib/pagination.ts` 的 `pageWindow`）。
+  Epic 只有免費遊戲（本週＋下週預告）；Epic 特價抓不到——免費遊戲那支公開 API 不含特價資料，特價要走的 Epic GraphQL 與商店瀏覽頁都被 403 擋下（2026-11-23 實測，連瀏覽器標頭也一樣），不要再試。
+  Steam 取折扣最大的前 200 款：走特價搜尋 API（`search/results/?specials=1&cc=TW`，回 results_html 要解析；2026-11-23 實測台灣區特價中 15,020 款；`sort_by=Discount_DESC` 與 `_ASC` 順序相同、不支援折扣排序，所以抓前兩頁 200 列再在伺服器端按折扣大→小取前 200；搜尋結果沒有特價截止日）。舊的 `featuredcategories` specials 只回 10 款精選，搜尋失敗時才當備援。
+  Xbox PC 取折扣最大的前 200 款（清單第 1、2 頁各 100 個 productId，Display Catalog 每批 50 個 id、最多 3 批並行補資料；總數約 500 款，頁面註明總數並連去微軟商店台灣區 PC 特價頁看完整清單）。
   Epic 取 `freeGamesPromotions`（TW，`discountSetting.discountPercentage === 0` 才是免費——實測回應沒有 `discountPrice` 欄位；進行中顯示「免費／領取截止日」，下週預告顯示「即將免費／開始日」，連去 Epic 商店）。
-  單一來源失敗時只顯示另一來源；兩邊都失敗時顯示空狀態、頁面不壞。
+  單一來源失敗時只顯示其他來源；全部失敗時顯示空狀態、頁面不壞。
   首頁不再有輪播，改成入口卡片（跟「準備上市」「接近歷史低價」放一起）＋導覽列「Steam／Epic／Xbox 特價」連結。
   注意：2026-11-23 實測 TW 本週無進行中免費遊戲（Mark of the Deep 只在 US 回應有），當時只有 10 款 Steam＋1 款 Epic 下週預告（Bread and Fred，11/26 起免費），這是資料現況、不是 bug。
-  舊輪播元件 `components/DealsCarousel.tsx` 已無引用，留在 repo 裡（push-files 不支援刪檔，之後要刪請用網頁上傳）。
-- **Xbox PC 特價區塊（/deals 下方，`lib/xbox-deals.ts`，2026-11-23 推送前依 shawn 要求追加）**：
-  兩段式、都匿名免金鑰：先抓 `apps.microsoft.com/api/Reco/GetComputedProductsList`（`gl=TW`、`hl=zh-Hant-TW`、`listName=Deal`、`mediaType=games`，第 1 頁 50 款）拿台灣 PC 特價清單的 productId；
-  再用 `displaycatalog.mp.microsoft.com/v7.0/products`（`market=TW`、`languages=zh-Hant`、bigIds 批次，MS-CV 值裡的 `+` 要 URL-encode 成 `%2B` 否則 400）補標題、圖片、台幣價。
-  價格取 `DisplaySkuAvailabilities[].Availabilities[].OrderManagementData.Price` 裡 CurrencyCode=TWD 且 ListPrice < MSRP 的選項（取最低價；Game Pass 等 0 元／非台幣選項不算），MSRP vs ListPrice 算折扣％，特價結束看 Conditions.EndDate；
-  只列 Windows.Desktop（Play Anywhere 同時有 Windows.Xbox 的也算）。圖片優先 16:9 的 TitledHeroArt／SuperHeroArt，沒有才用 Screenshot／BoxArt。
-  顯示折扣最大的 50 款（清單總數約 500 款，頁面註明總數並連去微軟商店台灣區 PC 特價頁看完整清單）。快取 `getCachedXboxPcDeals`（key `xbox-pc-deals-v1`，revalidate 3600 秒）。
+  舊輪播元件 `components/DealsCarousel.tsx` 與舊 Epic 區塊 `components/EpicDealsSection.tsx` 已無引用，留在 repo 裡（push-files 不支援刪檔，之後要刪請用網頁上傳）。
 - **首頁第一頁修正**（`lib/data.ts` 的 `buildFilteredGamesQuery`，快取版與即時版共用的單一過濾點）：
   沒選國家時，查詢階段就只撈預設可見國家（TW、HK）有價的遊戲參與排序與分頁（`price_country_list` 包含 TW 或 HK）。
   舊版先照全球特價排序分頁、再由前端依可見國家過濾，導致預設首頁第一頁 18 款 TW/HK 價格 0/18、整頁「可見國家尚無價格」（2026-11-20 驗證、2026-11-23 上線前再驗證仍是 0/18）。

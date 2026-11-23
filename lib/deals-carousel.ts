@@ -2,13 +2,16 @@
 // Steam 特價＋Epic 免費遊戲（/deals 獨立頁面）：伺服器端抓取（不需金鑰）。
 // ----------------------------------------------------------------------------
 // 資料來源（2026-11-20 已驗證無需金鑰，2026-11-23 早上再驗證仍通）：
-//   Steam 特價：GET https://store.steampowered.com/api/featuredcategories/?cc=TW&l=tchinese
-//     specials.items：name、discount_percent、original_price／final_price
-//     （台幣，以分為單位，除以 100）、large_capsule_image、id、discount_expiration（unix 秒）。
+//   Steam 特價：特價搜尋 API
+//     GET https://store.steampowered.com/search/results/?query&start=0&count=100
+//       &dynamic_data=&sort_by=_ASC&specials=1&infinite=1&cc=TW&l=tchinese
+//     回 results_html（HTML 片段），每列有 app id、名稱、折扣％、台幣原價／特價。
+//     2026-11-23 實測台灣區特價中 15,020 款；sort_by 傳 Discount_DESC
+//     與 _ASC 回傳順序相同（不支援折扣排序），所以抓前三頁（300 列）
+//     再在伺服器端按折扣大→小排序取前 200。只做台灣（cc=TW），不加跨區
+//     切換——跨區帳號可能被鎖。搜尋結果沒有特價截止日，subLine 為空。
+//     舊的 featuredcategories specials 只回 10 款精選，搜尋失敗時才當備援。
 //     連結：https://store.steampowered.com/app/<id>/
-//     注意：只做台灣（cc=TW），不加跨區切換——跨區帳號可能被鎖。
-//     specials 目前 API 回 10 款，這裡不截斷，全部列出（未來 API 回更多
-//     就列更多，不只留輪播時代的 10 款）。
 //   Epic 免費遊戲：GET https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions?locale=zh-Hant&country=TW&allowCountries=TW
 //     data.Catalog.searchStore.elements：title、price.totalPrice（originalPrice，台幣分）、
 //     keyImages（DieselStoreFrontWide／Thumbnail）、urlSlug、promotions。
@@ -56,12 +59,20 @@ export interface DealsPageData {
   /** 抓取時間（ISO），除錯／快取觀察用。 */
   fetchedAt: string;
   steamCount: number;
+  /** Steam 台灣區特價中的總款數（搜尋 API 的 total_count）。 */
+  steamTotalCount: number;
   epicCurrentCount: number;
   epicUpcomingCount: number;
 }
 
 const STEAM_URL =
   "https://store.steampowered.com/api/featuredcategories/?cc=TW&l=tchinese";
+/** Steam 特價搜尋 API（回 results_html；一次最多 100 列，抓前兩頁）。 */
+const STEAM_SEARCH_URL =
+  "https://store.steampowered.com/search/results/?query" +
+  "&dynamic_data=&sort_by=_ASC&specials=1&infinite=1&cc=TW&l=tchinese";
+/** 每平台分頁取的前 200 款。 */
+export const DEALS_TOP_COUNT = 200;
 const EPIC_URL =
   "https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions?locale=zh-Hant&country=TW&allowCountries=TW";
 
@@ -156,6 +167,119 @@ function parseSteam(data: unknown): DealsCarouselItem[] {
       };
     });
   return items;
+}
+
+/** 搜尋結果標題裡的 HTML 實體（&amp;、&#039; 等）解回原字。 */
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;|&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+function parseTwdAmount(text: string | null | undefined): number | null {
+  if (!text) return null;
+  const n = Number(text.replace(/[^\d.]/g, ""));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function formatTwdAmount(amount: number): string {
+  return `NT$ ${Math.round(amount).toLocaleString("zh-Hant-TW")}`;
+}
+
+/** 解析特價搜尋一頁的 results_html，取 app id、名稱、折扣％、台幣價。
+ *  列結構（實測）：<a href=".../app/<id>/..." class="search_result_row ...">
+ *  內含 <span class="title">、discount_block（data-discount、data-price-final）
+ *  與 discount_original_price／discount_final_price。缺欄位的列跳過。 */
+function parseSteamSearchPage(html: string): DealsCarouselItem[] {
+  const items: DealsCarouselItem[] = [];
+  if (!html) return items;
+  const rowRe =
+    /<a href="https:\/\/store\.steampowered\.com\/app\/(\d+)\/[^"]*"[^>]*class="search_result_row[^"]*"[^>]*>([\s\S]*?)<\/a>/g;
+  for (const m of html.matchAll(rowRe)) {
+    const appId = Number(m[1]);
+    const body = m[2] ?? "";
+    if (!Number.isFinite(appId) || appId <= 0) continue;
+    const titleM = /<span class="title">([\s\S]*?)<\/span>/.exec(body);
+    const title = titleM ? decodeEntities(titleM[1].trim()) : "";
+    if (!title) continue;
+    const discM =
+      /discount_pct"[^>]*>([^<]*)</.exec(body) ??
+      /data-discount="(\d+)"/.exec(body);
+    const discText = discM ? discM[1] : "";
+    let discount = Math.abs(parseInt(discText.replace(/[^0-9]/g, ""), 10));
+    const origM = /discount_original_price">([^<]*)</.exec(body);
+    const finalM = /discount_final_price">([^<]*)</.exec(body);
+    const original = parseTwdAmount(origM?.[1]);
+    const final = parseTwdAmount(finalM?.[1]);
+    if (original && final && final < original) {
+      discount = Math.round((1 - final / original) * 100);
+    }
+    if (!Number.isFinite(discount) || discount <= 0 || !final) continue;
+    const priceLine = original
+      ? `${formatTwdAmount(final)}（原價 ${formatTwdAmount(original)}）`
+      : formatTwdAmount(final);
+    items.push({
+      source: "steam",
+      key: `steam-${appId}`,
+      title,
+      // 搜尋列只有 231x87 小圖；卡片用標準 460x215 header 圖。
+      image: `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg`,
+      url: `https://store.steampowered.com/app/${appId}/`,
+      badge: `-${discount}%`,
+      priceLine,
+      // 搜尋結果沒有特價截止日。
+      subLine: null,
+      sortKey: discount,
+    });
+  }
+  return items;
+}
+
+/** 抓 Steam 特價搜尋前三頁（300 列），去重後按折扣大→小取前 200 款。
+ *  （兩頁 200 列實測會有 1 款重複、只剩 199 款，所以多抓一頁補滿。）
+ *  同時回傳台灣區特價總款數（total_count）。任一頁失敗回空陣列。 */
+async function fetchSteamSearchTop(): Promise<{
+  items: DealsCarouselItem[];
+  totalCount: number;
+}> {
+  const pages = await Promise.allSettled(
+    [0, 100, 200].map(async (start) => {
+      const res = await fetch(`${STEAM_SEARCH_URL}&start=${start}&count=100`, {
+        headers: { Accept: "application/json", "User-Agent": USER_AGENT },
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status} Steam 搜尋 start=${start}`);
+      const data = (await res.json()) as {
+        results_html?: string;
+        total_count?: number;
+      };
+      return {
+        items: parseSteamSearchPage(data.results_html ?? ""),
+        totalCount: data.total_count ?? 0,
+      };
+    })
+  );
+  const ok = pages
+    .filter(
+      (p): p is PromiseFulfilledResult<{ items: DealsCarouselItem[]; totalCount: number }> =>
+        p.status === "fulfilled"
+    )
+    .map((p) => p.value);
+  if (ok.length === 0) return { items: [], totalCount: 0 };
+  const seen = new Set<string>();
+  const merged = ok
+    .flatMap((p) => p.items)
+    .filter((it) => {
+      if (seen.has(it.key)) return false;
+      seen.add(it.key);
+      return true;
+    })
+    .sort((a, b) => b.sortKey - a.sortKey || a.key.localeCompare(b.key))
+    .slice(0, DEALS_TOP_COUNT);
+  return { items: merged, totalCount: ok[0]?.totalCount ?? 0 };
 }
 
 interface EpicOffer {
@@ -265,22 +389,32 @@ function parseEpic(data: unknown, nowMs: number): {
 }
 
 /** 抓 Steam 特價＋Epic 免費遊戲（/deals 獨立頁面用，分來源回傳）。
- *  單一來源失敗不影響另一來源；兩邊都失敗回空陣列。 */
+ *  單一來源失敗不影響另一來源；兩邊都失敗回空陣列。
+ *  Steam 先走特價搜尋（前 200 款、折扣大→小）；搜尋無結果才退回
+ *  featuredcategories specials（10 款精選，當備援）。 */
 export async function fetchDealsPage(): Promise<DealsPageData> {
   const nowMs = Date.now();
-  const [steamRes, epicRes] = await Promise.allSettled([
-    fetchJson(STEAM_URL),
+  const [steamSearch, epicRes] = await Promise.allSettled([
+    fetchSteamSearchTop(),
     fetchJson(EPIC_URL),
   ]);
   let steamItems: DealsCarouselItem[] = [];
-  if (steamRes.status === "fulfilled") {
-    try {
-      steamItems = parseSteam(steamRes.value);
-    } catch (e) {
-      console.warn("[deals-carousel] Steam 資料解析失敗：", e);
-    }
+  let steamTotalCount = 0;
+  if (steamSearch.status === "fulfilled") {
+    steamItems = steamSearch.value.items;
+    steamTotalCount = steamSearch.value.totalCount;
   } else {
-    console.warn("[deals-carousel] Steam API 失敗：", steamRes.reason);
+    console.warn("[deals-carousel] Steam 搜尋失敗：", steamSearch.reason);
+  }
+  if (steamItems.length === 0) {
+    try {
+      steamItems = parseSteam(await fetchJson(STEAM_URL));
+      if (steamItems.length > 0) {
+        console.warn("[deals-carousel] Steam 搜尋無結果，已退回 specials 備援");
+      }
+    } catch (e) {
+      console.warn("[deals-carousel] Steam 備援 specials 也失敗：", e);
+    }
   }
   let epicCurrent: DealsCarouselItem[] = [];
   let epicUpcoming: DealsCarouselItem[] = [];
@@ -304,6 +438,7 @@ export async function fetchDealsPage(): Promise<DealsPageData> {
     epicUpcoming,
     fetchedAt: new Date(nowMs).toISOString(),
     steamCount: steamItems.length,
+    steamTotalCount,
     epicCurrentCount: epicCurrent.length,
     epicUpcomingCount: epicUpcoming.length,
   };
