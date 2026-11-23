@@ -4,7 +4,10 @@ import {
   getCachedGamePassNew,
   getCachedXboxPcDeals,
 } from "@/lib/cached-data";
+import type { DealsPageData } from "@/lib/deals-carousel";
 import { formatTaipei } from "@/lib/format";
+import type { GamePassNewData } from "@/lib/gamepass";
+import type { XboxPcDealsData } from "@/lib/xbox-deals";
 import DealsTabs from "@/components/DealsTabs";
 
 export const dynamic = "force-dynamic";
@@ -28,11 +31,39 @@ export const metadata = {
  *  家機不在這頁：2026-11-23 12:17 shawn 改方向，Xbox 家機改去獨立頁
  *  /console（PS 家機也在那頁等上線），本頁維持 PC 頁。
  *  資料伺服器端抓取、每小時快取（lib/cached-data.ts）。 */
+const EMPTY_DEALS: DealsPageData = {
+  items: [],
+  steam: [],
+  steamFree: [],
+  epicCurrent: [],
+  epicUpcoming: [],
+  fetchedAt: "",
+  steamCount: 0,
+  steamFreeCount: 0,
+  steamTotalCount: 0,
+  epicCurrentCount: 0,
+  epicUpcomingCount: 0,
+};
+const EMPTY_XBOX_PC: XboxPcDealsData = {
+  items: [],
+  fetchedAt: "",
+  totalCount: 0,
+  shownCount: 0,
+};
+const EMPTY_GAMEPASS: GamePassNewData = {
+  items: [],
+  fetchedAt: "",
+  totalCount: 0,
+  shownCount: 0,
+};
+
 export default async function DealsPage() {
+  // 單一來源抓失敗時（getter 拋錯、空結果不進快取）只讓該分頁顯示空狀態，
+  // 不拖垮整頁；下次請求會重抓（2026-11-23 Xbox 三分頁 18:14 中毒的教訓）。
   const [deals, xbox, gamepassPc] = await Promise.all([
-    getCachedDealsPage(),
-    getCachedXboxPcDeals(),
-    getCachedGamePassNew("pc"),
+    getCachedDealsPage().catch(() => EMPTY_DEALS),
+    getCachedXboxPcDeals().catch(() => EMPTY_XBOX_PC),
+    getCachedGamePassNew("pc").catch(() => EMPTY_GAMEPASS),
   ]);
 
   return (

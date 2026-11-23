@@ -6,6 +6,10 @@ import {
   getCachedXboxConsoleDeals,
 } from "@/lib/cached-data";
 import { formatTaipei } from "@/lib/format";
+import type { GamePassNewData } from "@/lib/gamepass";
+import type { PsDealsData } from "@/lib/ps-deals";
+import type { PsPlusNewData } from "@/lib/ps-plus";
+import type { XboxConsoleDealsData } from "@/lib/xbox-console-deals";
 import ConsoleTabs from "@/components/ConsoleTabs";
 
 export const dynamic = "force-dynamic";
@@ -32,12 +36,42 @@ export const metadata = {
  *  GAME PASS／PS PLUS 新進（2026-11-23 新增）：Game Pass 最近新增（家機，
  *  見 lib/gamepass.ts）、PS Plus 本月新進（遊戲目錄＋每月遊戲，
  *  見 lib/ps-plus.ts），都只列本期／本月新進、不列整個目錄。 */
+const EMPTY_XBOX_CONSOLE: XboxConsoleDealsData = {
+  items: [],
+  fetchedAt: "",
+  totalCount: 0,
+  shownCount: 0,
+};
+const EMPTY_PS: PsDealsData = {
+  items: [],
+  fetchedAt: "",
+  totalCount: 0,
+  shownCount: 0,
+};
+const EMPTY_GAMEPASS: GamePassNewData = {
+  items: [],
+  fetchedAt: "",
+  totalCount: 0,
+  shownCount: 0,
+};
+const EMPTY_PS_PLUS: PsPlusNewData = {
+  items: [],
+  fetchedAt: "",
+  month: null,
+  catalogUrl: null,
+  monthlyUrl: null,
+  totalCount: 0,
+  shownCount: 0,
+};
+
 export default async function ConsolePage() {
+  // 單一來源抓失敗時（getter 拋錯、空結果不進快取）只讓該分頁顯示空狀態，
+  // 不拖垮整頁；下次請求會重抓（2026-11-23 Xbox 三分頁 18:14 中毒的教訓）。
   const [xboxConsole, ps, gamepassConsole, psplus] = await Promise.all([
-    getCachedXboxConsoleDeals(),
-    getCachedPsDeals(),
-    getCachedGamePassNew("console"),
-    getCachedPsPlusNew(),
+    getCachedXboxConsoleDeals().catch(() => EMPTY_XBOX_CONSOLE),
+    getCachedPsDeals().catch(() => EMPTY_PS),
+    getCachedGamePassNew("console").catch(() => EMPTY_GAMEPASS),
+    getCachedPsPlusNew().catch(() => EMPTY_PS_PLUS),
   ]);
 
   return (

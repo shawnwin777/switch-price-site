@@ -67,9 +67,24 @@ import {
  *  限時免費（steamFree 欄位）與分頁改名，key 換成 deals-page-v4。
  *  2026-11-23 上限 200→350→510（Steam 抓 6 頁 600 列取前 510），key 換成
  *  deals-page-v6。2026-11-23 每頁 24 款→30 款（510 款剛好 17 頁），key 換成
- *  deals-page-v7。 */
+ *  deals-page-v7。2026-11-23：四個清單全空時拋錯、不快取（見下方；
+ *  key 不動，舊的好快取續用）。 */
 export const getCachedDealsPage = unstable_cache(
-  async (): Promise<DealsPageData> => fetchDealsPage(),
+  async (): Promise<DealsPageData> => {
+    const data = await fetchDealsPage();
+    // 全部來源都空＝上游全掛（Steam 常年上千款特價、Epic 每週都有免費
+    // 遊戲），拋錯、不把全空結果快取 1 小時；單一來源失敗仍回部分資料、
+    // 不拋錯（跟 Xbox 三個分頁 18:14 空結果中毒同一類問題）。
+    if (
+      data.steam.length === 0 &&
+      data.steamFree.length === 0 &&
+      data.epicCurrent.length === 0 &&
+      data.epicUpcoming.length === 0
+    ) {
+      throw new Error("Steam／Epic 特價全部抓取失敗（回傳 0 款）");
+    }
+    return data;
+  },
   ["deals-page-v7"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-page"] }
 );
@@ -84,10 +99,19 @@ import {
  *  2026-11-23 分頁改版：從前 50 款擴到前 200 款，key 換成
  *  xbox-pc-deals-v2（舊快取只有 50 款）。2026-11-23 上限 200→350→510
  *  （Reco 取 6 頁 600 個 id 取前 510），key 換成 xbox-pc-deals-v4。
- *  2026-11-23 每頁 24 款→30 款，key 換成 xbox-pc-deals-v5。 */
+ *  2026-11-23 每頁 24 款→30 款，key 換成 xbox-pc-deals-v5。
+ *  2026-11-23 18:14 微軟端從 Vercel 抓失敗、空結果被快取 1 小時
+ *  （XBOX PC 分頁變 0 款）；改成 0 款就拋錯、不快取空結果，key 換成
+ *  xbox-pc-deals-v6 立刻重算（跟 /near-low commit b4dc3c49 同一套修法）。 */
 export const getCachedXboxPcDeals = unstable_cache(
-  async (): Promise<XboxPcDealsData> => fetchXboxPcDeals(),
-  ["xbox-pc-deals-v5"],
+  async (): Promise<XboxPcDealsData> => {
+    const data = await fetchXboxPcDeals();
+    if (data.items.length === 0) {
+      throw new Error("Xbox PC 特價抓取失敗（回傳 0 款，不快取空結果）");
+    }
+    return data;
+  },
+  ["xbox-pc-deals-v6"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["xbox-pc-deals"] }
 );
 
@@ -103,10 +127,19 @@ import {
  *  這裡的快取不動（key 仍是 xbox-console-deals-v1，資料本身沒變）。
  *  2026-11-23 上限 200→350→510（Reco 取 6 頁 600 個 id 取前 510），key 換成
  *  xbox-console-deals-v3。2026-11-23 每頁 24 款→30 款，key 換成
- *  xbox-console-deals-v4。 */
+ *  xbox-console-deals-v4。2026-11-23 18:14 微軟端從 Vercel 抓失敗、
+ *  空結果被快取 1 小時（XBOX 家機分頁變 0 款）；改成 0 款就拋錯、
+ *  不快取空結果，key 換成 xbox-console-deals-v5 立刻重算
+ *  （跟 /near-low commit b4dc3c49 同一套修法）。 */
 export const getCachedXboxConsoleDeals = unstable_cache(
-  async (): Promise<XboxConsoleDealsData> => fetchXboxConsoleDeals(),
-  ["xbox-console-deals-v4"],
+  async (): Promise<XboxConsoleDealsData> => {
+    const data = await fetchXboxConsoleDeals();
+    if (data.items.length === 0) {
+      throw new Error("Xbox 家機特價抓取失敗（回傳 0 款，不快取空結果）");
+    }
+    return data;
+  },
+  ["xbox-console-deals-v5"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["xbox-console-deals"] }
 );
 
@@ -122,9 +155,18 @@ import { fetchPsDeals, type PsDealsData } from "./ps-deals";
  *  分段抓、只列折扣 ≥50%、折扣大→小、前 200 款；key 換成 ps-deals-v2
  *  （舊快取是 SALES＋OFFERS 的 44 款舊形狀）。2026-11-23 上限 200→350→510
  *  （最多掃 50 頁、抓滿 510 款 ≥50% 就停），key 換成 ps-deals-v4。
- *  2026-11-23 每頁 24 款→30 款，key 換成 ps-deals-v5。 */
+ *  2026-11-23 每頁 24 款→30 款，key 換成 ps-deals-v5。
+ *  2026-11-23：0 款就拋錯、不快取空結果（跟 Xbox 三個分頁 18:14
+ *  空結果中毒同一類問題；「所有優惠」分類 2,862 款、≥50% 實測 510 款，
+ *  真的 0 款只會是 GraphQL 抓失敗。key 不動，舊的好快取續用）。 */
 export const getCachedPsDeals = unstable_cache(
-  async (): Promise<PsDealsData> => fetchPsDeals(),
+  async (): Promise<PsDealsData> => {
+    const data = await fetchPsDeals();
+    if (data.items.length === 0) {
+      throw new Error("PS 特價抓取失敗（回傳 0 款，不快取空結果）");
+    }
+    return data;
+  },
   ["ps-deals-v5"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["ps-deals"] }
 );
@@ -138,7 +180,11 @@ import {
 /** Game Pass 最近新增（/deals PC 分頁、/console 家機分頁，伺服器端抓取、
  *  每小時更新一次）。2026-11-23 新增：xbox.com sigls v3 recentlyadded
  *  分類＋Display Catalog 補資料；家機 31 款、PC 33 款（實測）。
- *  快取 key 分平台（gamepass-new-console-v1／gamepass-new-pc-v1）。 */
+ *  快取 key 分平台（gamepass-new-console-v1／gamepass-new-pc-v1）。
+ *  2026-11-23：0 款就拋錯、不快取空結果（18:14 微軟端抓失敗、XGP
+ *  家機被空結果鎖 1 小時，跟 /near-low commit b4dc3c49 同一套修法）。
+ *  家機 key 換成 gamepass-new-console-v2 立刻重算；PC 當時快取是好的
+ *  （33 款），key 不動、舊快取續用到期，之後重抓一樣受拋錯保護。 */
 export const getCachedGamePassNew = (
   platform: GamePassPlatform
 ): Promise<GamePassNewData> =>
@@ -147,13 +193,25 @@ export const getCachedGamePassNew = (
     : getCachedGamePassNewPc();
 
 const getCachedGamePassNewConsole = unstable_cache(
-  async (): Promise<GamePassNewData> => fetchGamePassNew("console"),
-  ["gamepass-new-console-v1"],
+  async (): Promise<GamePassNewData> => {
+    const data = await fetchGamePassNew("console");
+    if (data.items.length === 0) {
+      throw new Error("Game Pass 家機新進抓取失敗（回傳 0 款，不快取空結果）");
+    }
+    return data;
+  },
+  ["gamepass-new-console-v2"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["gamepass-new"] }
 );
 
 const getCachedGamePassNewPc = unstable_cache(
-  async (): Promise<GamePassNewData> => fetchGamePassNew("pc"),
+  async (): Promise<GamePassNewData> => {
+    const data = await fetchGamePassNew("pc");
+    if (data.items.length === 0) {
+      throw new Error("Game Pass PC 新進抓取失敗（回傳 0 款，不快取空結果）");
+    }
+    return data;
+  },
   ["gamepass-new-pc-v1"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["gamepass-new"] }
 );
@@ -163,9 +221,18 @@ import { fetchPsPlusNew, type PsPlusNewData } from "./ps-plus";
 /** PS Plus 本月新進（/console 家機頁 PS PLUS 分頁，伺服器端抓取、
  *  每小時更新一次）。2026-11-23 新增：PS Blog sitemap 自動發現當月
  *  目錄文＋每月遊戲文，解析 <strong>遊戲名 | PS5, PS4</strong> 清單，
- *  再用官方搜尋對應到台灣商店商品拿圖片／連結。 */
+ *  再用官方搜尋對應到台灣商店商品拿圖片／連結。
+ *  2026-11-23：0 款就拋錯、不快取空結果（跟 Xbox 三個分頁 18:14
+ *  空結果中毒同一類問題；文章存在就一定有遊戲，0 款只會是抓失敗。
+ *  key 不動，舊的好快取續用）。 */
 export const getCachedPsPlusNew = unstable_cache(
-  async (): Promise<PsPlusNewData> => fetchPsPlusNew(),
+  async (): Promise<PsPlusNewData> => {
+    const data = await fetchPsPlusNew();
+    if (data.items.length === 0) {
+      throw new Error("PS Plus 新進抓取失敗（回傳 0 款，不快取空結果）");
+    }
+    return data;
+  },
   ["ps-plus-new-v1"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["ps-plus-new"] }
 );
