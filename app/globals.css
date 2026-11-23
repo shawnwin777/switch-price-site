@@ -1115,22 +1115,6 @@ table.price-table {
   font-size: 13px;
 }
 
-.deals-collapse-btn {
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--text);
-  cursor: pointer;
-  font-size: 13px;
-  margin-left: auto;
-  padding: 4px 12px;
-}
-
-.deals-collapse-btn:hover {
-  border-color: var(--cyan);
-  color: var(--cyan);
-}
-
 .deals-tabs {
   display: flex;
   flex-wrap: wrap;

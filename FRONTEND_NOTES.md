@@ -177,13 +177,14 @@ npm start                    # 跑 production build
   `app/deals/page.tsx`＋`components/DealCard.tsx`＋`components/DealsTabs.tsx`＋`lib/deals-carousel.ts`＋`lib/xbox-deals.ts`（檔名未改，內容已是 /deals 用）。
   伺服器端抓取、每小時快取（`lib/cached-data.ts` 的 `getCachedDealsPage`，key `deals-page-v3`；`getCachedXboxPcDeals`，key `xbox-pc-deals-v2`，revalidate 3600 秒），不每次載入頁面都打 API。
   只做台灣區（Steam `cc=TW`、Epic `country=TW&locale=zh-Hant`、Xbox `market=TW`），不加跨區切換——跨區帳號可能被鎖。
-  上方三個平台分頁框（Epic／Steam／Xbox PC，`DealsTabs` client component，預設 Steam），點了不跳頁、不換路由，當下切換；三個平台各自都能摺疊（標題旁「▾ 收合／▸ 展開」，預設展開，收起時連分頁控制一起收）。每平台取前 200 款，一次只顯示 24 款，在頁內翻頁（頁碼用 `lib/pagination.ts` 的 `pageWindow`）。
+  上方三個平台分頁框（Epic／Steam／Xbox PC，`DealsTabs` client component，預設 Steam），點了不跳頁、不換路由，當下切換；面板永遠展開、不摺疊（2026-11-23：分頁框模式下摺疊沒意義，收合按鈕全部拿掉）。每平台取前 200 款，一次只顯示 24 款，在頁內翻頁（頁碼用 `lib/pagination.ts` 的 `pageWindow`）。
+  導覽列連去本頁的標籤是「PC遊戲特價」（2026-11-23 從「Steam／Epic／Xbox 特價」改短）。
   Epic 只有免費遊戲（本週＋下週預告）；Epic 特價抓不到——免費遊戲那支公開 API 不含特價資料，特價要走的 Epic GraphQL 與商店瀏覽頁都被 403 擋下（2026-11-23 實測，連瀏覽器標頭也一樣），不要再試。
   Steam 取折扣最大的前 200 款：走特價搜尋 API（`search/results/?specials=1&cc=TW`，回 results_html 要解析；2026-11-23 實測台灣區特價中 15,020 款；`sort_by=Discount_DESC` 與 `_ASC` 順序相同、不支援折扣排序，所以抓前兩頁 200 列再在伺服器端按折扣大→小取前 200；搜尋結果沒有特價截止日）。舊的 `featuredcategories` specials 只回 10 款精選，搜尋失敗時才當備援。
   Xbox PC 取折扣最大的前 200 款（清單第 1、2 頁各 100 個 productId，Display Catalog 每批 50 個 id、最多 3 批並行補資料；總數約 500 款，頁面註明總數並連去微軟商店台灣區 PC 特價頁看完整清單）。
   Epic 取 `freeGamesPromotions`（TW，`discountSetting.discountPercentage === 0` 才是免費——實測回應沒有 `discountPrice` 欄位；進行中顯示「免費／領取截止日」，下週預告顯示「即將免費／開始日」，連去 Epic 商店）。
   單一來源失敗時只顯示其他來源；全部失敗時顯示空狀態、頁面不壞。
-  首頁不再有輪播，改成入口卡片（跟「準備上市」「接近歷史低價」放一起）＋導覽列「Steam／Epic／Xbox 特價」連結。
+  首頁不再有輪播，改成入口卡片（跟「準備上市」「接近歷史低價」放一起）＋導覽列「PC遊戲特價」連結。
   注意：2026-11-23 實測 TW 本週無進行中免費遊戲（Mark of the Deep 只在 US 回應有），當時只有 10 款 Steam＋1 款 Epic 下週預告（Bread and Fred，11/26 起免費），這是資料現況、不是 bug。
   舊輪播元件 `components/DealsCarousel.tsx` 與舊 Epic 區塊 `components/EpicDealsSection.tsx` 已無引用，留在 repo 裡（push-files 不支援刪檔，之後要刪請用網頁上傳）。
 - **首頁第一頁修正**（`lib/data.ts` 的 `buildFilteredGamesQuery`，快取版與即時版共用的單一過濾點）：
@@ -201,8 +202,9 @@ npm start                    # 跑 production build
   `router.refresh()` 讓伺服器端重查（重整後伺服器端範圍與瀏覽器端一致，不會循環）。
   快取：可見範圍字串放進 `GamesPagePublicArgs`，是 `unstable_cache` key 的一部分，
   不同設定不會共用同一份快取；靜態 key 再 bump：`games-page-v3` → `games-page-v4`。
-  預期驗證數字（上線後以 curl 帶 cookie 實測為準）：無 cookie → 4,891 款／第 1 / 272 頁；
-  `ALL` cookie → 29,570 款／第 1 / 1643 頁；`?country=JP` 正常。
+  驗證（2026-11-23 上線後 curl 實測）：無 cookie → 4,891 款／第 1 / 272 頁；
+  `ALL` cookie → 29,570 款／第 1 / 1643 頁；`?country=JP` → 13,231 款／第 1 / 736 頁；
+  無效 cookie（`XX`）與 `TW,HK` cookie 都退回預設 4,891 款／第 1 / 272 頁。
   限制：特價統計（has_sale、min_sale_end）仍是全部國家的（見 migration `20261119_add_price_country_list.sql` 的已知限制），卡片上的最低價／特價徽章／特價至只看可見國家。
 
 ## 未來規劃（目前不做，只記下來）
