@@ -200,8 +200,20 @@ function buildFilteredGamesQuery(
   if (filterUnnamed) query.eq("is_unnamed", false);
   // 國家篩選：只顯示在該國家有價格的遊戲。注意：特價統計（has_sale、
   // min_sale_end）仍是全部國家的，不隨國家篩選改變。
-  if (opts.country && filterCountry)
-    query.contains("price_country_list", [opts.country]);
+  // 沒選國家時：只撈預設可見國家（TW、HK）有價的遊戲參與排序與分頁
+  // （2026-11-23 修復：舊版先照全球特價排序分頁、再由前端依可見國家
+  // 過濾，導致預設首頁第一頁 18 款 TW/HK 價格 0/18、整頁「可見國家尚
+  // 無價格」。伺服器端只知道預設值 TW/HK——使用者 localStorage 裡的
+  // 可見國家設定伺服器端看不到，實作以預設 TW/HK 為準）。
+  // 只看我的收藏（onlyMine）不套用預設篩選：那是使用者自己的清單，
+  // 不該因為沒台港價就整款消失。
+  if (filterCountry) {
+    if (opts.country) {
+      query.contains("price_country_list", [opts.country]);
+    } else if (!opts.onlyMine) {
+      query.or("price_country_list.cs.{TW},price_country_list.cs.{HK}");
+    }
+  }
   const term = sanitizeSearchTerm(opts.q ?? "");
   if (term) {
     query.or(`title_zh.ilike.%${term}%,title_en.ilike.%${term}%`);

@@ -168,4 +168,20 @@ npm start                    # 跑 production build
     DESC NULLS LAST`，沒有上市日的遊戲排在最後面、不被排除；欄位還沒建
     時自動退回名稱排序（快取 1 小時內恢復）。
 
+## 已完成（2026-11-23：Steam＋Epic 輪播、首頁第一頁修正）
+
+- **首頁 Steam 特價＋Epic 免費遊戲輪播**（遊戲牆上方，`components/DealsCarousel.tsx`＋`lib/deals-carousel.ts`）：
+  伺服器端抓取、每小時快取（`lib/cached-data.ts` 的 `getCachedDealsCarousel`，key `deals-carousel-v1`，revalidate 3600 秒），不每次載入頁面都打 API。
+  Steam 取 `featuredcategories` 的 `specials.items`（最多 10 款，折扣大→小，顯示折扣與台幣價、特價至日期，連去 Steam 商店）；
+  Epic 取 `freeGamesPromotions`（TW，`discountSetting.discountPercentage === 0` 才是免費——實測回應沒有 `discountPrice` 欄位；進行中顯示「免費／領取截止日」，下週預告顯示「即將免費／開始日」，連去 Epic 商店）。
+  單一來源失敗時只顯示另一來源；兩邊都失敗時輪播不顯示、首頁不受影響。自動輪播 5 秒＋左右箭頭＋圓點，滑鼠停留暫停。
+  注意：2026-11-23 實測 TW 本週無進行中免費遊戲（Mark of the Deep 只在 US 回應有），當時輪播只有 10 款 Steam＋1 款 Epic 下週預告，這是資料現況、不是 bug。
+- **首頁第一頁修正**（`lib/data.ts` 的 `buildFilteredGamesQuery`，快取版與即時版共用的單一過濾點）：
+  沒選國家時，查詢階段就只撈預設可見國家（TW、HK）有價的遊戲參與排序與分頁（`price_country_list` 包含 TW 或 HK）。
+  舊版先照全球特價排序分頁、再由前端依可見國家過濾，導致預設首頁第一頁 18 款 TW/HK 價格 0/18、整頁「可見國家尚無價格」（2026-11-20 驗證、2026-11-23 上線前再驗證仍是 0/18）。
+  `?country=XX` 單一國家篩選、排除已購買、特價優先排序都保留；「只看我的收藏」不套用預設篩選（自己的清單不該因沒台港價而消失）。
+  伺服器端只知道預設值 TW/HK（使用者 localStorage 的可見國家設定伺服器端看不到），實作以預設 TW/HK 為準。
+  快取 key 依慣例 bump：`games-page-v2` → `games-page-v3`（部署不會清 Data Cache，舊項目留到過期；換 key 立刻重算）。
+  限制：特價統計（has_sale、min_sale_end）仍是全部國家的（見 migration `20261119_add_price_country_list.sql` 的已知限制），卡片上的最低價／特價徽章／特價至只看可見國家。
+
 ## 未來規劃（目前不做，只記下來）

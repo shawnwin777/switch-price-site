@@ -8,6 +8,7 @@ import {
   type HomeSortKey,
 } from "@/lib/data";
 import {
+  getCachedDealsCarousel,
   getCachedGamesPagePublic,
   getCachedLatestFx,
   getCachedLatestPriceUpdate,
@@ -19,6 +20,7 @@ import { formatTaipei } from "@/lib/format";
 import { COUNTRY_MAP } from "@/lib/countries";
 import { isAdminEmail } from "@/lib/admin";
 import HomeClient from "@/components/HomeClient";
+import DealsCarousel from "@/components/DealsCarousel";
 
 // 資料頁面用 force-dynamic：建置時不呼叫 Supabase，
 // Supabase 專案不存在時也能 npm run build 通過。
@@ -117,7 +119,7 @@ export default async function HomePage({
     excludePurchasedIds = await getUserPurchaseGameIds(db, userId);
   }
 
-  const [pageRes, fx, lastUpdate, productTypes, nearLow, upcoming] =
+  const [pageRes, fx, lastUpdate, productTypes, nearLow, upcoming, deals] =
     await Promise.all([
       getCachedGamesPagePublic({
         ...params,
@@ -129,6 +131,8 @@ export default async function HomePage({
       getCachedProductTypes(),
       getCachedNearLowPage(1),
       getCachedUpcomingPage(1),
+      // Steam＋Epic 輪播：伺服器端抓取、每小時快取（失敗回空、不影響首頁）。
+      getCachedDealsCarousel(),
     ]);
   // 個人狀態即時補上（快取裡沒有個人資料）。
   const page = {
@@ -198,6 +202,7 @@ export default async function HomePage({
           </div>
         </Link>
       </div>
+      <DealsCarousel items={deals.items} />
       <HomeClient
         games={page.games}
         total={page.total}

@@ -911,3 +911,178 @@ table.price-table {
   margin-top: 12px;
   padding: 10px 12px;
 }
+
+/* ---------- 首頁 Steam 特價＋Epic 免費遊戲輪播 ---------- */
+.deals-carousel {
+  margin: 16px 0 4px;
+}
+
+.deals-head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-bottom: 10px;
+}
+
+.deals-title {
+  font-size: 19px;
+  margin: 0;
+}
+
+.deals-title .deals-title-sep {
+  color: var(--pink);
+}
+
+.deals-hint {
+  font-size: 13px;
+}
+
+.deals-slide-wrap {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  position: relative;
+}
+
+.deals-slide {
+  aspect-ratio: 21 / 9;
+  display: block;
+  max-height: 360px;
+  position: relative;
+  width: 100%;
+}
+
+.deals-slide:hover {
+  text-decoration: none;
+}
+
+.deals-img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.deals-overlay {
+  background: linear-gradient(
+    180deg,
+    rgba(5, 8, 22, 0) 30%,
+    rgba(5, 8, 22, 0.88) 78%
+  );
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  left: 0;
+  padding: 48px 18px 14px;
+  position: absolute;
+  right: 0;
+}
+
+.deals-badge-steam {
+  background: rgba(0, 240, 255, 0.16);
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
+}
+
+.deals-badge-epic {
+  background: rgba(255, 45, 120, 0.16);
+  border: 1px solid var(--pink);
+  color: #ff7dab;
+}
+
+.deals-item-title {
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-shadow: 0 1px 8px rgba(5, 8, 22, 0.9);
+}
+
+.deals-price {
+  color: var(--cyan);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.deals-sub {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.deals-arrow {
+  background: rgba(5, 8, 22, 0.72);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 26px;
+  height: 44px;
+  line-height: 1;
+  padding: 0 0 3px;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  z-index: 2;
+}
+
+.deals-arrow:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.deals-arrow-left {
+  left: 10px;
+}
+
+.deals-arrow-right {
+  right: 10px;
+}
+
+.deals-dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.deals-dot {
+  background: var(--line);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  height: 8px;
+  padding: 0;
+  transition: width 0.15s ease, background 0.15s ease;
+  width: 8px;
+}
+
+.deals-dot.active {
+  background: var(--cyan);
+  width: 22px;
+}
+
+@media (max-width: 760px) {
+  .deals-slide {
+    aspect-ratio: 16 / 9;
+    max-height: none;
+  }
+
+  .deals-item-title {
+    font-size: 16px;
+  }
+
+  .deals-price {
+    font-size: 15px;
+  }
+
+  .deals-arrow {
+    font-size: 22px;
+    height: 36px;
+    width: 36px;
+  }
+}
+

@@ -926,3 +926,11 @@ slug 如 `tw-<nsuid>`），待清單或文章補名時合併——**2026-11-17 �
 - **未實測**：Supabase 連線（無 service key）——migration 執行、sync_state／
   price_countries 回填、sync-catalog／refresh 路由連庫行為，上線後請先以
   `?dry_run=1` 與小範圍 `?slice=` 驗證（見 SETUP.md §8.9）。
+
+## 13. 台灣遊戲命名匯入：samsonjaw 來源已被週末官方目錄 backfill 覆蓋（2026-11-23）
+
+- 2026-11-20 規劃：按 NSUID 對應 samsonjaw 公開 `data/tw-eshop.json`（4,251 款）＋台灣官網 JSON，把名字寫進未命名遊戲；預期可命名 2,368 款（其中 2,364 款已有台幣價）、另 270 個 NSUID 是掃描檔裡沒有的新遊戲。
+- 2026-11-21–22 週末（shawn＋ChatGPT）：上線 guarded TW official backfill（`scripts/guarded-tw-backfill.mjs`＋`.github/workflows/tw-official-guarded-backfill.yml`，每日 12:20 台北時間，exact-NSUID、佔位名稱才可替換、官方圖片 only、單次上限 3000 筆、SHA256 驗證），並已在 11/22 兩次 `[tw-autofill-approved]` 提交觸發 auto-apply。
+- 2026-11-23 早上比對（離線、無寫庫）：samsonjaw `tw-eshop.json`（2026-11-23 00:57Z 快照）與當天現抓的台灣官方目錄（`/tw/api/software`，4,668 列／4,251 個 NSUID）**NSUID 集合完全相同（only-in-either 皆 0）**；標題 4,169/4,251 完全相同，其餘 82 筆只是 samsonjaw 標題前後空白差異。samsonjaw 就是官方目錄的快照，兩者是同一來源。
+- 結論：**11/20 規劃的 samsonjaw 命名匯入不再另做**——同批 NSUID、同名、同來源，週末 backfill 已在跑（每日 12:20 繼續消化 3000 筆上限外的剩餘候選），重做只會重複寫入。270 款「新」NSUID 也都在官方目錄內；是否已是 DB 遊戲列，取決於週日每週掃描的建檔結果（不在本次執行環境可查範圍——service role key 只在 GitHub Actions secrets 與 shawn 家裡電腦）。
+- 剩餘缺口（週末文件 `docs/tw-production-autofill.md` 亦有記載）：官方目錄未收錄的約 380 個當時已在售 `7001` NSUID，samsonjaw 也沒有，暫無可靠名稱來源——不要用第三方圖片、不要發明名字，等可靠來源再補。

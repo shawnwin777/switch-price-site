@@ -48,14 +48,28 @@ import {
 /** 公開資料快取時間：1 小時（價格每小時更新一次即可；見任務說明）。 */
 export const CACHE_REVALIDATE_SECONDS = 3600;
 
+import {
+  fetchDealsCarousel,
+  type DealsCarouselData,
+} from "./deals-carousel";
+
+/** Steam 特價＋Epic 免費遊戲輪播（伺服器端抓取、每小時更新一次，
+ *  不每次載入頁面都打 Steam／Epic API；抓取失敗時回空陣列、首頁不顯示輪播）。 */
+export const getCachedDealsCarousel = unstable_cache(
+  async (): Promise<DealsCarouselData> => fetchDealsCarousel(),
+  ["deals-carousel-v1"],
+  { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-carousel"] }
+);
+
 /** 首頁公開列表（分頁＋篩選＋排序）。key = 全部篩選條件＋個人 id 清單，
  *  所以不同篩選／不同使用者的排除清單不會共用同一份快取。 */
 export const getCachedGamesPagePublic = unstable_cache(
   async (args: GamesPagePublicArgs): Promise<GamesPageResult> =>
     fetchGamesPagePublicCore(createPublicClient(), args),
-  // v2：2026-11-18 首頁改 18 款／頁，舊 key 的快取是 12 款／頁的舊資料，
+  // v3：2026-11-23 沒選國家時查詢階段只撈 TW／HK 有價的遊戲參與排序與
+  // 分頁（舊 key 的快取是全球特價排序、第一頁 18 款台港無價的舊資料），
   // 換 key 讓它立刻重算（部署不會清 Data Cache，舊項目會留到過期）。
-  ["games-page-v2"],
+  ["games-page-v3"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["games-page"] }
 );
 
