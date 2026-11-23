@@ -52,16 +52,10 @@ export default async function UpcomingPage({
             上市日期資料補充中——正在從各區目錄把上市日期補進來，
             補好後這裡會列出即將上市的遊戲。
           </p>
-          <p>
-            <Link href="/home">回首頁 →</Link>
-          </p>
         </div>
       ) : result.total === 0 ? (
         <div className="empty">
           <p>目前沒有即將上市的遊戲。</p>
-          <p>
-            <Link href="/home">回首頁 →</Link>
-          </p>
         </div>
       ) : (
         <>

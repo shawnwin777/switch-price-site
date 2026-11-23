@@ -56,16 +56,10 @@ export default async function NearLowPage({
       {result.error ? (
         <div className="empty">
           <p>資料準備中，請稍後再試。</p>
-          <p>
-            <Link href="/home">回首頁 →</Link>
-          </p>
         </div>
       ) : result.total === 0 ? (
         <div className="empty">
           <p>目前沒有接近歷史低價的遊戲。</p>
-          <p>
-            <Link href="/home">回首頁 →</Link>
-          </p>
         </div>
       ) : (
         <>

@@ -142,9 +142,6 @@ export default function AddGamePage() {
         <div className="form-error">
           只有網站管理員（{ADMIN_EMAIL}）可以新增遊戲。
         </div>
-        <p>
-          <Link href="/home">回首頁 →</Link>
-        </p>
       </div>
     );
   }

@@ -39,7 +39,6 @@ export default async function TaiwanAddonsPage({searchParams}:{searchParams:Para
         <p className={styles.eyebrow}>台灣 Nintendo eShop · 追加內容</p>
         <h1>台灣 DLC／組合包商品目錄</h1>
         <p>只有網站管理員（{ADMIN_EMAIL}）可以查看台灣 DLC／組合包商品目錄。</p>
-        <p><Link href="/home">回首頁 →</Link></p>
       </div>
     </section>;
   }

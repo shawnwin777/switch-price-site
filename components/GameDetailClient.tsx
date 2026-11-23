@@ -33,7 +33,7 @@ export default function GameDetailClient({
   const [isCollected, setIsCollected] = useState(collectedByMe);
   const [isPurchased, setIsPurchased] = useState(purchasedByMe);
 
-  // 返回上一頁；沒有上一頁紀錄（例如直接開連結進來）時回首頁。
+  // 返回上一頁；沒有上一頁紀錄（例如直接開連結進來）時導向 /home。
   function goBack() {
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();

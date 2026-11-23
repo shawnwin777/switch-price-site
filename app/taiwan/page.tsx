@@ -41,7 +41,6 @@ export default async function TaiwanOfficialPage({searchParams}: {searchParams:P
         <p className={styles.eyebrow}>台灣官方商品目錄</p>
         <h1>台灣 Nintendo Switch／Switch 2</h1>
         <p>只有網站管理員（{ADMIN_EMAIL}）可以查看台灣完整目錄。</p>
-        <p><Link href="/home">回首頁 →</Link></p>
       </div>
     </section>;
   }

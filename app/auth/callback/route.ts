@@ -5,7 +5,7 @@ import { supabaseAnonKey, supabaseUrl } from "@/lib/supabase-env";
 // Supabase Auth OAuth 回呼：GET /auth/callback?code=...&next=...
 //   Google / Discord 登入按鈕（components/LoginClient.tsx）的 redirectTo 指向這裡。
 // 流程：用授權碼向 Supabase 交換 session（PKCE code verifier 存在 cookie，
-// 由 @supabase/ssr 自動帶上），成功後導回首頁或 ?next= 指定的站內頁。
+// 由 @supabase/ssr 自動帶上），成功後導回 /home 或 ?next= 指定的站內頁。
 //
 // 回呼網址由 NEXT_PUBLIC_SITE_URL 組合（${NEXT_PUBLIC_SITE_URL}/auth/callback），
 // 絕對不要在程式碼寫死網址。部署後要把這個網址填回：

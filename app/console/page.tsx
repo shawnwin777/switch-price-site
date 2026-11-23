@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   getCachedGamePassNew,
   getCachedPsDeals,
@@ -103,9 +102,6 @@ export default async function ConsolePage() {
         psplusCatalogUrl={psplus.catalogUrl}
         psplusMonthlyUrl={psplus.monthlyUrl}
       />
-      <p>
-        <Link href="/home">← 回首頁</Link>
-      </p>
     </>
   );
 }

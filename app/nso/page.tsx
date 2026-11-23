@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { COUNTRY_MAP, eshopUrl } from "@/lib/countries";
 import { formatRaw } from "@/lib/format";
 import { getCachedNsoFx } from "@/lib/cached-data";
@@ -151,9 +150,6 @@ export default async function NsoPage() {
         2026 年已證實調價的國家以新價為準——韓國 2026-07-01 漲價、巴西 2026-03
         降價、墨西哥／秘魯／智利／哥倫比亞／阿根廷 2026 年調價（詳見
         lib/nso-prices.ts 檔頭註解）。兌換券停售資訊見任天堂支援 FAQ。
-      </p>
-      <p>
-        <Link href="/home">← 回首頁</Link>
       </p>
     </>
   );

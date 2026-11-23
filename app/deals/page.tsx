@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   getCachedDealsPage,
   getCachedGamePassNew,
@@ -91,9 +90,6 @@ export default async function DealsPage() {
         gamepass={gamepassPc.items}
         gamepassTotalCount={gamepassPc.totalCount}
       />
-      <p>
-        <Link href="/home">← 回首頁</Link>
-      </p>
     </>
   );
 }
