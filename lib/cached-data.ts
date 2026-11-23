@@ -184,10 +184,10 @@ const getCachedGamesPagePublicInner = unstable_cache(
     if (result.error) throw new Error(result.error);
     return result;
   },
-  // v5：2026-11-23 12:57 migration（DROP VIEW＋CREATE VIEW）空窗時，
-  // TW,HK 這把 key 寫進了空的／錯誤結果，v4 快取到現在還在吐舊的
-  // 空結果；換 key 讓它立刻重算（部署不會清 Data Cache）。
-  ["games-page-v5"],
+  // v6：2026-11-23 遊戲牆預設只列遊戲本體（productType 沒帶參數時
+  // 預設 "game"，不再是全部類型）；舊 key 的快取是不篩類型的舊列表，
+  // 換 key 讓它立刻重算（部署不會清 Data Cache）。
+  ["games-page-v6"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["games-page"] }
 );
 

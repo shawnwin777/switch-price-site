@@ -250,8 +250,8 @@ export default function HomeClient({
             <span>商品類型</span>
             <button
               type="button"
-              className={`chip ${!filters.productType ? "active" : ""}`}
-              onClick={() => applyFilter({ productType: undefined })}
+              className={`chip ${filters.productType === "all" ? "active" : ""}`}
+              onClick={() => applyFilter({ productType: "all" })}
             >
               全部
             </button>

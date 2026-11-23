@@ -61,10 +61,14 @@ function parseParams(searchParams: SearchParams) {
     q,
     platform:
       platform === "Switch" || platform === "Switch 2" ? platform : undefined,
+    // 商品類型：沒帶參數預設只列遊戲本體（DLC／組合包不混進遊戲牆，
+    // 2026-11-23 DLC 匯入後才有差）；type=all 才是不篩類型。
     productType:
-      type && type !== "all" && PRODUCT_TYPES.includes(type)
-        ? type
-        : undefined,
+      type === "all"
+        ? "all"
+        : type && PRODUCT_TYPES.includes(type)
+          ? type
+          : "game",
     demo: demo === "1" || demo === "2" || demo === "3" ? Number(demo) : undefined,
     country:
       country && COUNTRY_MAP[country] ? country : undefined,
@@ -86,7 +90,8 @@ function toSearchParams(params: HomePageParams): URLSearchParams {
   const sp = new URLSearchParams();
   if (params.q) sp.set("q", params.q);
   if (params.platform) sp.set("platform", params.platform);
-  if (params.productType) sp.set("type", params.productType);
+  if (params.productType && params.productType !== "game")
+    sp.set("type", params.productType);
   if (params.demo != null) sp.set("demo", String(params.demo));
   if (params.country) sp.set("country", params.country);
   if (params.sort !== "deals") sp.set("sort", params.sort);
@@ -158,7 +163,7 @@ export default async function HomePage({
   const hasFilter =
     Boolean(params.q) ||
     Boolean(params.platform) ||
-    Boolean(params.productType) ||
+    Boolean(params.productType && params.productType !== "game") ||
     params.demo != null ||
     Boolean(params.country) ||
     params.onlySale ||

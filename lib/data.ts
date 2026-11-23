@@ -239,7 +239,7 @@ function buildFilteredGamesQuery(
     query.or(`title_zh.ilike.%${term}%,title_en.ilike.%${term}%`);
   }
   if (opts.platform) query.eq("platform", opts.platform);
-  if (opts.productType) {
+  if (opts.productType && opts.productType !== "all") {
     // 舊資料 product_type 為 NULL 時視為 "game"（與舊版前端行為一致）。
     if (opts.productType === "game") {
       query.or("product_type.eq.game,product_type.is.null");
