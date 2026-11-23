@@ -6,8 +6,8 @@ import { pageWindow } from "@/lib/pagination";
 import DealCard from "./DealCard";
 import MembershipServiceSection from "./MembershipTabs";
 
-/** 每頁顯示款數（shawn 定：一次只呈現 24 款）。 */
-const PAGE_SIZE = 24;
+/** 每頁顯示款數（shawn 定：一次只呈現 30 款，510 款剛好 17 頁）。 */
+const PAGE_SIZE = 30;
 
 type TabKey = "free" | "steam" | "xbox" | "gamepass";
 
@@ -23,7 +23,7 @@ const TABS: { key: TabKey; label: string }[] = [
  *  面板永遠展開、不摺疊（2026-11-23：分頁框模式下摺疊沒意義）。
  *  免費遊戲分頁：Epic 免費遊戲（本週＋下週預告）＋Steam 限時免費領取
  *  （折扣 100% 的付費遊戲，可永久保留；免費遊玩 F2P 不在這裡）。
- *  每平台取前 510 款（2026-11-23 從 200 改成 350、再改成 510），一次只顯示 24 款，在頁內翻頁。
+ *  每平台取前 510 款（2026-11-23 從 200 改成 350、再改成 510），一次只顯示 30 款，在頁內翻頁（510 款剛好 17 頁）。
  *  家機不在這頁：2026-11-23 12:17 shawn 改方向，Xbox 家機改去獨立頁
  *  /console，本頁維持 PC 頁（免費遊戲／STEAM／XBOX PC）。
  *  GAME PASS 分頁（2026-11-23 新增，標籤「PC Game Pass」）：
@@ -51,7 +51,7 @@ export default function DealsTabs({
   gamepass: DealsCarouselItem[];
   gamepassTotalCount: number;
 }) {
-  // 預設 Steam（內容最多，特賣會期間第一眼就有 24 款可看）。
+  // 預設 Steam（內容最多，特賣會期間第一眼就有 30 款可看）。
   const [active, setActive] = useState<TabKey>("steam");
   const [pages, setPages] = useState<Record<TabKey, number>>({
     free: 1,

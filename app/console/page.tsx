@@ -24,7 +24,7 @@ export const metadata = {
  *  PlayStation、PS Plus。舊 /membership 導向本頁，導覽列不再單獨列
  *  會員方案。
  *  XBOX 家機：Reco 特價清單＋Display Catalog（filter Windows.Xbox，
- *  與 PC 版同一條管線），前 510 款、每頁 24 款、折扣大→小，每小時快取。
+ *  與 PC 版同一條管線），前 510 款、每頁 30 款、折扣大→小，每小時快取。
  *  PS 家機（2026-11-23 上線，2026-11-23 擴量）：官方 GraphQL categoryGridRetrieve
  *  （persisted hash 來自公開文件，見 lib/ps-deals.ts），抓優惠頁「所有優惠」
  *  分類（總數 2,862），sales30 倒序分段抓、只列折扣 ≥50% 的，折扣大→小、

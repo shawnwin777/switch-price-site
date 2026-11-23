@@ -6,8 +6,8 @@ import { pageWindow } from "@/lib/pagination";
 import DealCard from "./DealCard";
 import MembershipServiceSection from "./MembershipTabs";
 
-/** 每頁顯示款數（比照 /deals：一次只呈現 24 款）。 */
-const PAGE_SIZE = 24;
+/** 每頁顯示款數（比照 /deals：一次只呈現 30 款，510 款剛好 17 頁）。 */
+const PAGE_SIZE = 30;
 
 type TabKey = "xbox-console" | "gamepass" | "ps" | "psplus";
 
