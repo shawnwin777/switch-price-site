@@ -67,10 +67,12 @@ import {
  *  deals-page-v2（舊快取的 Steam 只有 10 款精選）。抓取頁數 2 頁→3 頁
  *  時 key 再換成 deals-page-v3（Data Cache 存在磁碟、部署也不會清，
  *  2 頁版算出的 199 款會一直被 v2 快取吃到）。2026-11-23 再加 Steam
- *  限時免費（steamFree 欄位）與分頁改名，key 換成 deals-page-v4。 */
+ *  限時免費（steamFree 欄位）與分頁改名，key 換成 deals-page-v4。
+ *  2026-11-23 上限 200→350（Steam 抓 4 頁 400 列取前 350），key 換成
+ *  deals-page-v5。 */
 export const getCachedDealsPage = unstable_cache(
   async (): Promise<DealsPageData> => fetchDealsPage(),
-  ["deals-page-v4"],
+  ["deals-page-v5"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-page"] }
 );
 
@@ -82,10 +84,11 @@ import {
 /** Xbox PC 特價（/deals 下方區塊，伺服器端抓取、每小時更新一次，
  *  不每次載入頁面都打 Microsoft API；抓取失敗時回空陣列、該區塊顯示空狀態）。
  *  2026-11-23 分頁改版：從前 50 款擴到前 200 款，key 換成
- *  xbox-pc-deals-v2（舊快取只有 50 款）。 */
+ *  xbox-pc-deals-v2（舊快取只有 50 款）。2026-11-23 上限 200→350
+ *  （Reco 取 4 頁 400 個 id 取前 350），key 換成 xbox-pc-deals-v3。 */
 export const getCachedXboxPcDeals = unstable_cache(
   async (): Promise<XboxPcDealsData> => fetchXboxPcDeals(),
-  ["xbox-pc-deals-v2"],
+  ["xbox-pc-deals-v3"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["xbox-pc-deals"] }
 );
 
@@ -98,10 +101,12 @@ import {
  *  2026-11-23 新增：與 PC 版同一條管線（Reco 清單＋Display Catalog），
  *  只差平台 filter 為 Windows.Xbox；實測抽 50 款有 48 款是家機＋台幣折價。
  *  2026-11-23 12:17 shawn 改方向：家機不做 /deals 第四分頁，改獨立頁 /console，
- *  這裡的快取不動（key 仍是 xbox-console-deals-v1，資料本身沒變）。 */
+ *  這裡的快取不動（key 仍是 xbox-console-deals-v1，資料本身沒變）。
+ *  2026-11-23 上限 200→350（Reco 取 4 頁 400 個 id 取前 350），key 換成
+ *  xbox-console-deals-v2。 */
 export const getCachedXboxConsoleDeals = unstable_cache(
   async (): Promise<XboxConsoleDealsData> => fetchXboxConsoleDeals(),
-  ["xbox-console-deals-v1"],
+  ["xbox-console-deals-v2"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["xbox-console-deals"] }
 );
 
@@ -115,10 +120,11 @@ import { fetchPsDeals, type PsDealsData } from "./ps-deals";
  *  2026-11-23 擴量：改抓優惠頁「所有優惠」分類
  *  （3f772501…，總數 2,862；瀏覽器實測抓到的分類 ID），sales30 倒序
  *  分段抓、只列折扣 ≥50%、折扣大→小、前 200 款；key 換成 ps-deals-v2
- *  （舊快取是 SALES＋OFFERS 的 44 款舊形狀）。 */
+ *  （舊快取是 SALES＋OFFERS 的 44 款舊形狀）。2026-11-23 上限 200→350
+ *  （最多掃 40 頁、抓滿 350 款 ≥50% 就停），key 換成 ps-deals-v3。 */
 export const getCachedPsDeals = unstable_cache(
   async (): Promise<PsDealsData> => fetchPsDeals(),
-  ["ps-deals-v2"],
+  ["ps-deals-v3"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["ps-deals"] }
 );
 

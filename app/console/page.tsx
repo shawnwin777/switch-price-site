@@ -24,11 +24,11 @@ export const metadata = {
  *  PlayStation、PS Plus。舊 /membership 導向本頁，導覽列不再單獨列
  *  會員方案。
  *  XBOX 家機：Reco 特價清單＋Display Catalog（filter Windows.Xbox，
- *  與 PC 版同一條管線），前 200 款、每頁 24 款、折扣大→小，每小時快取。
+ *  與 PC 版同一條管線），前 350 款、每頁 24 款、折扣大→小，每小時快取。
  *  PS 家機（2026-11-23 上線，2026-11-23 擴量）：官方 GraphQL categoryGridRetrieve
  *  （persisted hash 來自公開文件，見 lib/ps-deals.ts），抓優惠頁「所有優惠」
  *  分類（總數 2,862），sales30 倒序分段抓、只列折扣 ≥50% 的，折扣大→小、
- *  前 200 款；價格已抽 2 款對照未登入商店產品頁驗證過。
+ *  前 350 款；價格已抽 2 款對照未登入商店產品頁驗證過。
  *  GAME PASS／PS PLUS 新進（2026-11-23 新增）：Game Pass 最近新增（家機，
  *  見 lib/gamepass.ts）、PS Plus 本月新進（遊戲目錄＋每月遊戲，
  *  見 lib/ps-plus.ts），都只列本期／本月新進、不列整個目錄。 */
@@ -71,7 +71,7 @@ export default async function ConsolePage() {
       />
       <p className="muted">
         PlayStation 特價取自官方商店的優惠分類（所有優惠，台灣區共 2,862 款），只列折扣
-        ≥50% 的遊戲、折扣大→小、前 200 款；款數會隨檔期浮動。
+        ≥50% 的遊戲、折扣大→小、前 350 款；款數會隨檔期浮動。
       </p>
       <p>
         <Link href="/">← 回首頁</Link>

@@ -141,9 +141,12 @@ npm start                    # 跑 production build
 
 ## 已完成（2026-11-17 快取版）
 
-- **首頁上方「準備上市」與「接近歷史低價」入口卡片**：首頁最上方兩個卡片，
-  分別連到獨立列表頁 `/upcoming`、`/near-low`（排行頁風格、每頁 12 款、
-  與首頁同樣的 1 小時快取）。
+- **首頁上方站內入口卡片**（2026-11-23 簡單首頁）：首頁最上方一排卡片，
+  把站上各頁串起來——Switch 比價（點了捲到下方遊戲牆 `#switch-wall`）、
+  PC遊戲特價 `/deals`、家機特價 `/console`、收藏排行 `/ranking`，再加原本的
+  準備上市 `/upcoming`、接近歷史低價 `/near-low`、NSO 比價 `/nso`、歷史低價
+  `/historical-low`。準備上市與接近歷史低價是獨立列表頁（排行頁風格、
+  每頁 12 款、與首頁同樣的 1 小時快取）。
   - 「準備上市」：`release_date` > 今天（台北日期），最近的先排；今天
     發售的不算（已上市，首頁牆上找得到）。資料來源：`games.release_date`
     （migration `supabase/migrations/20261118_add_release_date.sql`），
@@ -175,20 +178,20 @@ npm start                    # 跑 production build
 
 - **PC遊戲特價獨立頁面 /deals**（2026-11-23 上午先上首頁輪播，當天中午依 shawn 決定改成獨立頁面，輪播下架；當天下午再改成分頁框）：
   `app/deals/page.tsx`＋`components/DealCard.tsx`＋`components/DealsTabs.tsx`＋`lib/deals-carousel.ts`＋`lib/xbox-deals.ts`（檔名未改，內容已是 /deals 用）。
-  伺服器端抓取、每小時快取（`lib/cached-data.ts` 的 `getCachedDealsPage`，key `deals-page-v4`；`getCachedXboxPcDeals`，key `xbox-pc-deals-v2`，revalidate 3600 秒），不每次載入頁面都打 API。
+  伺服器端抓取、每小時快取（`lib/cached-data.ts` 的 `getCachedDealsPage`，key `deals-page-v5`；`getCachedXboxPcDeals`，key `xbox-pc-deals-v3`，revalidate 3600 秒），不每次載入頁面都打 API。
   只做台灣區（Steam `cc=TW`、Epic `country=TW&locale=zh-Hant`、Xbox `market=TW`），不加跨區切換——跨區帳號可能被鎖。
   頁面大標題與導覽列標籤都是「PC遊戲特價」（2026-11-23 從「Steam＋Epic＋Xbox 特價」改短）。
-  上方四個平台分頁框（免費遊戲／STEAM／XBOX PC／PC Game Pass，`DealsTabs` client component，預設 Steam），點了不跳頁、不換路由，當下切換；面板永遠展開、不摺疊（2026-11-23：分頁框模式下摺疊沒意義，收合按鈕全部拿掉）。每平台取前 200 款，一次只顯示 24 款，在頁內翻頁（頁碼用 `lib/pagination.ts` 的 `pageWindow`）。
+  上方四個平台分頁框（免費遊戲／STEAM／XBOX PC／PC Game Pass，`DealsTabs` client component，預設 Steam），點了不跳頁、不換路由，當下切換；面板永遠展開、不摺疊（2026-11-23：分頁框模式下摺疊沒意義，收合按鈕全部拿掉）。每平台取前 350 款（2026-11-23 從 200 改成 350），一次只顯示 24 款，在頁內翻頁（頁碼用 `lib/pagination.ts` 的 `pageWindow`）。
   PC Game Pass 分頁（2026-11-23 新增）：Game Pass 最近新增（PC），詳見下方「訂閱新進遊戲」；下方接 Game Pass 方案價目（`MembershipServiceSection`，serviceId="game-pass"）。分頁永遠顯示，新進遊戲沒資料時只在遊戲區顯示空狀態。
   家機不在這頁：2026-11-23 12:17 shawn 改方向，Xbox 家機改去獨立頁 /console（見下方「家機特價頁」），本頁維持 PC 頁。
   Epic 只有免費遊戲（本週＋下週預告）；Epic 特價抓不到——免費遊戲那支公開 API 不含特價資料，特價要走的 Epic GraphQL 與商店瀏覽頁都被 403 擋下（2026-11-23 實測，連瀏覽器標頭也一樣），不要再試。
-  Steam 取折扣最大的前 200 款：走特價搜尋 API（`search/results/?specials=1&cc=TW`，回 results_html 要解析；2026-11-23 實測台灣區特價中 15,020 款；`sort_by=Discount_DESC` 與 `_ASC` 順序相同、不支援折扣排序，所以抓前三頁 300 列再在伺服器端按折扣大→小取前 200；搜尋結果沒有特價截止日）。舊的 `featuredcategories` specials 只回 10 款精選，搜尋失敗時才當備援。
-  Steam 限時免費領取（免費遊戲分頁的 Steam 部分）：同一支特價搜尋 API 裡折扣 100% 的品項（付費遊戲降到 0 元、可永久保留；特價寫「免費」，解析器要另外認出 final 0 元，舊版 `!final` 守衛會直接把 100% 列丟掉）。跟「免費遊玩」（F2P）分得開：F2P 沒有原價也不在 `specials=1` 的結果裡（2026-11-23 實測 `maxprice=free` 前 100 列全是 F2P、0 款 100%），100% 列必須有原價才算。抓法：前三頁解析後拆出 100% 列，另外再用 `sort_by=Price_ASC` 抓一頁（特價按最終價低→高排，0 元一定在最前面，一頁就能抓齊、不怕它排在 300 列之外），兩邊合併去重。2026-11-23 實測當週台灣區 100% 品項 0 款（Price_ASC 第一頁最便宜是 NT$ 11，沒有 0 元列），所以免費分頁目前只有 Epic 的 1 款預告——這是資料現況、不是 bug；有 100% 遊戲出現時會自動列進來。
-  Xbox PC 取折扣最大的前 200 款（清單第 1、2 頁各 100 個 productId，Display Catalog 每批 50 個 id、最多 3 批並行補資料；總數約 500 款，頁面註明總數並連去微軟商店台灣區 PC 特價頁看完整清單）。
+  Steam 取折扣最大的前 350 款：走特價搜尋 API（`search/results/?specials=1&cc=TW`，回 results_html 要解析；2026-11-23 實測台灣區特價中 15,020 款；`sort_by=Discount_DESC` 與 `_ASC` 順序相同、不支援折扣排序，所以抓前四頁 400 列再在伺服器端按折扣大→小取前 350——注意這是「取回 400 列裡的前 350」，不是全台灣 15,020 款裡的全域前 350；搜尋結果沒有特價截止日）。舊的 `featuredcategories` specials 只回 10 款精選，搜尋失敗時才當備援。
+  Steam 限時免費領取（免費遊戲分頁的 Steam 部分）：同一支特價搜尋 API 裡折扣 100% 的品項（付費遊戲降到 0 元、可永久保留；特價寫「免費」，解析器要另外認出 final 0 元，舊版 `!final` 守衛會直接把 100% 列丟掉）。跟「免費遊玩」（F2P）分得開：F2P 沒有原價也不在 `specials=1` 的結果裡（2026-11-23 實測 `maxprice=free` 前 100 列全是 F2P、0 款 100%），100% 列必須有原價才算。抓法：前四頁解析後拆出 100% 列，另外再用 `sort_by=Price_ASC` 抓一頁（特價按最終價低→高排，0 元一定在最前面，一頁就能抓齊、不怕它排在 400 列之外），兩邊合併去重。2026-11-23 實測當週台灣區 100% 品項 0 款（Price_ASC 第一頁最便宜是 NT$ 11，沒有 0 元列），所以免費分頁目前只有 Epic 的 1 款預告——這是資料現況、不是 bug；有 100% 遊戲出現時會自動列進來。
+  Xbox PC 取折扣最大的前 350 款（2026-11-23 從 200 改成 350；清單第 1–4 頁各 100 個 productId，Display Catalog 每批 50 個 id、最多 3 批並行補資料；總數約 500 款，頁面註明總數並連去微軟商店台灣區 PC 特價頁看完整清單）。
   原「XBOX」分頁標籤改為「XBOX PC」，免得跟家機頁混淆。
   Epic 取 `freeGamesPromotions`（TW，`discountSetting.discountPercentage === 0` 才是免費——實測回應沒有 `discountPrice` 欄位；進行中顯示「免費／領取截止日」，下週預告顯示「即將免費／開始日」，連去 Epic 商店）。
   單一來源失敗時只顯示其他來源；全部失敗時顯示空狀態、頁面不壞。
-  首頁不再有輪播，改成入口卡片（跟「準備上市」「接近歷史低價」放一起）＋導覽列「PC遊戲特價」連結。
+  首頁不再有輪播，改成站內入口卡片（2026-11-23 簡單首頁：Switch 比價／PC遊戲特價／家機特價／收藏排行＋準備上市／接近歷史低價／NSO／歷史低價）＋導覽列「PC遊戲特價」連結。
   注意：2026-11-23 實測 TW 本週無進行中免費遊戲（Mark of the Deep 只在 US 回應有），當時只有 1 款 Epic 下週預告（Bread and Fred，11/26 起免費）＋Steam 限時免費 0 款，這是資料現況、不是 bug。
   舊輪播元件 `components/DealsCarousel.tsx` 與舊 Epic 區塊 `components/EpicDealsSection.tsx` 已無引用，留在 repo 裡（push-files 不支援刪檔，之後要刪請用網頁上傳）。
 - **首頁第一頁修正**（`lib/data.ts` 的 `buildFilteredGamesQuery`，快取版與即時版共用的單一過濾點）：
@@ -219,10 +222,10 @@ npm start                    # 跑 production build
   驗證（2026-11-23 上線後 curl 實測）：首頁第三張卡為 NSO 且連 /nso；/nso 回 200；台灣價 79／199／599／1,179／1,279／2,399 正確；兌換券標示已停售。
 
 - **家機特價獨立頁 /console**（2026-11-23 12:17 shawn 改方向：家機不做 /deals 第四分頁，改獨立頁；/deals 維持 PC 頁，導覽列加「家機特價」入口；三大頁面是 PC（/deals）、家機（本頁）、SWITCH（首頁））：
-  `app/console/page.tsx`＋`components/ConsoleTabs.tsx`（分頁框結構比照 DealsTabs，每頁 24 款）＋`lib/xbox-console-deals.ts`＋快取 `getCachedXboxConsoleDeals`（key `xbox-console-deals-v1` 不變，資料本身沒變，只是掛的頁面從 /deals 換成 /console）。
-  XBOX 家機：與 PC 版同一條管線（Reco 清單＋Display Catalog），只差平台 filter 為 Windows.Xbox；實測抽 50 款有 48 款是家機＋台幣折價（Forza Horizon 6、Gears of War: E-Day 等）。前 200 款、折扣大→小，頁面註明台灣區總數（Reco totalCount 約 500）並連去微軟商店台灣區 Xbox 特價頁。
-  PS 家機分頁（2026-11-23 上線，`lib/ps-deals.ts`＋快取 `getCachedPsDeals`，key `ps-deals-v2`）：優惠清單來源不是之前卡住的 EMS 查詢（`getDefaultView`，hash 未知），而是同一支 GraphQL 的另一個 persisted 操作 `categoryGridRetrieve`，hash `4ce7d410a4db2c8b635a48c1dcec375906ff63b19dadd87e073f8fd0c0481d35`（公開文件 mrt1m/playstation-store-api 的 OperationSha256Enum；README 舊範例的 `9845afc0…` 實測也通）。2026-11-23 擴量：改抓優惠頁「所有優惠」→「檢視全部」的分類 `3f772501-f6f8-49b7-abac-874a88ca4897`（瀏覽器實測抓到的分類頁網址裡的 ID；`pageInfo.totalCount = 2862`，注意 totalCount 在 pageInfo 裡）。舊做法 SALES（`803cee19…`，總數 210）＋OFFERS（`16b8d09a…`，總數 150）聯集去重後只有 44 款，已棄用——那兩個分類不是完整優惠清單。
-  關鍵：這個分類不是預先篩過折扣的——按發售日倒序第 1 頁 24 款裡 0 款有折扣；改用 sortBy `sales30` 倒序後，每頁幾乎全是有折扣的（offset 0～2800 抽 9 頁，每頁 19～24 款有折扣、其中 10～19 款 ≥50%）。該操作沒有折扣排序（只有 default／sales30／downloads30／productName／productReleaseDate／webBasePrice）也沒有折扣篩選，所以分段抓＋程式端篩選：sales30 倒序、每批 3 頁並行、抓滿 200 款折扣 ≥50%（去重後）就停，最多 30 頁；實測整輪 16 頁、232 款 ≥50%、7.1 秒，遠低於 Vercel 60 秒上限。只列折扣 ≥50%（shawn：大致上抓到 -50% 就好），折扣大→小、前 200 款；totalCount 是分類總數（2,862），shownCount 才是列出的 200 款。同名去重（PS4／PS5 版留折扣最大、再留特價最低）。標頭要加 `apollo-require-preflight: true`＋`x-apollo-operation-name`，否則被擋 CSRF。價格抽 2 款對照未登入商店產品頁驗證過：Monster Harvest NT$590→59、Saints Row NT$890→133，內嵌 originalPriceValue／discountPriceValue（分）完全一致；擴量後再驗：《霍格沃茨之遗》PS5 版 NT$2,090→209、《無主之地3》季票同捆包 NT$2,090→689，也一致（注意產品頁內嵌多個 offer 物件，第一個 discountPriceValue 可能是「內含」那個的 0，要對主購買 offer 的那組比）。名稱尾巴的語言清單（如「 (日语, 简体中文, 繁体中文, 英语)」）顯示前去掉；圖片挑 media 的 FOUR_BY_THREE_BANNER（官方 CDN image.api.playstation.com），連結 `store.playstation.com/zh-hant-tw/product/<id>`；沒有特價截止日，subLine 放平台（PS4 · PS5）。
+  `app/console/page.tsx`＋`components/ConsoleTabs.tsx`（分頁框結構比照 DealsTabs，每頁 24 款）＋`lib/xbox-console-deals.ts`＋快取 `getCachedXboxConsoleDeals`（key `xbox-console-deals-v2`，2026-11-23 上限 200→350 時換的）。
+  XBOX 家機：與 PC 版同一條管線（Reco 清單＋Display Catalog），只差平台 filter 為 Windows.Xbox；實測抽 50 款有 48 款是家機＋台幣折價（Forza Horizon 6、Gears of War: E-Day 等）。前 350 款（2026-11-23 從 200 改成 350，Reco 取 4 頁 400 個 id）、折扣大→小，頁面註明台灣區總數（Reco totalCount 約 500）並連去微軟商店台灣區 Xbox 特價頁。
+  PS 家機分頁（2026-11-23 上線，`lib/ps-deals.ts`＋快取 `getCachedPsDeals`，key `ps-deals-v3`，2026-11-23 上限 200→350 時換的）：優惠清單來源不是之前卡住的 EMS 查詢（`getDefaultView`，hash 未知），而是同一支 GraphQL 的另一個 persisted 操作 `categoryGridRetrieve`，hash `4ce7d410a4db2c8b635a48c1dcec375906ff63b19dadd87e073f8fd0c0481d35`（公開文件 mrt1m/playstation-store-api 的 OperationSha256Enum；README 舊範例的 `9845afc0…` 實測也通）。2026-11-23 擴量：改抓優惠頁「所有優惠」→「檢視全部」的分類 `3f772501-f6f8-49b7-abac-874a88ca4897`（瀏覽器實測抓到的分類頁網址裡的 ID；`pageInfo.totalCount = 2862`，注意 totalCount 在 pageInfo 裡）。舊做法 SALES（`803cee19…`，總數 210）＋OFFERS（`16b8d09a…`，總數 150）聯集去重後只有 44 款，已棄用——那兩個分類不是完整優惠清單。
+  關鍵：這個分類不是預先篩過折扣的——按發售日倒序第 1 頁 24 款裡 0 款有折扣；改用 sortBy `sales30` 倒序後，每頁幾乎全是有折扣的（offset 0～2800 抽 9 頁，每頁 19～24 款有折扣、其中 10～19 款 ≥50%）。該操作沒有折扣排序（只有 default／sales30／downloads30／productName／productReleaseDate／webBasePrice）也沒有折扣篩選，所以分段抓＋程式端篩選：sales30 倒序、每批 3 頁並行、抓滿 350 款折扣 ≥50%（去重後）就停，最多 40 頁（2026-11-23 上限 200→350；上限 200 時實測整輪 16 頁、232 款 ≥50%、7.1 秒，遠低於 Vercel 60 秒上限）。只列折扣 ≥50%（shawn：大致上抓到 -50% 就好），折扣大→小、前 350 款；totalCount 是分類總數（2,862），shownCount 才是列出的 350 款。同名去重（PS4／PS5 版留折扣最大、再留特價最低）。標頭要加 `apollo-require-preflight: true`＋`x-apollo-operation-name`，否則被擋 CSRF。價格抽 2 款對照未登入商店產品頁驗證過：Monster Harvest NT$590→59、Saints Row NT$890→133，內嵌 originalPriceValue／discountPriceValue（分）完全一致；擴量後再驗：《霍格沃茨之遗》PS5 版 NT$2,090→209、《無主之地3》季票同捆包 NT$2,090→689，也一致（注意產品頁內嵌多個 offer 物件，第一個 discountPriceValue 可能是「內含」那個的 0，要對主購買 offer 的那組比）。名稱尾巴的語言清單（如「 (日语, 简体中文, 繁体中文, 英语)」）顯示前去掉；圖片挑 media 的 FOUR_BY_THREE_BANNER（官方 CDN image.api.playstation.com），連結 `store.playstation.com/zh-hant-tw/product/<id>`；沒有特價截止日，subLine 放平台（PS4 · PS5）。
   2026-11-23 14:00 shawn 再定四分頁（順序固定）：XBOX 家機（預設）／XGP 家機／PlayStation／PS Plus——獨立的「🎫 會員方案」分頁拿掉，方案價目改放進 XGP 家機與 PS Plus 兩個分頁裡（新進遊戲在上、方案價目在下，各自呈現、不做對比表；見下方「會員方案」）。PS 分頁標籤與區塊標題從「PS」改成「PlayStation」。XGP 家機、PS Plus 兩個分頁永遠顯示（裡面有靜態方案價目），新進遊戲沒資料時只在遊戲區顯示「目前沒有資訊，請稍後再試」。
   驗證（2026-11-23 部署後 curl 實測）：/console 回 200、XBOX 家機分頁款數與內容正確、/deals 回四個分頁且無家機分頁、導覽列有「家機特價」；PS 分頁 200 款（首位《霍格沃茨之遗》PS5 版 -90% NT$209，第 200 款 -50%），與未登入商店頁價格一致。
 

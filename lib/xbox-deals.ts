@@ -6,8 +6,9 @@
 //        ?gl=TW&hl=zh-Hant-TW&listName=Deal&pgNo=1&noItems=100
 //        &filteredCategories=AllProducts&mediaType=games
 //      → 台灣 PC 商店特價清單的 productId（productsList[].productId）。
-//      實測 totalCount 約 500 款；這裡取第 1、2 頁（共 200 款），
-//      頁面註明總數並連去微軟商店看完整清單（一次抓 500 款太重）。
+//      實測 totalCount 約 500 款；這裡取第 1–4 頁（共 400 個 id），
+//      折扣大→小取前 350 款，頁面註明總數並連去微軟商店看完整清單
+//      （一次抓 500 款太重）。
 //   2. 補資料：GET https://displaycatalog.mp.microsoft.com/v7.0/products
 //        ?market=TW&languages=zh-Hant&bigIds=<id,...>&MS-CV=<值>
 //      → 標題、圖片、台幣價。MS-CV 值裡的 + 一定要 URL-encode（%2B），否則 400。
@@ -38,9 +39,12 @@ const LIST_BASE =
   "https://apps.microsoft.com/api/Reco/GetComputedProductsList" +
   "?gl=TW&hl=zh-Hant-TW&listName=Deal" +
   "&filteredCategories=AllProducts&mediaType=games";
-/** 清單取前 200 款（2 頁 × 100）；補資料每批 50 個 id、最多 3 批並行
- *  （20 款約 1 MB，50 款一批約 2.5 MB；4 批並行跑約數秒，在 60 秒內）。 */
-const LIST_PAGES = 2;
+/** 清單取前 400 個 id（4 頁 × 100），折扣大→小取前 350 款
+ *  （2026-11-23 從 200 改成 350）；補資料每批 50 個 id、最多 3 批並行
+ *  （20 款約 1 MB，50 款一批約 2.5 MB；8 批跑約數秒，在 60 秒內）。 */
+const LIST_PAGES = 4;
+/** 本分頁列出的上限款數（折扣大→小）。 */
+const TOP_COUNT = 350;
 const LIST_PAGE_SIZE = 100;
 const CATALOG_BATCH_SIZE = 50;
 const CATALOG_CONCURRENCY = 3;
@@ -219,7 +223,7 @@ function parseProducts(data: unknown): DealsCarouselItem[] {
   return items;
 }
 
-/** 抓台灣 PC 商店特價（前 200 款，折扣大→小）。單一環節失敗回空。 */
+/** 抓台灣 PC 商店特價（前 350 款，折扣大→小）。單一環節失敗回空。 */
 export async function fetchXboxPcDeals(): Promise<XboxPcDealsData> {
   const nowMs = Date.now();
   const empty: XboxPcDealsData = {
@@ -290,7 +294,7 @@ export async function fetchXboxPcDeals(): Promise<XboxPcDealsData> {
         return true;
       })
       .sort((a, b) => b.sortKey - a.sortKey)
-      .slice(0, LIST_PAGES * LIST_PAGE_SIZE);
+      .slice(0, TOP_COUNT);
   } catch (e) {
     console.warn("[xbox-deals] Display Catalog 補資料失敗：", e);
     return { ...empty, totalCount };
