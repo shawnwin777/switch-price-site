@@ -22,9 +22,19 @@ export default function CommentsSection({
   const [comments, setComments] = useState<CommentItem[]>(initialComments);
   const [showAll, setShowAll] = useState(false);
   const [body, setBody] = useState("");
+  const [authorName, setAuthorName] = useState("");
   const [busy, setBusy] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const router = useRouter();
+
+  // 上次打的名字自動帶入（可改；只存在自己的瀏覽器裡）。
+  useEffect(() => {
+    try {
+      setAuthorName(localStorage.getItem("spc-comment-author") ?? "");
+    } catch {
+      // 瀏覽器不給存也沒關係，名字欄留空即可。
+    }
+  }, []);
 
   // 管理員判斷：沿用 SiteHeader 的現成做法（browser client 讀登入 email
   // ＋ isAdminEmail），刪文按鈕只對管理員顯示；真正擋人的是 API 路由。
@@ -56,10 +66,11 @@ export default function CommentsSection({
   async function submitComment() {
     const text = body.trim();
     if (!text) return;
+    const name = authorName.trim();
     setBusy(true);
     try {
       const res = await fetch("/api/comments", {
-        body: JSON.stringify({ body: text, gameId }),
+        body: JSON.stringify({ body: text, gameId, author_name: name }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
@@ -81,6 +92,12 @@ export default function CommentsSection({
       };
       setComments((prev) => [item, ...prev]);
       setBody("");
+      // 名字留著，下次自動帶入。
+      try {
+        if (name) localStorage.setItem("spc-comment-author", name);
+      } catch {
+        // 存不進去也沒關係。
+      }
     } catch (e) {
       console.error("留言失敗：", e);
       alert("留言失敗，請稍後再試（需先登入）。");
@@ -196,6 +213,18 @@ export default function CommentsSection({
         </>
       )}
       <div className="comment-form">
+        <label className="field-label" htmlFor="comment-author">
+          名字（最多 10 個字，可不填）
+        </label>
+        <input
+          id="comment-author"
+          className="input"
+          type="text"
+          value={authorName}
+          onChange={(e) => setAuthorName(e.target.value)}
+          placeholder="想叫什麼就打什麼"
+          maxLength={10}
+        />
         <label className="field-label" htmlFor="comment-body">
           寫留言（需登入）
         </label>
