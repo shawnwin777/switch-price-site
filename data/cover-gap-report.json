@@ -1,0 +1,57 @@
+{
+ "fetched_at": "2026-11-24T06:32:52.541Z",
+ "missing_total": 4739,
+ "source_sizes": {
+  "jp_raw": 36516,
+  "jp_usable": 15956,
+  "eu_raw": 20264,
+  "eu_usable": 4857,
+  "na_raw": 16997,
+  "na_usable": 16997
+ },
+ "pre_verify": {
+  "fills": 3917,
+  "bySource": {
+   "jp": 2258,
+   "eu": 169,
+   "na": 1490
+  },
+  "byMethod": {
+   "title_id": 2195,
+   "title": 1722
+  },
+  "idMatchPerSource": {
+   "jp": 2195,
+   "eu": 0,
+   "na": 0
+  },
+  "titleMatchPerSource": {
+   "jp": 63,
+   "eu": 169,
+   "na": 1490
+  },
+  "overlapId": 0,
+  "ambiguousTitleSkipped": 69
+ },
+ "image_check": {
+  "alive": 3916,
+  "dead": 1,
+  "deadBySource": {
+   "eu": 1
+  }
+ },
+ "final": {
+  "fills": 3916,
+  "bySource": {
+   "jp": 2258,
+   "eu": 168,
+   "na": 1490
+  },
+  "byMethod": {
+   "title_id": 2195,
+   "title": 1721
+  },
+  "still_missing": 823
+ },
+ "title_match_live_count": 1721
+}
