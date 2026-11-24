@@ -176,7 +176,10 @@ import { fetchPsDeals, type PsDealsData } from "./ps-deals";
  *  空結果中毒同一類問題；「所有優惠」分類 2,862 款、≥50% 實測 510 款，
  *  真的 0 款只會是 GraphQL 抓失敗。key 不動，舊的好快取續用）。
  *  2026-11-24 上限 510→900（最多掃 90 頁、抓滿 900 款 ≥50% 就停），key 換成
- *  ps-deals-v7。 */
+ *  ps-deals-v7。
+ *  2026-11-24 上限 900→1621（最多掃 130 頁、抓滿 1621 款 ≥50% 就停；
+ *  當天全分類 2,864 款實測 ≥50% 去重後 1,621 款、整輪約 25 秒），key 換成
+ *  ps-deals-v8。 */
 export const getCachedPsDeals = unstable_cache(
   async (): Promise<PsDealsData> => {
     const data = await fetchPsDeals();
@@ -185,7 +188,7 @@ export const getCachedPsDeals = unstable_cache(
     }
     return data;
   },
-  ["ps-deals-v7"],
+  ["ps-deals-v8"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["ps-deals"] }
 );
 

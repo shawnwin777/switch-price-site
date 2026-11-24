@@ -34,7 +34,7 @@ export const metadata = {
  *  PS 家機（2026-11-23 上線，2026-11-23 擴量）：官方 GraphQL categoryGridRetrieve
  *  （persisted hash 來自公開文件，見 lib/ps-deals.ts），抓優惠頁「所有優惠」
  *  分類（總數 2,862），sales30 倒序分段抓、只列折扣 ≥50% 的，折扣大→小、
- *  前 900 款；價格已抽 2 款對照未登入商店產品頁驗證過。
+ *  前 1621 款；價格已抽 2 款對照未登入商店產品頁驗證過。
  *  GAME PASS／PS PLUS 新進（2026-11-23 新增）：Game Pass 最近新增（家機，
  *  見 lib/gamepass.ts）、PS Plus 本月新進（遊戲目錄＋每月遊戲，
  *  見 lib/ps-plus.ts），都只列本期／本月新進、不列整個目錄。 */
