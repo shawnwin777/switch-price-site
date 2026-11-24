@@ -13,6 +13,11 @@ import ConsoleTabs from "@/components/ConsoleTabs";
 
 export const dynamic = "force-dynamic";
 
+// PS 掃描整輪約 25–40 秒（含空頁重掃的等待），拉到 Vercel Hobby 上限 60 秒
+// 跟 /api/refresh、/api/sync-catalog 同一個做法，免得掃描做到一半被砍
+// （2026-11-24：上限拉到 1621 後 Vercel 兩輪掃描都只收到 1,378 款，
+// 空頁重掃見 lib/ps-deals.ts）。
+
 export const metadata = {
   title: "家機特價（台灣）｜Shawn Game Studio",
 };

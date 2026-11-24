@@ -181,7 +181,11 @@ import { fetchPsDeals, type PsDealsData } from "./ps-deals";
  *  當天全分類 2,864 款實測 ≥50% 去重後 1,621 款、整輪約 25 秒），key 換成
  *  ps-deals-v8。
  *  2026-11-24 首輪 v8 掃描只收到 1,378 款（Sony 端部分分頁失敗、非資料
- *  變動；同一時間獨立全掃仍為 1,621 款），key 換成 ps-deals-v9 強制重掃。 */
+ *  變動；同一時間獨立全掃仍為 1,621 款），key 換成 ps-deals-v9 強制重掃。
+ *  2026-11-24 v9 重掃一樣只收到 1,378 款（缺的都在 offset 2160 之後
+ *  的頁面，疑似 Sony 限流 Vercel 出口 IP）；lib/ps-deals.ts 加空頁重掃
+ *  （隔 2 秒、5 秒各一次）＋本頁 maxDuration 拉到 60，key 換成
+ *  ps-deals-v10。 */
 export const getCachedPsDeals = unstable_cache(
   async (): Promise<PsDealsData> => {
     const data = await fetchPsDeals();
@@ -190,7 +194,7 @@ export const getCachedPsDeals = unstable_cache(
     }
     return data;
   },
-  ["ps-deals-v9"],
+  ["ps-deals-v10"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["ps-deals"] }
 );
 

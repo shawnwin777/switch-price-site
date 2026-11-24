@@ -39,6 +39,10 @@
 //   510 款約 35–40 頁，900 款約 65–70 頁，1621 款約 120 頁。實測每頁約
 //   0.5～1 秒，整輪約 25 秒，掃滿 130 頁約 35 秒，仍在 Vercel 60 秒上限內）。
 //   只列折扣 ≥50% 的（shawn：大致上抓到 -50% 就好），折扣大→小、前 1621 款。
+//   2026-11-24 教訓：Vercel 上兩輪掃描都停在 90 頁（offset 2160 之後的頁面
+//   回空陣列／失敗，live 只收到 1,378 款；同一時間本機全掃 120 頁都通、
+//   1,621 款），疑似 Sony 限流 Vercel 出口 IP——所以空頁／失敗頁要重掃
+//   （見 fetchPsDeals 尾段的重掃迴圈，隔 2 秒、5 秒各一次）。
 // 價格：回傳的 price 是字串「NT$1,790」，basePrice／discountedPrice／
 //   discountText（「-80%」）都有；折扣％自己用原價／特價算。
 //   動態定價驗證（2026-11-23）：抽 2 款對照未登入商店產品頁驗證過：
@@ -259,11 +263,19 @@ export async function fetchPsDeals(): Promise<PsDealsData> {
   };
 
   let totalCount = 0;
+  // 回空陣列／抓失敗的 offset（重掃用；見下方重掃迴圈）。
+  const retryOffsets: number[] = [];
+  const fetchPage = async (offset: number): Promise<GridProduct[]> => {
+    const d = (await fetchJson(gridUrl(offset))) as GridResponse;
+    return d.data?.categoryGridRetrieve?.products ?? [];
+  };
   try {
     const first = (await fetchJson(gridUrl(0))) as GridResponse;
     const grid = first.data?.categoryGridRetrieve;
     totalCount = grid?.pageInfo?.totalCount ?? 0;
-    addProducts(grid?.products ?? []);
+    const firstProducts = grid?.products ?? [];
+    if (firstProducts.length === 0 && totalCount > 0) retryOffsets.push(0);
+    else addProducts(firstProducts);
     const pages = Math.min(
       MAX_PAGES,
       Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
@@ -275,15 +287,54 @@ export async function fetchPsDeals(): Promise<PsDealsData> {
         offsets.push(i * PAGE_SIZE);
       }
       const settled = await Promise.allSettled(
-        offsets.map(async (offset) => {
-          const d = (await fetchJson(gridUrl(offset))) as GridResponse;
-          return d.data?.categoryGridRetrieve?.products ?? [];
-        })
+        offsets.map(async (offset) => ({
+          offset,
+          products: await fetchPage(offset),
+        }))
       );
-      for (const s of settled) {
-        if (s.status === "fulfilled") addProducts(s.value);
-        else console.warn("[ps-deals] 優惠分類其中一頁失敗：", s.reason);
+      for (let k = 0; k < settled.length; k++) {
+        const s = settled[k];
+        const offset = offsets[k];
+        if (s.status === "fulfilled") {
+          if (s.value.products.length === 0) retryOffsets.push(offset);
+          else addProducts(s.value.products);
+        } else {
+          console.warn("[ps-deals] 優惠分類其中一頁失敗：", s.reason);
+          retryOffsets.push(offset);
+        }
       }
+    }
+    // 重掃空頁／失敗頁：2026-11-24 兩輪 Vercel 掃描都停在 90 頁（offset 2160
+    // 之後的頁面回空／失敗，live 只收到 1,378 款；同一時間本機全掃 120 頁
+    // 都通、1,621 款），疑似 Sony 限流 Vercel 出口 IP。隔一段時間再抓，
+    // 讓限流窗口過去；兩輪都還空／失敗就認了（只列抓到的，不 500）。
+    for (const delayMs of [2000, 5000]) {
+      if (retryOffsets.length === 0 || byName.size >= MAX_ITEMS) break;
+      await new Promise((r) => setTimeout(r, delayMs));
+      const pending = [...retryOffsets];
+      retryOffsets.length = 0;
+      const settled = await Promise.allSettled(
+        pending.map(async (offset) => ({
+          offset,
+          products: await fetchPage(offset),
+        }))
+      );
+      for (let k = 0; k < settled.length; k++) {
+        const s = settled[k];
+        const offset = pending[k];
+        if (s.status === "fulfilled") {
+          if (s.value.products.length === 0) retryOffsets.push(offset);
+          else addProducts(s.value.products);
+        } else {
+          console.warn("[ps-deals] 優惠分類重掃其中一頁失敗：", s.reason);
+          retryOffsets.push(offset);
+        }
+      }
+    }
+    if (retryOffsets.length > 0) {
+      console.warn(
+        `[ps-deals] 重掃後仍空／失敗 ${retryOffsets.length} 頁（offset：${retryOffsets.join(",")}），本次只列 ${byName.size} 款`
+      );
     }
   } catch (e) {
     console.warn("[ps-deals] 優惠分類抓取失敗：", e);
