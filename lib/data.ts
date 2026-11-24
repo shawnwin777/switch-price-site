@@ -53,7 +53,13 @@ function toGameWithPrices(
     cover_url: resolveCoverUrl(game.cover_url),
     prices: prices
       .filter((p) => p.game_id === game.id)
-      .sort((a, b) => (a.price_twd ?? Infinity) - (b.price_twd ?? Infinity)),
+      // 未確認價格排最後面：先分已確認／未確認，組內再依台幣價由低到高。
+      // 欄位不存在時 verified 為 undefined，視為已確認（見 isVerifiedPrice）。
+      .sort(
+        (a, b) =>
+          Number(isVerifiedPrice(b)) - Number(isVerifiedPrice(a)) ||
+          (a.price_twd ?? Infinity) - (b.price_twd ?? Infinity)
+      ),
     likes_count: likesCount,
     collections_count: collectionsCount,
     liked_by_me: likedByMe,
@@ -62,12 +68,23 @@ function toGameWithPrices(
   };
 }
 
+/** 單一價格是否已確認（2026-11-24 新規則：未確認的先排最後、不算特價）。
+ *  verified 欄位還不存在（migration 未跑）時，價格查詢用 select("*")，
+ *  不會回傳該欄位，undefined 視為已確認，舊行為不變；只有明確 false
+ *  才是未確認。寫入端：新匯入的外國價格帶 verified = false，探針驗證
+ *  通過後才改 true（見 price-verified-migration-20261124.sql）。 */
+export function isVerifiedPrice(p: Pick<Price, "verified">): boolean {
+  return p.verified !== false;
+}
+
 export function cheapestPrice(
   prices: Price[],
   visibleCountries?: Set<string>
 ): Price | null {
+  // 最低價只算已確認價格：未確認價格再便宜也不當最低價。
   const list = prices.filter(
     (p) =>
+      isVerifiedPrice(p) &&
       p.price_twd != null &&
       (!visibleCountries || visibleCountries.has(p.country))
   );
@@ -76,11 +93,13 @@ export function cheapestPrice(
 }
 
 /** 單一價格是否仍在特價：有折扣，且特價結束時間未過。
+ *  未確認價格永遠不算特價（即使 discount_pct > 0）。
  *  sale_end 為 NULL＝長期特價（無結束時間），維持特價中；
  *  sale_end 無效字串時也維持現況，不誤判為已結束。
  *  時間比較用同一瞬間（Date.now()），台北時間與 UTC 只是顯示時區，
  *  過期判斷不受時區影響。 */
 export function isPriceOnSale(p: Price): boolean {
+  if (!isVerifiedPrice(p)) return false;
   if ((p.discount_pct ?? 0) <= 0) return false;
   if (!p.sale_end) return true;
   const end = new Date(p.sale_end).getTime();
@@ -98,8 +117,9 @@ export function isOnSale(prices: Price[]): boolean {
  *  而不是整個特價至消失。混合情況（某國已結束、另一國還在特價）
  *  顯示還在特價那國的結束時間，不再誤寫已結束。 */
 export function saleEndOf(prices: Price[]): string | null {
+  // 特價結束時間只取已確認價格：未確認價格的 sale_end 不顯示。
   const ends = prices
-    .filter((p) => (p.discount_pct ?? 0) > 0 && p.sale_end)
+    .filter((p) => isVerifiedPrice(p) && (p.discount_pct ?? 0) > 0 && p.sale_end)
     .map((p) => p.sale_end as string)
     .sort();
   if (ends.length === 0) return null;
@@ -1478,48 +1498,74 @@ async function fetchHistoricalLowPageByFlag(
 ): Promise<HistoricalLowPageResult> {
   const p = Math.max(1, page);
   // 符合的列約 9,400 筆（1000 列一頁），3 批並行抓，約數秒。
-  const rows: {
+  type FlagRow = {
     game_id: string;
     price_twd: number;
     discount_pct: number | null;
     country: string;
-  }[] = [];
-  let offset = 0;
-  let done = false;
-  while (!done) {
-    const batchOffsets = [offset, offset + 1000, offset + 2000];
-    const settled = await Promise.allSettled(
-      batchOffsets.map((off) =>
-        db
-          .from("prices")
-          .select("game_id,price_twd,discount_pct,country")
-          .eq("is_historical_low", true)
-          .not("price_twd", "is", null)
-          .order("price_twd", { ascending: true })
-          .range(off, off + 999)
-      )
-    );
-    let fetched = 0;
-    for (const s of settled) {
-      if (s.status !== "fulfilled" || s.value.error || !s.value.data) {
-        if (s.status === "fulfilled" && s.value.error) {
-          return {
-            games: [],
-            total: 0,
-            page: p,
-            totalPages: 0,
-            error: s.value.error.message,
-          };
+    verified?: boolean | null;
+  };
+  const fetchAll = async (
+    withVerified: boolean
+  ): Promise<{ rows: FlagRow[]; error: string | null }> => {
+    const rows: FlagRow[] = [];
+    let offset = 0;
+    let done = false;
+    while (!done) {
+      const batchOffsets = [offset, offset + 1000, offset + 2000];
+      const settled = await Promise.allSettled(
+        batchOffsets.map((off) =>
+          db
+            .from("prices")
+            .select(
+              withVerified
+                ? "game_id,price_twd,discount_pct,country,verified"
+                : "game_id,price_twd,discount_pct,country"
+            )
+            .eq("is_historical_low", true)
+            .not("price_twd", "is", null)
+            .order("price_twd", { ascending: true })
+            .range(off, off + 999)
+        )
+      );
+      let fetched = 0;
+      for (const s of settled) {
+        if (s.status !== "fulfilled" || s.value.error || !s.value.data) {
+          if (s.status === "fulfilled" && s.value.error) {
+            return { rows, error: s.value.error.message };
+          }
+          continue;
         }
-        continue;
+        const data = s.value.data as unknown as FlagRow[];
+        fetched += data.length;
+        rows.push(...data);
       }
-      const data = s.value.data as unknown as typeof rows;
-      fetched += data.length;
-      rows.push(...data);
+      if (fetched < 3000) done = true;
+      offset += 3000;
     }
-    if (fetched < 3000) done = true;
-    offset += 3000;
+    return { rows, error: null };
+  };
+  let fetched = await fetchAll(true);
+  if (fetched.error && /verified/i.test(fetched.error)) {
+    // verified 欄位還沒建（migration 未跑）：退回舊查詢，
+    // 此時尚無未確認價格，全部視為已確認是安全的。
+    console.warn(
+      "[data] verified 欄位不存在，歷史低價備援暫時不區分未確認價格；請套用 price-verified-migration-20261124.sql。"
+    );
+    fetched = await fetchAll(false);
   }
+  if (fetched.error) {
+    return {
+      games: [],
+      total: 0,
+      page: p,
+      totalPages: 0,
+      error: fetched.error,
+    };
+  }
+  // 未確認價格不參與歷史低價計算：旗標是寫入時算的，未確認列
+  // 也可能帶 is_historical_low = true，先在這裡濾掉。
+  const rows = fetched.rows.filter(isVerifiedPrice);
   const byGame = new Map<string, HistoricalLowFallbackCandidate>();
   for (const r of rows) {
     const prev = byGame.get(r.game_id);

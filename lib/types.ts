@@ -37,6 +37,11 @@ export interface Price {
   sale_end: string | null; // ISO 時間
   price_twd: number | null;
   is_historical_low: boolean | null;
+  /** 價格是否已確認：新匯入的外國價格在探針驗證通過前為 false；
+   *  既有價格與官方來源一律 true（見 price-verified-migration-20261124.sql）。
+   *  欄位未建（migration 未跑）時 select("*") 不會回傳它，undefined
+   *  視為已確認，見 lib/data.ts isVerifiedPrice。 */
+  verified?: boolean | null;
   updated_at: string | null;
 }
 

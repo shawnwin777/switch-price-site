@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
-import { cheapestPrice, isOnSale, isPriceOnSale, saleEndOf } from "@/lib/data";
+import { cheapestPrice, isOnSale, isPriceOnSale, isVerifiedPrice, saleEndOf } from "@/lib/data";
 import { COUNTRIES, DEFAULT_BLOCKED_CODES, demoLabel, eshopUrl, productTypeLabel } from "@/lib/countries";
 import { formatRaw, formatTwd, isSaleEndingSoon, saleEndLabel } from "@/lib/format";
 import type { CommentItem, GameWithPrices } from "@/lib/types";
@@ -97,7 +97,12 @@ export default function GameDetailClient({
     () =>
       game.prices
         .filter((p) => visibleCountries.has(p.country))
-        .sort((a, b) => (a.price_twd ?? Infinity) - (b.price_twd ?? Infinity)),
+        // 未確認價格排最後面，組內再依台幣價由低到高。
+        .sort(
+          (a, b) =>
+            Number(isVerifiedPrice(b)) - Number(isVerifiedPrice(a)) ||
+            (a.price_twd ?? Infinity) - (b.price_twd ?? Infinity)
+        ),
     [game.prices, visibleCountries]
   );
 
@@ -289,7 +294,7 @@ export default function GameDetailClient({
                       {isCheapest && (
                         <span className="badge badge-cheapest"> 最便宜</span>
                       )}
-                      {p.is_historical_low && (
+                      {isVerifiedPrice(p) && p.is_historical_low && (
                         <span className="badge badge-histlow"> 歷史低價</span>
                       )}
                     </td>
