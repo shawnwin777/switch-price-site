@@ -25,6 +25,7 @@ export default function CommentsSection({
   const [authorName, setAuthorName] = useState("");
   const [busy, setBusy] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
   const router = useRouter();
 
   // 上次打的名字自動帶入（可改；只存在自己的瀏覽器裡）。
@@ -106,6 +107,27 @@ export default function CommentsSection({
     }
   }
 
+  async function reportComment(comment: CommentItem) {
+    if (reportedIds.has(comment.id)) return;
+    if (!window.confirm("確定要檢舉這則留言嗎？")) return;
+    try {
+      const res = await fetch(`/api/comments/${comment.id}/report`, {
+        body: JSON.stringify({}),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      if (res.status === 401) {
+        router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setReportedIds((prev) => new Set(prev).add(comment.id));
+    } catch (e) {
+      console.error("檢舉留言失敗：", e);
+      alert("檢舉失敗，請稍後再試（需先登入）。");
+    }
+  }
+
   async function deleteComment(comment: CommentItem) {
     if (!window.confirm("確定要刪除這則留言嗎？")) return;
     try {
@@ -181,6 +203,15 @@ export default function CommentsSection({
                     aria-pressed={c.liked_by_me}
                   >
                     👍 {c.likes_count}
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => reportComment(c)}
+                    disabled={reportedIds.has(c.id)}
+                    title="檢舉這則留言"
+                  >
+                    {reportedIds.has(c.id) ? "已檢舉" : "🚩 檢舉"}
                   </button>
                   {isAdmin && (
                     <button
