@@ -1652,6 +1652,128 @@ a.home-login-preview-btn:hover {
   margin-top: 14px;
 }
 
+/* ---------- detail: related games ---------- */
+/* 詳情頁「相關內容」區：各區價格區塊上方；無內容時整個區不渲染。
+ * 卡片橫向排列、手機上橫向滑動（overflow-x auto＋scroll-snap）。 */
+.related-section {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin: 18px 0 4px;
+  padding: 14px 16px 16px;
+}
+
+.related-head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.related-title-h {
+  margin: 0;
+}
+
+.related-toggle {
+  font-size: 13px;
+  padding: 6px 14px;
+}
+
+.related-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.related-group h3 {
+  font-size: 15px;
+  margin: 0 0 8px;
+}
+
+.related-row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.related-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  display: flex;
+  flex: 0 0 150px;
+  flex-direction: column;
+  overflow: hidden;
+  scroll-snap-align: start;
+  text-decoration: none;
+  width: 150px;
+}
+
+.related-card:hover {
+  border-color: var(--cyan);
+}
+
+.related-cover {
+  aspect-ratio: 3 / 4;
+  background: var(--bg-2);
+  display: block;
+  object-fit: cover;
+  width: 100%;
+}
+
+.related-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px 10px;
+}
+
+.related-card-body .badge {
+  align-self: flex-start;
+}
+
+.related-title {
+  display: -webkit-box;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.related-en {
+  color: var(--muted);
+  display: -webkit-box;
+  font-size: 11px;
+  line-height: 1.4;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.related-price {
+  color: var(--cyan);
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+@media (max-width: 640px) {
+  .related-card {
+    flex-basis: 128px;
+    width: 128px;
+  }
+}
+
 .price-table-wrap {
   overflow-x: auto;
 }

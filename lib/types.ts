@@ -87,6 +87,43 @@ export interface RankingEntry {
   sale_end: string | null;
 }
 
+/** game_relations 關聯類型（見 migration 20261124_add_game_relations.sql）。
+ *  方向約定：dlc／language_pack／upgrade_pass／bundle 皆為
+ *  game_id＝子項（DLC／組合包）、related_game_id＝本體；
+ *  edition 雙向各寫一列。 */
+export type RelationType =
+  | "dlc"
+  | "language_pack"
+  | "upgrade_pass"
+  | "bundle"
+  | "edition";
+
+/** 詳情頁「相關內容」區的一張卡片：相關遊戲＋最低價（台幣）。
+ *  cheapest_twd 為 null＝尚無價格；0＝免費（顯示 NT$ 0）。 */
+export interface RelatedGameItem {
+  id: string;
+  slug: string;
+  title_zh: string;
+  title_en: string | null;
+  cover_url: string | null;
+  platform: string | null;
+  product_type: string | null;
+  relation_type: RelationType;
+  cheapest_twd: number | null;
+}
+
+/** 詳情頁「相關內容」分組：parent＝當前遊戲所屬的本體
+ *  （只在當前遊戲本身是 DLC／組合包時出現）；其餘四組是本體的
+ *  子項；edition＝同名另一代主程式（雙向）。 */
+export interface RelatedGameGroups {
+  parent: RelatedGameItem[];
+  dlc: RelatedGameItem[];
+  language_pack: RelatedGameItem[];
+  upgrade_pass: RelatedGameItem[];
+  bundle: RelatedGameItem[];
+  edition: RelatedGameItem[];
+}
+
 export interface CollectedOnSale {
   game: Game;
   cheapest_sale: Price | null;

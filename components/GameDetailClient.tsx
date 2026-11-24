@@ -7,11 +7,12 @@ import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 import { cheapestPrice, isOnSale, isPriceOnSale, isVerifiedPrice, saleEndOf } from "@/lib/data";
 import { COUNTRIES, DEFAULT_BLOCKED_CODES, demoLabel, eshopUrl, productTypeLabel } from "@/lib/countries";
 import { formatRaw, formatTwd, isSaleEndingSoon, saleEndLabel } from "@/lib/format";
-import type { CommentItem, GameWithPrices } from "@/lib/types";
+import type { CommentItem, GameWithPrices, RelatedGameGroups } from "@/lib/types";
 import CollectionButton from "./CollectionButton";
 import PurchaseButton from "./PurchaseButton";
 import LikeButton from "./LikeButton";
 import CommentsSection from "./CommentsSection";
+import RelatedGamesSection from "./RelatedGamesSection";
 import CountrySettings from "./CountrySettings";
 
 const BLOCKED_KEY = "spc-blocked-countries";
@@ -21,11 +22,13 @@ export default function GameDetailClient({
   initialComments,
   collectedByMe,
   purchasedByMe,
+  related,
 }: {
   game: GameWithPrices;
   initialComments: CommentItem[];
   collectedByMe: boolean;
   purchasedByMe: boolean;
+  related: RelatedGameGroups;
 }) {
   const router = useRouter();
   const [blocked, setBlocked] = useState<string[]>(DEFAULT_BLOCKED_CODES);
@@ -355,6 +358,8 @@ export default function GameDetailClient({
       )}
 
       <CommentsSection gameId={game.id} initialComments={initialComments} />
+
+      <RelatedGamesSection groups={related} />
 
       <h2>💰 各區價格（依台幣由低到高）</h2>
       <CountrySettings blocked={blocked} onChange={setBlocked} />
