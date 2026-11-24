@@ -27,7 +27,8 @@ import {
   planCountryIds,
   type CountryPlan,
 } from "@/lib/region-ids";
-import { listAllGamesPaginated, readSyncCursors } from "@/lib/catalog-sync";
+import { listAllGamesPaginated, probeTableColumn, readSyncCursors } from "@/lib/catalog-sync";
+import { FOREIGN_PRICE_COUNTRIES } from "@/lib/catalog-sources";
 
 // 每日更新：GET /api/refresh（Vercel Cron 用 GET）或 POST /api/refresh。
 // 由 vercel.json 的 8 支 cron 每天打 8 次（UTC 20、23、02、05、08、11、14、17，
@@ -115,6 +116,11 @@ interface PriceUpsert {
   sale_end: string | null;
   price_twd: number | null;
   is_historical_low: boolean;
+  /** 未確認標記：新匯入的外國價格（美洲 8 國／歐洲 20 國）先寫 verified=false，
+   *  探針驗證通過後才改 true（寫入端合約，見 price-verified-migration-20261124.sql）。
+   *  欄位未建時不帶此鍵（否則寫入報 42703）；已在庫的列不帶此鍵——PostgREST
+   *  upsert 只更新 payload 內的欄位，既有 verified 值不會被蓋掉。 */
+  verified?: boolean;
   updated_at: string;
 }
 
@@ -530,6 +536,50 @@ async function handleRefresh(request: NextRequest) {
     }
   }
 
+  // ---- 3b. 未確認價格標記（外國匯入寫入端合約）----
+  // prices.verified 欄位存在時才標記；不存在時不帶 verified 鍵（否則寫入報 42703）。
+  // 只標「新出現」的外國價格列：先查既有 (game_id, country) 鍵，已在庫的列不帶
+  // verified 鍵（upsert 不動既有值，探針通過後改成的 true 不會被蓋回 false）；
+  // 新列才帶 verified=false。TW／HK／JP／KR 維持已確認，不標記。
+  let hasVerifiedColumn = false;
+  let unverifiedPricesWritten = 0;
+  if (priceRows.length > 0) {
+    hasVerifiedColumn = await probeTableColumn(admin, "prices", "verified");
+  }
+  if (hasVerifiedColumn) {
+    const foreignRows = priceRows.filter((r) =>
+      FOREIGN_PRICE_COUNTRIES.has(r.country)
+    );
+    const foreignGameIds = [...new Set(foreignRows.map((r) => r.game_id))];
+    const existingKeys = new Set<string>();
+    let lookupFailed = false;
+    for (let i = 0; i < foreignGameIds.length; i += 200) {
+      const { data, error: existError } = await admin
+        .from("prices")
+        .select("game_id, country")
+        .in("game_id", foreignGameIds.slice(i, i + 200));
+      if (existError) {
+        lookupFailed = true;
+        errors.push({
+          country: "-",
+          message: `讀取既有外國價格列失敗（${existError.message}）：本次外國新價未標未確認（以已確認寫入），請檢查後重跑本片`,
+        });
+        break;
+      }
+      for (const row of (data ?? []) as { game_id: string; country: string }[]) {
+        existingKeys.add(`${row.game_id}:${row.country}`);
+      }
+    }
+    if (!lookupFailed) {
+      for (const row of foreignRows) {
+        if (!existingKeys.has(`${row.game_id}:${row.country}`)) {
+          row.verified = false;
+          unverifiedPricesWritten++;
+        }
+      }
+    }
+  }
+
   // 本次各國用了幾個對照編號、幾個 fallback、幾個遊戲該國無編號。
   const regionIdsUsed: {
     table: "ok" | "missing" | "empty";
@@ -557,9 +607,12 @@ async function handleRefresh(request: NextRequest) {
   }
 
   // ---- 4. 歷史低價（只針對本次切片）：新低 = min（舊歷史低價，本次各國最低價）----
+  // 只用「已確認」價格算：verified=false 的外國新價不參與（不得壓低歷史低價，
+  // 也不得把 is_historical_low 寫成 true；探針通過改 true 的同時再重算）。
   const newLowByGame = new Map<string, number>();
   for (const row of priceRows) {
     if (row.price_twd == null) continue;
+    if (row.verified === false) continue;
     const prev = newLowByGame.get(row.game_id) ?? Infinity;
     newLowByGame.set(row.game_id, Math.min(prev, row.price_twd));
   }
@@ -570,7 +623,12 @@ async function handleRefresh(request: NextRequest) {
     const newLow = newLowByGame.get(row.game_id);
     const finalLow =
       newLow == null ? oldLow : oldLow == null ? newLow : Math.min(oldLow, newLow);
-    if (row.price_twd != null && finalLow != null && row.price_twd <= finalLow) {
+    if (
+      row.price_twd != null &&
+      row.verified !== false &&
+      finalLow != null &&
+      row.price_twd <= finalLow
+    ) {
       row.is_historical_low = true;
     }
   }
@@ -672,6 +730,8 @@ async function handleRefresh(request: NextRequest) {
     countries_attempted: countries.map((c) => c.code),
     countries_skipped_for_budget: countriesSkippedForBudget,
     prices_updated: pricesUpdated,
+    verified_column: hasVerifiedColumn,
+    unverified_prices_written: unverifiedPricesWritten,
     games_with_new_low: gamesWithNewLow,
     region_ids_used: regionIdsUsed,
     pending_no_title_id: pendingNoTitleId,

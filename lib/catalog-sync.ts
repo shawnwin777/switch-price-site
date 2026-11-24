@@ -24,9 +24,12 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  FOREIGN_IMPORT_SOURCES,
+  FOREIGN_PRICE_COUNTRIES,
   NA_RANK_BAND_COUNT,
   PAGED_SOURCES,
   PAGE_CAP,
+  expandRegionIdUpserts,
   fetchCatalogLists,
   pendingCatalogSources,
   planCatalogSync,
@@ -54,13 +57,22 @@ export const NEW_GAME_PRICE_CAP = 100;
 /** 全程軟預算（毫秒）：超過就跳過價格階段（目錄已寫入，下次輪轉補價）。 */
 const SYNC_TIME_BUDGET_MS = 50_000;
 
+/** 探測某表有沒有某個欄位（migration 還沒跑時回 false，不拋錯）。 */
+export async function probeTableColumn(
+  admin: AdminClient,
+  table: string,
+  column: string
+): Promise<boolean> {
+  const { error } = await admin.from(table).select(column).limit(1);
+  return !error;
+}
+
 /** 探測 games 有沒有某個欄位（migration 還沒跑時回 false，不拋錯）。 */
 export async function probeGamesColumn(
   admin: AdminClient,
   column: string
 ): Promise<boolean> {
-  const { error } = await admin.from("games").select(column).limit(1);
-  return !error;
+  return probeTableColumn(admin, "games", column);
 }
 
 /** 分頁讀全部遊戲（按 slug 排序；PostgREST 單次上限 1000 列，必須分頁）。 */
@@ -197,6 +209,9 @@ export interface CatalogSyncSummary {
   /** 本次補上的上市日期筆數（只補 release_date 為空的遊戲）。 */
   release_date_filled: number;
   region_ids_upserted: number;
+  /** 外國匯入是否啟用（prices.verified 欄位存在才 true；false 時 NA／EU
+   *  條目本次跳過、NA／EU 游標不推進，等 migration 跑完自動恢復）。 */
+  foreign_import_enabled: boolean;
   /** 本次重算 price_countries 的遊戲數（供 /api/refresh 工作量切片用）。 */
   price_countries_updated: number;
   /** 本次全量重算補上的 price_countries 列數（§4e-2，含 NULL 補值）。 */
@@ -479,7 +494,27 @@ export async function runCatalogSync(
   }
 
   // ---- 3. 比對計畫（純函式，不碰 DB／網路）----
-  const plan = planCatalogSync(existingGames, existingRegionIds, sourceResults);
+  // 外國匯入守衛：prices.verified 欄位未建時，NA／EU 條目整批暫緩
+  // （plan 內跳過，不掛編號、不建新遊戲），否則 cron 自動同步會在
+  // migration 之前把外國編號寫進庫、刷新再以「已確認」寫出未驗證價格；
+  // 而帶 verified=false 寫入又會因欄位不存在報 42703。欄位存在時才放行。
+  const hasVerifiedColumn = await probeTableColumn(admin, "prices", "verified");
+  const plan = planCatalogSync(existingGames, existingRegionIds, sourceResults, {
+    foreignImportEnabled: hasVerifiedColumn,
+  });
+  if (!hasVerifiedColumn) {
+    errors.push({
+      stage: "foreign_import",
+      message:
+        "外國匯入暫緩：prices.verified 欄位尚未建立（請執行 price-verified-migration-20261124.sql），本次 NA／EU 條目跳過、NA／EU 游標不推進；migration 跑完後下次同步自動恢復",
+    });
+  } else {
+    // 分組展開（US → 美洲 8 國、GB → 歐洲 20 國）：plan 產出後、寫庫前，
+    // 衝突的展開列跳過並記入 plan.conflicts（見 expandRegionIdUpserts）。
+    const expansion = expandRegionIdUpserts(plan.regionIdUpserts, existingRegionIds);
+    plan.regionIdUpserts = expansion.upserts;
+    plan.conflicts.push(...expansion.conflicts);
+  }
 
   const summary: CatalogSyncSummary = {
     ok: true,
@@ -500,6 +535,7 @@ export async function runCatalogSync(
     cover_filled: 0,
     release_date_filled: 0,
     region_ids_upserted: 0,
+    foreign_import_enabled: hasVerifiedColumn,
     price_countries_updated: 0,
     price_countries_full_updated: 0,
     price_countries_full_remaining: 0,
@@ -530,6 +566,9 @@ export async function runCatalogSync(
     duration_ms: 0,
   };
   if (opts.dryRun) {
+    // dry-run 不寫庫，但 region_ids_upserted 回「計畫寫入數」
+    // （展開後），供 Vercel dry-run 與本機 dry-run 交叉比對用。
+    summary.region_ids_upserted = plan.regionIdUpserts.length;
     summary.duration_ms = Date.now() - startedAt;
     return summary;
   }
@@ -662,10 +701,17 @@ export async function runCatalogSync(
 
   // ---- 4d. 推進分頁游標（目錄寫入成功後才推進；寫入失敗拋錯時不推進，
   // 下次重抓同一窗口——冪等 upsert，重抓安全）。----
+  // 外國匯入暫緩時 NA／EU 游標不推進：那些窗口的條目本次根本沒處理，
+  // 推進了就得等下一輪（逐款長尾約 37 天）才回來；不推進則下次重跑同一窗口。
   if (!syncStateMissing) {
+    const cursorResults = hasVerifiedColumn
+      ? sourceResults
+      : sourceResults.filter(
+          (r) => !FOREIGN_IMPORT_SOURCES.includes(r.source)
+        );
     const { tableMissing: cursorWriteMissing } = await advanceSyncCursors(
       admin,
-      sourceResults,
+      cursorResults,
       dateKey
     );
     if (cursorWriteMissing) {
@@ -771,6 +817,11 @@ export async function runCatalogSync(
             sale_end: string | null;
             price_twd: number | null;
             is_historical_low: boolean;
+            /** 未確認標記：新匯入的外國價格（美洲 8 國／歐洲 20 國）先寫
+             *  verified=false，探針驗證通過後才改 true（寫入端合約，見
+             *  price-verified-migration-20261124.sql）。欄位未建時不帶此鍵
+             *  （否則寫入報 42703）；TW／HK／JP／KR 維持已確認，不帶此鍵。 */
+            verified?: boolean;
             updated_at: string;
           };
           // 價格列以 (game_id, country) 為鍵：商店前端價先寫入（新遊戲即時價），
@@ -794,7 +845,7 @@ export async function runCatalogSync(
             const regularRaw = sp.regularRaw ?? sp.effectiveRaw;
             const priceTwd = Math.round(sp.effectiveRaw * fxRate);
             const key = `${gameId}:${sp.country}`;
-            priceRowByKey.set(key, {
+            const storefrontRow: NewGamePriceRow = {
               game_id: gameId,
               country: sp.country,
               country_name: country.name,
@@ -811,7 +862,12 @@ export async function runCatalogSync(
               price_twd: priceTwd,
               is_historical_low: false,
               updated_at: runAt,
-            });
+            };
+            // 新匯入的外國價格先標未確認（欄位未建時不帶此鍵）。
+            if (hasVerifiedColumn && FOREIGN_PRICE_COUNTRIES.has(sp.country)) {
+              storefrontRow.verified = false;
+            }
+            priceRowByKey.set(key, storefrontRow);
             storefrontKeys.add(key);
           }
           const notFound: string[] = [];
@@ -866,7 +922,7 @@ export async function runCatalogSync(
               // 價格 API 為準：同一 (game, country) 覆蓋先寫的商店前端價。
               const key = `${gameId}:${code}`;
               if (storefrontKeys.has(key)) storefrontKeys.delete(key);
-              priceRowByKey.set(key, {
+              const apiRow: NewGamePriceRow = {
                 game_id: gameId,
                 country: code,
                 country_name: country.name,
@@ -883,7 +939,12 @@ export async function runCatalogSync(
                 price_twd: priceTwd,
                 is_historical_low: false,
                 updated_at: runAt,
-              });
+              };
+              // 新匯入的外國價格先標未確認（欄位未建時不帶此鍵）。
+              if (hasVerifiedColumn && FOREIGN_PRICE_COUNTRIES.has(code)) {
+                apiRow.verified = false;
+              }
+              priceRowByKey.set(key, apiRow);
               noteLow(slug, priceTwd);
               // 交叉驗證：EU Solr 參考價（GB）與價格 API 的 GB 價比對；
               // 差異超過 1%（且超過 0.5 幣別單位）時記錄，價格 API 勝出。
@@ -909,20 +970,24 @@ export async function runCatalogSync(
           if (priceRows.length > 0) {
             // 先算歷史低價旗標（新遊戲沒有舊歷史低價，本次最低價即歷史低價），
             // 再一次寫庫——旗標必須在 upsert 之前算好。
-            // 低價以最終價格列重算（商店前端價＋價格 API 兩邊都算）。
+            // 低價只以「已確認」價格重算（商店前端價＋價格 API 兩邊都算，
+            // 但 verified=false 的外國價不參與：未確認價不得壓低歷史低價，
+            // 也不能把 is_historical_low 寫成 true；探針通過改 true 時再重算）。
             const slugByGameId = new Map(
               [...slugToId.entries()].map(([slug, id]) => [id, slug])
             );
             lowBySlug.clear();
             for (const row of priceRows) {
               const slug = slugByGameId.get(row.game_id);
-              if (slug && row.price_twd != null) noteLow(slug, row.price_twd);
+              if (slug && row.price_twd != null && row.verified !== false)
+                noteLow(slug, row.price_twd);
             }
             for (const row of priceRows) {
               const slug = slugByGameId.get(row.game_id);
               if (
                 slug &&
                 row.price_twd != null &&
+                row.verified !== false &&
                 row.price_twd === lowBySlug.get(slug)
               ) {
                 row.is_historical_low = true;

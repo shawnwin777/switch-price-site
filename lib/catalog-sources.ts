@@ -741,6 +741,32 @@ export const PAGE_CAP: Record<string, number> = {
   "au-algolia": 5,
 };
 
+/** 外國編號分組展開（2026-11-24 外國價格匯入計畫 §1.4 實測證實：
+ *  一個美國號可在美洲 8 國查到價、一個英國號可在歐洲 20 國查到價，
+ *  跨組查價全 not_found；分組表沿用 scripts/build-region-title-ids.mjs）。
+ *  只展開錨點國（US／GB 來源的 upsert）；TW／HK／KR／AU 來源不展開
+ *  （台港號是獨立編號空間；AU 號即 EU 號，已被 GB 展開覆蓋）。 */
+export const NA_EXPANSION_COUNTRIES = ["US", "CA", "MX", "BR", "CL", "CO", "AR", "PE"];
+export const EU_EXPANSION_COUNTRIES = [
+  "GB", "IE", "DE", "FR", "ES", "IT", "NL", "BE", "AT", "CH",
+  "PT", "PL", "CZ", "DK", "FI", "SE", "NO", "AU", "NZ", "ZA",
+];
+/** 錨點國 → 展開後國家清單（只含 US／GB 兩個錨點）。 */
+export const REGION_ID_EXPANSION: Record<string, string[]> = {
+  US: NA_EXPANSION_COUNTRIES,
+  GB: EU_EXPANSION_COUNTRIES,
+};
+/** 外國價格國家集合（美洲 8 國＋歐洲 20 國）：寫入端 verified 合約用——
+ *  這些國家的「新匯入」價格一律先標 verified=false（見 lib/catalog-sync.ts
+ *  與 app/api/refresh/route.ts）；TW／HK／JP／KR 維持已確認。 */
+export const FOREIGN_PRICE_COUNTRIES = new Set<string>([
+  ...NA_EXPANSION_COUNTRIES,
+  ...EU_EXPANSION_COUNTRIES,
+]);
+/** 外國匯入來源（NA Algolia／EU Solr）：prices.verified 欄位未建時暫緩
+ *  （見 planCatalogSync 的 foreignImportEnabled 守衛）。 */
+export const FOREIGN_IMPORT_SOURCES = ["na-algolia", "eu-solr"];
+
 /** 分頁抓取的小型並行池（保持頁面順序；單頁失敗即停、回傳已抓到的部分）。 */
 async function fetchPagesInPool<T>(
   pages: number[],
@@ -1464,6 +1490,11 @@ export interface CatalogSyncPlan {
     matchedByTitleId: number;
     matchedByRegionId: number;
     matchedByTitle: number;
+    /** 佔位列排除後才成功掛上的標題比對數（外國匯入計畫 §3.1）。 */
+    matchedByTitlePlaceholderResolved: number;
+    /** 外國匯入暫緩時跳過的 NA／EU 條目數（prices.verified 欄位未建，見
+     *  planCatalogSync 的 foreignImportEnabled 守衛；migration 跑完自動恢復）。 */
+    skippedForeignPaused: number;
     newFromJp: number;
     newFromNonJp: number;
     titleIdFills: number;
@@ -1492,7 +1523,9 @@ export interface CatalogSyncPlan {
  *      8 Deluxe" 會比對失敗，見 region-sources-report.md §11），去掉
  *      標點／空白／大小寫差異後比對 games.title_zh 與 title_en。
  *      只在「唯一命中」時採用；命中 0 款 → 新遊戲；命中 ≥2 款 → 撞名，
- *      列 needs_review、不自動合併。
+ *      列 needs_review、不自動合併。佔位列（slug tw-/hk-<nsuid> 且 title_id
+ *      為 null）不參與比對：排除後恰好剩 1 款真列即掛上；全是佔位列或
+ *      剩 ≥2 款真列都列 needs_review（見 resolveTitleMatch，外國匯入計畫 §3.1）。
  *      限制（大規模下更明顯）：片假名標題對不上中文／英文標題
  *      （例：マリオカートワールド vs 瑪利歐賽車世界／Mario Kart World），
  *      這類跨語言合併目前無自動解，只能靠 product code（見下）。
@@ -1526,11 +1559,86 @@ export interface CatalogSyncPlan {
  *     只計入 stats.skippedNonGame；JP XML 的 SoftType 仍無法區分，
  *     標題含 DLC 關鍵字的另列入 needs_review。
  */
+/**
+ * 分組展開（純函式；外國匯入計畫 §3 步驟 2）：把錨點國的對照編號展開成
+ * 整組國家的對照列（US → 美洲 8 國、GB → 歐洲 20 國，同一個 title_id）。
+ * 只展開錨點國：TW／HK／KR／AU 來源的 upsert 原樣通過。
+ *
+ * 去重與衝突：
+ *   - 同一 (game, country) 已有相同 title_id 的列（既有對照表或本次計畫
+ *     裡的另一筆）→ 只留一筆，不重複寫入。
+ *   - 展開列與既有對照表同一 (game_id, country) 的編號不同 → 跳過該列、
+ *     記一筆 conflicts（不覆蓋既有編號）。新遊戲（gameId 為 null）的展開
+ *     列沒有既有對照可比，直接通過（寫庫時以 slug 對上新遊戲 id）。
+ * 呼叫端（runCatalogSync）在 plan 產出後、寫庫前呼叫一次。
+ */
+export function expandRegionIdUpserts(
+  upserts: RegionIdUpsert[],
+  existingRegionIds: ExistingRegionId[]
+): { upserts: RegionIdUpsert[]; conflicts: string[] } {
+  const existingByGameCountry = new Map<string, string>();
+  for (const r of existingRegionIds) {
+    existingByGameCountry.set(
+      `${r.game_id}|${r.country.toUpperCase()}`,
+      String(r.title_id)
+    );
+  }
+  const conflicts: string[] = [];
+  const out: RegionIdUpsert[] = [];
+  const seen = new Map<string, string>(); // `${gameKey}|${country}` → title_id
+  const gameKey = (u: RegionIdUpsert) => u.gameId ?? `slug:${u.gameSlug}`;
+  const pushRow = (u: RegionIdUpsert): void => {
+    const key = `${gameKey(u)}|${u.country.toUpperCase()}`;
+    const prev = seen.get(key);
+    if (prev != null) {
+      if (prev === String(u.title_id)) return; // 同編號重複，留一筆
+      conflicts.push(
+        `${u.gameSlug} 的 ${u.country} 編號衝突：${prev} 與 ${u.title_id} 不同，已跳過後者`
+      );
+      return;
+    }
+    if (u.gameId) {
+      const existing = existingByGameCountry.get(
+        `${u.gameId}|${u.country.toUpperCase()}`
+      );
+      if (existing != null && existing !== String(u.title_id)) {
+        conflicts.push(
+          `${u.gameSlug} 的 ${u.country} 編號衝突：既有 ${existing}、展開 ${u.title_id}，已跳過展開列`
+        );
+        return;
+      }
+    }
+    seen.set(key, String(u.title_id));
+    out.push(u);
+  };
+  for (const u of upserts) {
+    const group = REGION_ID_EXPANSION[u.country.toUpperCase()];
+    if (!group) {
+      pushRow(u);
+      continue;
+    }
+    for (const country of group) {
+      pushRow({ ...u, country });
+    }
+  }
+  return { upserts: out, conflicts };
+}
+
 export function planCatalogSync(
   existingGames: ExistingGameLite[],
   existingRegionIds: ExistingRegionId[],
-  sourceResults: CatalogSourceResult[]
+  sourceResults: CatalogSourceResult[],
+  opts: { foreignImportEnabled?: boolean } = {}
 ): CatalogSyncPlan {
+  // 外國匯入守衛（2026-11-24 外國價格匯入）：prices.verified 欄位未建時，
+  // NA／EU 條目一律暫緩（不掛編號、不建新遊戲），等 shawn 跑完
+  // price-verified-migration-20261124.sql 後自動恢復。原因：未確認價格
+  // 必須帶 verified=false 寫入，欄位不存在時寫入會報 42703；且 cron
+  // 每天自動跑同步，不守衛就會在 migration 之前把外國編號偷偷寫進庫、
+  // 刷新再以「已確認」寫出未驗證的價格。守衛關閉時 NA／EU 游標也不推進
+  // （見 lib/catalog-sync.ts 4d），窗口下次重跑，不會漏掉。
+  // 預設 true：純函式驗算與本機 dry-run 直接跑完整路徑。
+  const foreignImportEnabled = opts.foreignImportEnabled !== false;
   const byTitleId = new Map<string, ExistingGameLite>();
   const byNormTitle = new Map<string, ExistingGameLite[]>();
   const takenSlugs = new Set<string>();
@@ -1574,6 +1682,8 @@ export function planCatalogSync(
       matchedByTitleId: 0,
       matchedByRegionId: 0,
       matchedByTitle: 0,
+      matchedByTitlePlaceholderResolved: 0,
+      skippedForeignPaused: 0,
       newFromJp: 0,
       newFromNonJp: 0,
       titleIdFills: 0,
@@ -1613,14 +1723,55 @@ export function planCatalogSync(
     jpCandidates.set(jpTitleId, row);
     indexCandidateTitle(row);
   };
-  const uniqueNormMatch = (
-    norm: string
-  ): { game: ExistingGameLite } | { candidate: NewGameRow } | null => {
-    const games = byNormTitle.get(norm) ?? [];
+  /** 佔位列（外國匯入計畫 §3.1）：slug 為 tw-<nsuid>／hk-<nsuid>、
+   *  title_id 為 null 的未命名列。佔位列與已命名列常共用同一個正規化標題，
+   *  是標題比對假撞名的主因（NA 樣本 47.5%），比對時直接忽略。 */
+  const isPlaceholderGame = (g: ExistingGameLite): boolean =>
+    g.title_id == null && /^(tw|hk)-[0-9]/.test(g.slug);
+  /**
+   * 佔位列感知的標題比對（外國匯入計畫 §3.1），取代舊的 uniqueNormMatch：
+   *   - 同名命中裡恰好剩 1 款「真列」（非佔位列）→ 掛到那一款；
+   *   - 剩 0 款真列（全是佔位列）→ kind "none"，呼叫端列 needsReview、
+   *     等每週 ingest 合併佔位列，不自動建新遊戲；
+   *   - 剩 ≥2 款真列 → kind "collision"，真撞名，列 needsReview、不自動合併。
+   * 候選遊戲（本次新建的 JP 候選）的規則不變：與真列同時命中即撞名。
+   * excludedPlaceholders 供統計與 needsReview 原因加註用。
+   */
+  type TitleMatch =
+    | {
+        kind: "game";
+        game: ExistingGameLite;
+        excludedPlaceholders: number;
+      }
+    | {
+        kind: "candidate";
+        candidate: NewGameRow;
+        excludedPlaceholders: number;
+      }
+    | {
+        kind: "collision";
+        realGames: number;
+        placeholders: number;
+        candidates: number;
+      }
+    | { kind: "none"; placeholders: number };
+  const resolveTitleMatch = (norm: string): TitleMatch => {
+    const all = byNormTitle.get(norm) ?? [];
+    const realGames = all.filter((g) => !isPlaceholderGame(g));
+    const placeholders = all.length - realGames.length;
     const cands = candidateByNormTitle.get(norm) ?? [];
-    if (games.length === 1 && cands.length === 0) return { game: games[0] };
-    if (games.length === 0 && cands.length === 1) return { candidate: cands[0] };
-    return null; // 0 款或撞名（≥2）→ 不自動合併
+    if (realGames.length === 1 && cands.length === 0)
+      return { kind: "game", game: realGames[0], excludedPlaceholders: placeholders };
+    if (realGames.length === 0 && cands.length === 1)
+      return { kind: "candidate", candidate: cands[0], excludedPlaceholders: placeholders };
+    if (realGames.length === 0 && cands.length === 0)
+      return { kind: "none", placeholders };
+    return {
+      kind: "collision",
+      realGames: realGames.length,
+      placeholders,
+      candidates: cands.length,
+    };
   };
 
   const jpResults = sourceResults.filter((r) => r.country === "JP");
@@ -1672,10 +1823,13 @@ export function planCatalogSync(
     // 但若此 JP 編號已在他區對照表屬於另一款遊戲，標題命中也不可信，
     // 一律跳過、列衝突（不同區的數字編號可能撞號）。
     const norm = normalizeTitle(e.title);
-    const match = uniqueNormMatch(norm);
+    const match = resolveTitleMatch(norm);
     const regionOwnerId = regionTitleIdToGameId.get(e.titleId);
-    if (match && "game" in match) {
+    if (match.kind === "game") {
       const g = match.game;
+      if (match.excludedPlaceholders > 0) {
+        plan.stats.matchedByTitlePlaceholderResolved++;
+      }
       if (regionOwnerId && regionOwnerId !== g.id) {
         plan.conflicts.push(
           `JP ${e.titleId}「${e.title}」標題對到 ${g.slug}，但此編號已在他區對照表屬於 ${gameById.get(regionOwnerId)?.slug ?? regionOwnerId}，未合併（可能是編號撞號）`
@@ -1704,10 +1858,27 @@ export function planCatalogSync(
       );
       continue;
     }
-    if (match && "candidate" in match) {
+    if (match.kind === "candidate") {
       plan.conflicts.push(
         `JP ${e.titleId}「${e.title}」標題撞名（已有同名候選），未建新遊戲`
       );
+      continue;
+    }
+    if (
+      match.kind === "collision" ||
+      (match.kind === "none" && match.placeholders > 0)
+    ) {
+      // 真撞名（≥2 款真列）或全是佔位列：不填編號、不建新遊戲，
+      // 列 needsReview（佔位列等每週 ingest 合併、真撞名等人工判）。
+      const excluded = match.placeholders;
+      plan.needsReview.push({
+        slug: "",
+        title: e.title,
+        reason:
+          match.kind === "collision"
+            ? `JP 編號 ${e.titleId} 的標題撞名（${match.realGames} 款真列同名${excluded > 0 ? `，已排除 ${excluded} 筆佔位列` : ""}），未填編號、未建新遊戲，待人工確認是哪一款`
+            : `JP 編號 ${e.titleId} 的標題只對到佔位列（已排除 ${excluded} 筆佔位列），未填編號、未建新遊戲，等每週 ingest 合併佔位列後再對`,
+      });
       continue;
     }
     // 此 JP 編號已在他區對照表出現（例如先以 TW/HK-only 進庫的遊戲，
@@ -1770,6 +1941,12 @@ export function planCatalogSync(
   // ---- 第 2 步：TW/HK（及其他區）條目：掛編號 → 掛到 JP 候選 → 新遊戲 ----
   const seenRegion = new Set<string>();
   for (const e of allEntries.filter((x) => x.country !== "JP")) {
+    // 外國匯入守衛：prices.verified 欄位未建時 NA／EU 條目整批暫緩
+    // （不掛編號、不建新遊戲；游標也不推進，見 lib/catalog-sync.ts 4d）。
+    if (!foreignImportEnabled && FOREIGN_IMPORT_SOURCES.includes(e.source)) {
+      plan.stats.skippedForeignPaused++;
+      continue;
+    }
     const regionKey = `${e.country}|${e.titleId}`;
     if (seenRegion.has(regionKey)) continue;
     seenRegion.add(regionKey);
@@ -1799,9 +1976,13 @@ export function planCatalogSync(
       continue; // 編號已在對照表，什麼都不用做
     }
     const norm = normalizeTitle(e.title);
-    const match = uniqueNormMatch(norm);
-    if (match && "game" in match) {
+    const match = resolveTitleMatch(norm);
+    if (match.kind === "game") {
       // 標題唯一命中已在庫遊戲 → 只補該國編號，不新建遊戲、不改標題。
+      // （佔位列已被 resolveTitleMatch 排除；排除後才成功的計入統計。）
+      if (match.excludedPlaceholders > 0) {
+        plan.stats.matchedByTitlePlaceholderResolved++;
+      }
       plan.regionIdUpserts.push({
         gameId: match.game.id,
         gameSlug: match.game.slug,
@@ -1830,7 +2011,7 @@ export function planCatalogSync(
       plan.stats.matchedByTitle++;
       continue;
     }
-    if (match && "candidate" in match) {
+    if (match.kind === "candidate") {
       // 掛到本次 JP 新遊戲候選：TW/HK 標題是中文，優先作 title_zh，
       // 並把中文標題補進索引（否則同一款的另一區條目會誤建成重複遊戲）。
       const cand = match.candidate;
@@ -1853,20 +2034,29 @@ export function planCatalogSync(
       plan.stats.matchedByTitle++;
       continue;
     }
-    const gamesHit = (byNormTitle.get(norm) ?? []).length;
+    // 撞名／全佔位列：佔位列不計入撞名數（已排除數寫進原因）。
+    const allHit = byNormTitle.get(norm) ?? [];
+    const realHit = allHit.filter((g) => !isPlaceholderGame(g)).length;
+    const placeholderHit = allHit.length - realHit;
     const candsHit = (candidateByNormTitle.get(norm) ?? []).length;
     const pendHit = (pendingByNorm.get(norm) ?? []).length;
-    if (gamesHit + candsHit + pendHit > 1) {
+    if (
+      realHit + candsHit + pendHit > 1 ||
+      (realHit === 0 && placeholderHit > 0 && candsHit === 0 && pendHit === 0)
+    ) {
       plan.needsReview.push({
         slug: "",
         title: e.title,
-        reason: `${e.country} 編號 ${e.titleId} 的標題撞名（${gamesHit + candsHit + pendHit} 款同名），未自動建新遊戲、未掛編號，待人工確認是哪一款`,
+        reason:
+          realHit === 0 && placeholderHit > 0
+            ? `${e.country} 編號 ${e.titleId} 的標題只對到佔位列（已排除 ${placeholderHit} 筆佔位列），未掛編號、未建新遊戲，等每週 ingest 合併佔位列後再對`
+            : `${e.country} 編號 ${e.titleId} 的標題撞名（${realHit + candsHit + pendHit} 款同名${placeholderHit > 0 ? `，已排除 ${placeholderHit} 筆佔位列` : ""}），未自動建新遊戲、未掛編號，待人工確認是哪一款`,
       });
       continue;
     }
     if (pendHit === 1) {
       // 同一款的另一區條目：本次已建的 TW-only 新遊戲（JP 候選已在
-      // uniqueNormMatch 處理），只掛編號，不再建第二款。
+      // resolveTitleMatch 處理），只掛編號，不再建第二款。
       const row = pendingByNorm.get(norm)![0];
       plan.regionIdUpserts.push({
         gameId: null,

@@ -56,7 +56,7 @@ execSync(
 const lib = await import(path.join(outDir, 'catalog-sources.js'));
 const {
   parseJpXml, parseTwHkRsc, normalizeTitle, extractLatin, slugify,
-  uniqueSlug, planCatalogSync, kindFromNsuid,
+  uniqueSlug, planCatalogSync, kindFromNsuid, expandRegionIdUpserts,
   parseNaAlgoliaHits, parseEuSolrDocs, parseJpSearchItems, parseAuAlgoliaHits,
 } = lib;
 
@@ -373,6 +373,117 @@ console.log('[6] 商店前端價格（NA／JP 已驗證、EU 只記參考價）'
     mixPlan.referencePrices.length === 1 && mixPlan.referencePrices[0].country === 'GB' &&
     !mixPlan.storefrontPrices.some((s) => s.country === 'GB'),
     `storefront=${mixPlan.storefrontPrices.length}，reference=${mixPlan.referencePrices.length}`);
+}
+
+console.log('[7] 外國匯入（佔位列比對＋分組展開＋守衛，計畫 §3／§6.1）');
+{
+  // 佔位列撞名 → 掛到真列（Big Walk 案例：已命名列＋tw- 佔位列同標題）
+  const games = [
+    { id: 'g-bigwalk', slug: 'big-walk', title_id: '70010000109971', title_zh: 'Big Walk', title_en: 'Big Walk', cover_url: null },
+    { id: 'g-ph1', slug: 'tw-70010000109972', title_id: null, title_zh: 'Big Walk', title_en: 'Big Walk', cover_url: null },
+    { id: 'g-doom', slug: 'doom', title_id: '70010000002752', title_zh: 'DOOM', title_en: 'DOOM', cover_url: null },
+    // 真撞名：另一款不同 JP 號的遊戲標題正規化後也完全相同（DOOM (1993) 在庫裡的
+    // 標題寫法與本體相同，normalizeTitle 都得 "doom"；見計畫 §2.3）
+    { id: 'g-doom2', slug: 'doom-018922', title_id: '70010000002799', title_zh: 'DOOM', title_en: 'DOOM', cover_url: null },
+    { id: 'g-ph2', slug: 'hk-70010000999991', title_id: null, title_zh: 'Only Placeholder', title_en: 'Only Placeholder', cover_url: null },
+  ];
+  const naResults = [
+    { source: 'na-algolia', country: 'US', status: 'ok', fetchedAt: '', entries: [
+      { titleId: '70010000109973', title: 'Big Walk', country: 'US', source: 'na-algolia' },
+      { titleId: '70010000002753', title: 'DOOM', country: 'US', source: 'na-algolia' },
+      { titleId: '70010000999992', title: 'Only Placeholder', country: 'US', source: 'na-algolia' },
+      { titleId: '70010000000099', title: 'Brand New NA Game', country: 'US', source: 'na-algolia' },
+    ] },
+  ];
+  const plan = planCatalogSync(games, [], naResults);
+  check('佔位列撞名 → 掛到真列（big-walk），不建新遊戲',
+    plan.regionIdUpserts.some((u) => u.gameSlug === 'big-walk' && u.country === 'US' && u.title_id === '70010000109973') &&
+    !plan.newGames.some((g) => g.title_zh === 'Big Walk'),
+    `upserts=${JSON.stringify(plan.regionIdUpserts.map((u) => u.gameSlug))}`);
+  check('佔位列排除後成功數計入 matchedByTitlePlaceholderResolved',
+    plan.stats.matchedByTitlePlaceholderResolved === 1, `得 ${plan.stats.matchedByTitlePlaceholderResolved}`);
+  check('真撞名（DOOM：doom vs doom-018922，兩款真列）→ needsReview、不掛編號',
+    plan.needsReview.some((n) => n.title === 'DOOM' && /撞名/.test(n.reason)) &&
+    !plan.regionIdUpserts.some((u) => u.title_id === '70010000002753'),
+    `needsReview=${JSON.stringify(plan.needsReview.map((n) => n.reason))}`);
+  check('全是佔位列（Only Placeholder）→ needsReview、原因註明已排除佔位列、不建新遊戲',
+    plan.needsReview.some((n) => n.title === 'Only Placeholder' && /已排除 1 筆佔位列/.test(n.reason)) &&
+    !plan.newGames.some((g) => g.title_zh === 'Only Placeholder'),
+    `needsReview=${JSON.stringify(plan.needsReview.map((n) => n.reason))}`);
+  check('無匹配的新遊戲照常建檔（Brand New NA Game）',
+    plan.stats.newFromNonJp === 1 && plan.newGames.some((g) => g.title_zh === 'Brand New NA Game'));
+  // JP 標題回填也走佔位列感知：JP 條目只對到佔位列 → 不填編號、列 needsReview
+  const jpPlan = planCatalogSync(games, [], [
+    { source: 'jp-search', country: 'JP', status: 'ok', fetchedAt: '', entries: [
+      { titleId: '70010000999993', title: 'Only Placeholder', country: 'JP', source: 'jp-search' },
+    ] },
+  ]);
+  check('JP 條目只對到佔位列 → 不填編號、不建新遊戲、列 needsReview',
+    jpPlan.needsReview.some((n) => n.title === 'Only Placeholder') &&
+    jpPlan.titleIdFills.length === 0 && !jpPlan.newGames.some((g) => g.title_id === '70010000999993'),
+    `needsReview=${jpPlan.needsReview.length}，titleIdFills=${jpPlan.titleIdFills.length}`);
+
+  // 分組展開
+  const base = [
+    { gameId: 'g-bigwalk', gameSlug: 'big-walk', country: 'US', title_id: '70010000109973', source: 'na-algolia' },
+    { gameId: 'g-doom', gameSlug: 'doom', country: 'GB', title_id: '70010000002754', source: 'eu-solr' },
+    { gameId: 'g-bigwalk', gameSlug: 'big-walk', country: 'TW', title_id: '70010000109971', source: 'tw-list' },
+    { gameId: null, gameSlug: 'brand-new-na-game', country: 'US', title_id: '70010000000099', source: 'na-algolia' },
+  ];
+  const expanded = expandRegionIdUpserts(base, []);
+  check('US upsert 展開 8 國、GB 展開 20 國、TW 不展開',
+    expanded.upserts.filter((u) => u.gameSlug === 'big-walk' && u.title_id === '70010000109973').length === 8 &&
+    expanded.upserts.filter((u) => u.gameSlug === 'doom').length === 20 &&
+    expanded.upserts.filter((u) => u.gameSlug === 'big-walk' && u.country === 'TW').length === 1,
+    `總列數=${expanded.upserts.length}`);
+  check('新遊戲（gameId null）的 US upsert 也展開 8 國',
+    expanded.upserts.filter((u) => u.gameSlug === 'brand-new-na-game').length === 8);
+  check('展開總列數＝8＋20＋1＋8＝37',
+    expanded.upserts.length === 37, `得 ${expanded.upserts.length}`);
+  // 展開列與既有不同編號衝突 → 跳過＋conflicts
+  const conflicted = expandRegionIdUpserts(
+    [{ gameId: 'g-bigwalk', gameSlug: 'big-walk', country: 'US', title_id: '70010000109973', source: 'na-algolia' }],
+    [{ game_id: 'g-bigwalk', country: 'CA', title_id: '70010000999999' }],
+  );
+  check('展開列與既有不同編號衝突 → 該國跳過、記 conflicts，其餘 7 國照常',
+    conflicted.upserts.filter((u) => u.gameSlug === 'big-walk').length === 7 &&
+    !conflicted.upserts.some((u) => u.country === 'CA') &&
+    conflicted.conflicts.length === 1,
+    `列數=${conflicted.upserts.length}，conflicts=${JSON.stringify(conflicted.conflicts)}`);
+  // 同編號重複去重：US 展開的 AU 列與 AU 來源的同編號列只留一筆
+  const deduped = expandRegionIdUpserts([
+    { gameId: 'g-doom', gameSlug: 'doom', country: 'GB', title_id: '70010000002754', source: 'eu-solr' },
+    { gameId: 'g-doom', gameSlug: 'doom', country: 'AU', title_id: '70010000002754', source: 'au-algolia' },
+  ], []);
+  check('GB 展開的 AU 列與 AU 來源同編號列去重（AU 只留一筆）、總列數 20',
+    deduped.upserts.length === 20 && deduped.conflicts.length === 0,
+    `得 ${deduped.upserts.length} 列`);
+
+  // DLC／7005／7007 仍跳過（只計數、不進目錄）
+  const dlcPlan = planCatalogSync([], [], [
+    { source: 'na-algolia', country: 'US', status: 'ok', fetchedAt: '', entries: [
+      { titleId: '70050000000001', title: 'Upgrade Pass', productKind: 'upgrade', country: 'US', source: 'na-algolia' },
+      { titleId: '70070000000001', title: 'Some DLC', productKind: 'dlc', country: 'US', source: 'na-algolia' },
+      { titleId: '70010000000111', title: 'Real Game', country: 'US', source: 'na-algolia' },
+    ] },
+  ]);
+  check('DLC／7005／7007 仍跳過（skippedNonGame＝2）、本體照常進目錄',
+    dlcPlan.stats.skippedNonGame === 2 && dlcPlan.newGames.length === 1,
+    `skipped=${dlcPlan.stats.skippedNonGame}，newGames=${dlcPlan.newGames.length}`);
+
+  // 外國匯入守衛：foreignImportEnabled=false 時 NA／EU 條目整批暫緩
+  const paused = planCatalogSync(games, [], naResults, { foreignImportEnabled: false });
+  check('守衛關閉時 NA 條目全跳過（0 upserts、0 新遊戲、skippedForeignPaused＝4）',
+    paused.regionIdUpserts.length === 0 && paused.newGames.length === 0 &&
+    paused.stats.skippedForeignPaused === 4,
+    `upserts=${paused.regionIdUpserts.length}，newGames=${paused.newGames.length}，skipped=${paused.stats.skippedForeignPaused}`);
+  const pausedTw = planCatalogSync(games, [], [
+    { source: 'tw-list', country: 'TW', status: 'ok', fetchedAt: '', entries: [
+      { titleId: '70010000999994', title: 'TW Only Game', country: 'TW', source: 'tw-list' },
+    ] },
+  ], { foreignImportEnabled: false });
+  check('守衛關閉時 TW 條目不受影響（照常建新遊戲）',
+    pausedTw.newGames.length === 1 && pausedTw.stats.skippedForeignPaused === 0);
 }
 
 console.log(`\n完成：通過 ${passed} 項，失敗 ${failed} 項。`);
