@@ -63,9 +63,8 @@ function parseParams(searchParams: SearchParams) {
   const parsedPlatform =
     platform === "Switch" || platform === "Switch 2" ? platform : undefined;
   // 商品類型：明確帶 ?type= 時照指定（all／game／dlc／bundle／subscription）；
-  // 沒帶參數時看主機——Switch 2 預設全部（Switch 2 內容多為組合包，
-  // 2026-11-24：預設只看遊戲本體讓 Switch 2＋台灣只剩 4 款），
-  // 其餘主機維持只列遊戲本體（DLC／組合包不混進遊戲牆）。
+  // 沒帶參數時預設全部（2026-11-24 改：之前只有 Switch 2 預設全部、
+  // 其餘主機預設只列遊戲本體，shawn 說預設應該是全部／全部）。
   const typeExplicit =
     typeParam === "all" ||
     (typeParam != null && PRODUCT_TYPES.includes(typeParam));
@@ -74,9 +73,7 @@ function parseParams(searchParams: SearchParams) {
       ? "all"
       : typeParam != null && PRODUCT_TYPES.includes(typeParam)
         ? typeParam
-        : parsedPlatform === "Switch 2"
-          ? "all"
-          : "game";
+        : "all";
   return {
     q,
     platform: parsedPlatform,
@@ -213,7 +210,7 @@ export default async function HomePage({
   const hasFilter =
     Boolean(params.q) ||
     Boolean(params.platform) ||
-    Boolean(params.productType && params.productType !== "game") ||
+    Boolean(params.productType && params.productType !== "all") ||
     params.demo != null ||
     Boolean(params.country) ||
     params.onlySale ||

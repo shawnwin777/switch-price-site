@@ -223,9 +223,8 @@ export default function HomeClient({
     const sp = new URLSearchParams();
     if (f.q) sp.set("q", f.q);
     if (f.platform) sp.set("platform", f.platform);
-    // 只有明確指定的 type 才寫進 URL；隱含預設（Switch 2→全部、
-    // 其餘→遊戲本體）由伺服器端依主機決定，寫死會蓋掉它（例如在
-    // 遊戲牆點主機 Switch 2 時，把隱含的 game 寫成 ?type=game）。
+    // 只有明確指定的 type 才寫進 URL；沒帶參數時伺服器端預設全部，
+    // 不要把隱含預設寫進 URL（會蓋掉伺服器端的預設判斷、弄髒網址）。
     if (f.typeExplicit && f.productType) sp.set("type", f.productType);
     if (f.demo != null) sp.set("demo", String(f.demo));
     if (f.country) sp.set("country", f.country);
