@@ -13,6 +13,9 @@ export interface Game {
   has_demo: number | null; // 0 無試玩 / 1 免費 Demo / 2 免費試玩 / 3 NSO 限時試玩（見 FRONTEND_NOTES）
   cover_url: string | null;
   youtube_id: string | null;
+  /** 詳情頁畫廊用截圖（IGDB t_screenshot_big，最多 6 張；NULL = 尚未回填
+   *  或無截圖；見 migration 20261124_add_game_screenshots.sql）。 */
+  screenshots?: string[] | null;
   title_id: string | null;
   historical_low_twd: number | null;
   /** 上市日期（date，如 2025-05-01；NULL = 尚未補到，見 migration 20261118_add_release_date.sql）。 */

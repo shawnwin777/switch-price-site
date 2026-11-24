@@ -287,11 +287,13 @@ export async function getCachedGamesPagePublic(
   }
 }
 
-/** 遊戲詳情公開資料（遊戲＋價格＋公開讚數／收藏數）。 */
+/** 遊戲詳情公開資料（遊戲＋價格＋公開讚數／收藏數）。key 換 game-v2
+ *  （2026-11-24）：Game 多了 screenshots 欄位，舊 key 的快取沒有它，
+ *  換 key 讓畫廊立刻有截圖，不用等 1 小時舊快取過期。 */
 export const getCachedGamePublic = unstable_cache(
   async (slug: string): Promise<GameWithPrices | null> =>
     fetchGamePublicCore(createPublicClient(), slug),
-  ["game"],
+  ["game-v2"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["game"] }
 );
 

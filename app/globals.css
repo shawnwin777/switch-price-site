@@ -1470,7 +1470,8 @@ a.home-login-preview-btn:hover {
   position: relative;
 }
 
-.detail-cover-link .play-hint {
+.detail-cover-link .play-hint,
+.detail-cover-btn .play-hint {
   background: rgba(5, 8, 22, 0.85);
   border: 1px solid var(--pink);
   border-radius: 999px;
@@ -1481,6 +1482,158 @@ a.home-login-preview-btn:hover {
   padding: 5px 12px;
   position: absolute;
   right: 10px;
+}
+
+/* ---------- detail gallery viewer ---------- */
+/* 點封面開的影片／截圖 viewer：全螢幕遮罩，左右切換（按鈕／觸控／鍵盤）。 */
+.detail-cover-btn {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  display: block;
+  padding: 0;
+  position: relative;
+  text-align: left;
+}
+
+.detail-cover-btn:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 3px;
+}
+
+.gallery-overlay {
+  align-items: stretch;
+  background: rgba(2, 4, 12, 0.94);
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  left: 0;
+  padding: 16px;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 200;
+}
+
+.gallery-topbar {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin: 0 auto;
+  max-width: 1100px;
+  width: 100%;
+}
+
+.gallery-counter {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.gallery-close {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+  font-size: 18px;
+  height: 44px;
+  width: 44px;
+}
+
+.gallery-stage {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  margin: 0 auto;
+  max-width: 1100px;
+  min-height: 0;
+  position: relative;
+  touch-action: pan-y;
+  width: 100%;
+}
+
+.gallery-img {
+  border-radius: var(--radius);
+  max-height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.gallery-nav {
+  background: rgba(5, 8, 22, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+  font-size: 30px;
+  height: 52px;
+  line-height: 1;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 52px;
+  z-index: 2;
+}
+
+.gallery-nav-prev {
+  left: 8px;
+}
+
+.gallery-nav-next {
+  right: 8px;
+}
+
+.gallery-video {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 640px;
+  width: 100%;
+}
+
+.gallery-video-thumb {
+  border-radius: var(--radius);
+  max-width: 100%;
+  width: 100%;
+}
+
+.gallery-play-btn {
+  background: #c00;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 12px 22px;
+  text-decoration: none;
+}
+
+.gallery-error {
+  color: #fff;
+  font-size: 16px;
+}
+
+.gallery-caption {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 14px;
+  margin: 12px auto 0;
+  max-width: 1100px;
+  text-align: center;
+  width: 100%;
+}
+
+@media (max-width: 760px) {
+  .gallery-overlay {
+    padding: 10px;
+  }
+
+  .gallery-nav {
+    font-size: 24px;
+    height: 44px;
+    width: 44px;
+  }
 }
 
 .detail-info {

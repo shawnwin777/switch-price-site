@@ -122,13 +122,107 @@ export default function GameDetailClient({
     ? `https://www.youtube.com/watch?v=${game.youtube_id}`
     : null;
 
+  // 畫廊：影片（youtube_id）＋截圖（games.screenshots），點封面開啟，
+  // 左右切換（按鈕／觸控滑動／鍵盤左右鍵），ESC 關閉。沒有影片也沒有
+  // 截圖時不開 viewer，封面維持舊行為。
+  type GallerySlide =
+    | { kind: "video"; youtubeId: string }
+    | { kind: "image"; url: string };
+
+  const slides: GallerySlide[] = useMemo(() => {
+    const list: GallerySlide[] = [];
+    if (game.youtube_id) {
+      list.push({ kind: "video", youtubeId: game.youtube_id });
+    }
+    const shots = Array.isArray(game.screenshots) ? game.screenshots : [];
+    for (const url of shots) {
+      if (typeof url === "string" && url.trim() !== "") {
+        list.push({ kind: "image", url: url.trim() });
+      }
+    }
+    return list;
+  }, [game.youtube_id, game.screenshots]);
+
+  const screenshotCount = slides.filter((s) => s.kind === "image").length;
+
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [imgFailed, setImgFailed] = useState(false);
+  const viewerOpen = viewerIndex !== null;
+  const currentSlide = viewerIndex != null ? slides[viewerIndex] : null;
+
+  const closeViewer = () => setViewerIndex(null);
+  const showPrev = () =>
+    setViewerIndex((i) =>
+      i == null ? i : (i - 1 + slides.length) % slides.length
+    );
+  const showNext = () =>
+    setViewerIndex((i) => (i == null ? i : (i + 1) % slides.length));
+
+  // 切換圖片時重設載入失敗狀態。
+  useEffect(() => {
+    setImgFailed(false);
+  }, [viewerIndex]);
+
+  // viewer 開著時：鍵盤左右鍵切換、ESC 關閉、鎖住背景捲動。
+  useEffect(() => {
+    if (!viewerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeViewer();
+      else if (e.key === "ArrowLeft") showPrev();
+      else if (e.key === "ArrowRight") showNext();
+    };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+    // showPrev/showNext 只依賴 slides.length，viewer 開關期間不變。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewerOpen]);
+
   return (
     <>
       <button type="button" className="btn back-btn" onClick={goBack}>
         ← 返回
       </button>
       <div className="detail-head">
-        {youtubeUrl ? (
+        {slides.length > 0 ? (
+          <button
+            type="button"
+            className="detail-cover-btn"
+            onClick={() => setViewerIndex(0)}
+            title={
+              game.youtube_id
+                ? "點封面看官方介紹影片與截圖"
+                : "點封面看截圖"
+            }
+            aria-label={game.youtube_id ? "開啟影片與截圖" : "開啟截圖"}
+          >
+            <img
+              className="detail-cover"
+              src={game.cover_url ?? "/covers/placeholder.svg"}
+              alt={game.title_zh}
+              onError={(e) => {
+                const img = e.currentTarget;
+                if (!img.src.endsWith("/covers/placeholder.svg")) {
+                  img.src = "/covers/placeholder.svg";
+                }
+              }}
+            />
+            <span className="play-hint">
+              {game.youtube_id
+                ? `▶ 官方介紹影片（YouTube）${
+                    screenshotCount > 0
+                      ? ` · ${screenshotCount} 張截圖`
+                      : ""
+                  }`
+                : `點封面看截圖（共 ${screenshotCount} 張）`}
+            </span>
+          </button>
+        ) : youtubeUrl ? (
           <a
             className="detail-cover-link"
             href={youtubeUrl}
@@ -335,6 +429,98 @@ export default function GameDetailClient({
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {viewerOpen && currentSlide && (
+        <div
+          className="gallery-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="影片與截圖"
+          onClick={closeViewer}
+        >
+          <div className="gallery-topbar">
+            <span className="gallery-counter">
+              {(viewerIndex ?? 0) + 1} / {slides.length}
+            </span>
+            <button
+              type="button"
+              className="gallery-close"
+              onClick={closeViewer}
+              aria-label="關閉"
+            >
+              ✕
+            </button>
+          </div>
+          <div
+            className="gallery-stage"
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) =>
+              setTouchStartX(e.touches[0]?.clientX ?? null)
+            }
+            onTouchEnd={(e) => {
+              if (touchStartX == null) return;
+              const dx =
+                (e.changedTouches[0]?.clientX ?? touchStartX) - touchStartX;
+              if (dx > 50) showPrev();
+              else if (dx < -50) showNext();
+              setTouchStartX(null);
+            }}
+          >
+            {currentSlide.kind === "video" ? (
+              <div className="gallery-video">
+                <img
+                  className="gallery-video-thumb"
+                  src={`https://i.ytimg.com/vi/${currentSlide.youtubeId}/hqdefault.jpg`}
+                  alt="官方介紹影片縮圖"
+                />
+                <a
+                  className="gallery-play-btn"
+                  href={`https://www.youtube.com/watch?v=${currentSlide.youtubeId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  ▶ 在 YouTube 觀看官方介紹影片
+                </a>
+                <p className="muted">影片在 YouTube 播放（新分頁，不內嵌）。</p>
+              </div>
+            ) : imgFailed ? (
+              <p className="gallery-error">圖片載入失敗</p>
+            ) : (
+              <img
+                className="gallery-img"
+                src={currentSlide.url}
+                alt={`截圖 ${(viewerIndex ?? 0) + 1 - (game.youtube_id ? 1 : 0)}`}
+                onError={() => setImgFailed(true)}
+              />
+            )}
+            {slides.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  className="gallery-nav gallery-nav-prev"
+                  onClick={showPrev}
+                  aria-label="上一張"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  className="gallery-nav gallery-nav-next"
+                  onClick={showNext}
+                  aria-label="下一張"
+                >
+                  ›
+                </button>
+              </>
+            )}
+          </div>
+          <p className="gallery-caption">
+            {currentSlide.kind === "video"
+              ? "官方介紹影片"
+              : `截圖 ${(viewerIndex ?? 0) + 1 - (game.youtube_id ? 1 : 0)} / ${screenshotCount}`}
+          </p>
         </div>
       )}
     </>
