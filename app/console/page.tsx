@@ -27,14 +27,14 @@ export const metadata = {
  *  PlayStation、PS Plus。舊 /membership 導向本頁，導覽列不再單獨列
  *  會員方案。
  *  XBOX 家機：Reco 特價清單＋Display Catalog（filter Windows.Xbox，
- *  與 PC 版同一條管線），前 510 款、每頁 30 款、折扣大→小，每小時快取。
+ *  與 PC 版同一條管線），前 900 款、每頁 30 款、折扣大→小，每小時快取。
  *  分頁狀態進 URL（低 B-3，2026-11-23）：?tab= 決定初始分頁（無效值
  *  回預設 XBOX 家機），?page= 決定該分頁初始頁碼；切換時元件用
  *  router.push／replace 更新 URL，上一頁能還原分頁。
  *  PS 家機（2026-11-23 上線，2026-11-23 擴量）：官方 GraphQL categoryGridRetrieve
  *  （persisted hash 來自公開文件，見 lib/ps-deals.ts），抓優惠頁「所有優惠」
  *  分類（總數 2,862），sales30 倒序分段抓、只列折扣 ≥50% 的，折扣大→小、
- *  前 510 款；價格已抽 2 款對照未登入商店產品頁驗證過。
+ *  前 900 款；價格已抽 2 款對照未登入商店產品頁驗證過。
  *  GAME PASS／PS PLUS 新進（2026-11-23 新增）：Game Pass 最近新增（家機，
  *  見 lib/gamepass.ts）、PS Plus 本月新進（遊戲目錄＋每月遊戲，
  *  見 lib/ps-plus.ts），都只列本期／本月新進、不列整個目錄。 */
@@ -113,7 +113,7 @@ export default async function ConsolePage({
       {/* 中-5：Xbox 家機文案附註——分頁標題「折扣最大的 N 款 · 台灣區共
           M 款特價」看起來矛盾，是因為兩個數字口徑不同：N 是去重後的有效
           款數，M 是清單 API 回報的原始總數。數字用 live 數插值（款數每小時
-          浮動，寫死 510 會在掉到 470 時變錯）；分頁框內的標題與附註在
+          浮動，寫死 900 會在掉到 470 時變錯）；分頁框內的標題與附註在
           components/ConsoleTabs.tsx，不在本檔範圍，仍待那邊同步改寫。 */}
       <p className="muted">
         Xbox 家機附註：本頁列出折扣最大的 {xboxConsole.items.length} 款（台灣區

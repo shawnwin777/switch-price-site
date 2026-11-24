@@ -7,7 +7,7 @@ import { pageWindow } from "@/lib/pagination";
 import DealCard from "./DealCard";
 import MembershipServiceSection from "./MembershipTabs";
 
-/** 每頁顯示款數（shawn 定：一次只呈現 30 款，510 款剛好 17 頁）。 */
+/** 每頁顯示款數（shawn 定：一次只呈現 30 款，900 款剛好 30 頁）。 */
 const PAGE_SIZE = 30;
 
 type TabKey = "free" | "steam" | "xbox" | "gamepass";
@@ -30,7 +30,7 @@ const TABS: { key: TabKey; label: string }[] = [
  *  面板永遠展開、不摺疊（2026-11-23：分頁框模式下摺疊沒意義）。
  *  免費遊戲分頁：Epic 免費遊戲（本週＋下週預告）＋Steam 限時免費領取
  *  （折扣 100% 的付費遊戲，可永久保留；免費遊玩 F2P 不在這裡）。
- *  每平台取前 510 款（2026-11-23 從 200 改成 350、再改成 510），一次只顯示 30 款，在頁內翻頁（510 款剛好 17 頁）。
+ *  每平台取前 900 款（2026-11-24 從 510 改成 900），一次只顯示 30 款，在頁內翻頁（900 款剛好 30 頁）。
  *  家機不在這頁：2026-11-23 12:17 shawn 改方向，Xbox 家機改去獨立頁
  *  /console，本頁維持 PC 頁（免費遊戲／STEAM／XBOX PC）。
  *  GAME PASS 分頁（2026-11-23 新增，標籤「PC Game Pass」）：
@@ -365,16 +365,16 @@ export default function DealsTabs({
             </p>
           )}
           {renderPager("steam")}
-          {/* 中-6：STEAM 取數範圍附註——抓前 6 頁 600 列再取前 510，
-              不是全台灣特價款裡的全域前 510（程式現況，見
+          {/* 中-6：STEAM 取數範圍附註——抓前 10 頁 1000 列再取前 900，
+              不是全台灣特價款裡的全域前 900（程式現況，見
               lib/deals-carousel.ts）；總數用 live steamTotalCount。 */}
           <p className="muted">
-            STEAM 取數範圍：先抓特價搜尋前 6 頁（600 列）再按折扣大→小取前
-            510 款，不是全台灣特價中
+            STEAM 取數範圍：先抓特價搜尋前 10 頁（1000 列）再按折扣大→小取前
+            900 款，不是全台灣特價中
             {steamTotalCount > 0
               ? ` ${steamTotalCount.toLocaleString("zh-Hant-TW")} 款`
               : "約 15,020 款"}
-            裡的全域前 510 款。
+            裡的全域前 900 款。
           </p>
         </section>
       )}

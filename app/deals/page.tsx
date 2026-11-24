@@ -22,12 +22,12 @@ export const metadata = {
  *  分頁狀態進 URL（低 B-3，2026-11-23）：?tab= 決定初始分頁（無效值
  *  回預設 STEAM），?page= 決定該分頁初始頁碼；切換時元件用
  *  router.push／replace 更新 URL，上一頁能還原分頁。
- *  每平台取前 510 款（2026-11-23 從 200 改成 350、再改成 510），一次只顯示 30 款，在頁內翻頁（510 款剛好 17 頁）。
+ *  每平台取前 900 款（2026-11-24 從 510 改成 900），一次只顯示 30 款，在頁內翻頁（900 款剛好 30 頁）。
  *  免費遊戲分頁：Epic 免費遊戲（本週＋下週預告；Epic 特價抓不到——
  *  官網 403 擋機器人）＋Steam 限時免費領取（折扣 100% 的付費遊戲）；
- *  STEAM 分頁取折扣最大的前 510 款（特價搜尋 API，抓前 6 頁 600 列再取前 510，
- *  不是全台灣 15,020 款裡的全域前 510）；
- *  XBOX PC 分頁取折扣最大的前 510 款（台灣區共約 500 款特價）。
+ *  STEAM 分頁取折扣最大的前 900 款（特價搜尋 API，抓前 10 頁 1000 列再取前 900，
+ *  不是全台灣 15,020 款裡的全域前 900）；
+ *  XBOX PC 分頁取折扣最大的前 900 款（台灣區共約 500 款特價）。
  *  GAME PASS 分頁（2026-11-23 新增）：Game Pass 最近新增（PC），
  *  官方最近新增清單順序、卡片標「新進」（見 lib/gamepass.ts）。
  *  家機不在這頁：2026-11-23 12:17 shawn 改方向，Xbox 家機改去獨立頁
@@ -103,8 +103,8 @@ export default async function DealsPage({
       {/* 高-1：Steam 顯示的是 specials 備援（只有 10 款精選）時，在 STEAM
           分頁上方顯示「資料暫時不完整」提示（STEAM 是預設分頁，進頁就看得到；
           分頁框內的文案在 components/DealsTabs.tsx，不在本檔範圍）。
-          中-6：STEAM 取數範圍附註——抓前 6 頁 600 列再取前 510，
-          不是全台灣特價款裡的全域前 510（程式現況，見 lib/deals-carousel.ts）。 */}
+          中-6：STEAM 取數範圍附註——抓前 10 頁 1000 列再取前 900，
+          不是全台灣特價款裡的全域前 900（程式現況，見 lib/deals-carousel.ts）。 */}
       {deals.steamFromFallback && (
         <p className="muted">
           ⚠️ Steam 資料暫時不完整：特價搜尋暫時抓不到，目前 STEAM 只顯示{" "}
@@ -113,12 +113,12 @@ export default async function DealsPage({
         </p>
       )}
       <p className="muted">
-        STEAM 取數範圍：先抓特價搜尋前 6 頁（600 列）再按折扣大→小取前 510
+        STEAM 取數範圍：先抓特價搜尋前 10 頁（1000 列）再按折扣大→小取前 900
         款，不是全台灣特價中
         {deals.steamTotalCount > 0
           ? ` ${deals.steamTotalCount.toLocaleString("zh-Hant-TW")} 款`
           : "約 15,020 款"}
-        裡的全域前 510 款。
+        裡的全域前 900 款。
       </p>
       <DealsTabs
         epicCurrent={deals.epicCurrent}

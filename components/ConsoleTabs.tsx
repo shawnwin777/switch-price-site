@@ -7,7 +7,7 @@ import { pageWindow } from "@/lib/pagination";
 import DealCard from "./DealCard";
 import MembershipServiceSection from "./MembershipTabs";
 
-/** 每頁顯示款數（比照 /deals：一次只呈現 30 款，510 款剛好 17 頁）。 */
+/** 每頁顯示款數（比照 /deals：一次只呈現 30 款，900 款剛好 30 頁）。 */
 const PAGE_SIZE = 30;
 
 type TabKey = "xbox-console" | "gamepass" | "ps" | "psplus";
@@ -28,12 +28,12 @@ const TABS: { key: TabKey; label: string }[] = [
  *  state（元件不重掛，useSearchParams 會要 Suspense 包裝所以不用它）。
  *  面板永遠展開、不摺疊（跟 /deals 一樣）。
  *  1. XBOX 家機：Reco 清單＋Display Catalog（filter Windows.Xbox），
- *     最多 510 款、折扣大→小，預設顯示；實際去重後有效款數以 live 為準
- *     （中-5：寫死 510 會在款數浮動到 470 時變錯）。
+ *     最多 900 款、折扣大→小，預設顯示；實際去重後有效款數以 live 為準
+ *     （中-5：寫死 900 會在款數浮動到 470 時變錯）。
  *  2. XGP 家機：Game Pass 最近新增（家機），官方清單順序、卡片標「新進」；
  *     下方接 Game Pass 方案價目。
  *  3. PlayStation：官方優惠分類，折扣 ≥50%、折扣大→小；列出款數與
- *     分類原始總數都用 live 數字（見 PS 分頁附註，不寫死 510／2,862）。
+ *     分類原始總數都用 live 數字（見 PS 分頁附註，不寫死 900／2,862）。
  *  4. PS Plus：PS Plus 本月新進（遊戲目錄＋每月遊戲），PS Blog 當月文章
  *     解析、官方搜尋對應商店商品；下方接 PS Plus 方案價目。
  *  2026-11-23 14:00 shawn 再定：獨立的「🎫 會員方案」分頁拿掉，
@@ -316,7 +316,7 @@ export default function ConsoleTabs({
           {renderPager("xbox-console")}
           {/* 中-5：附註與 app/console/page.tsx 同一口徑——標題的 N 是去重後
               有效款數，「台灣區共 M 款」是清單 API 原始總數（未去重），兩者
-              口徑不同；數字一律 live 插值，不寫死「約 500 款」「前 510 款」。 */}
+              口徑不同；數字一律 live 插值，不寫死「約 500 款」「前 900 款」。 */}
           <p className="muted">
             Xbox 家機特價取自微軟商店台灣區特價清單（Reco Deal 清單），只列有折扣的遊戲、折扣大→小；
             本頁列出折扣最大的 {xboxConsole.length} 款（去重後的有效款數）
@@ -360,7 +360,7 @@ export default function ConsoleTabs({
           {/* 低 B-3 併入遺留：PS 附註與 Xbox 區同一口徑——標題的 N 是去重後
               有效款數，「台灣區共 M 款」是優惠分類回報的原始總數（未篩
               折扣 ≥50%、未去重），兩者口徑不同；數字一律 live 插值，
-              不寫死「前 510 款」「台灣區共 2,862 款」。 */}
+              不寫死「前 900 款」「台灣區共 2,862 款」。 */}
           <p className="muted">
             PlayStation 特價取自官方商店的優惠分類（所有優惠），只列折扣
             ≥50% 的遊戲、折扣大→小；本頁列出折扣最大的 {ps?.length ?? 0}

@@ -77,7 +77,9 @@ import {
  *  (2) 只有備援時（steamFromFallback）仍回傳、頁面顯示
  *  「Steam 資料暫時不完整」提示——備援跟 Epic 同包在這份資料裡，
  *  這裡拋錯會連 Epic 一起丟掉，標記＋提示比丟掉更實用；
- *  (3) key 換成 deals-page-v8，立刻丟掉被 10 款備援污染的 v7 快取、馬上重抓搜尋。 */
+ *  (3) key 換成 deals-page-v8，立刻丟掉被 10 款備援污染的 v7 快取、馬上重抓搜尋。
+ *  2026-11-24 上限 510→900（Steam 抓 10 頁 1000 列取前 900），key 換成
+ *  deals-page-v9。 */
 export const getCachedDealsPage = unstable_cache(
   async (): Promise<DealsPageData> => {
     const data = await fetchDealsPage();
@@ -87,13 +89,13 @@ export const getCachedDealsPage = unstable_cache(
     // 快取會把 STEAM 分頁鎖住 1 小時，下次請求重抓才會恢復（跟 Xbox
     // 三個分頁 18:14 空結果中毒同一類問題）。只有備援時不拋錯
     // （steamFromFallback=true）：備援至少有 10 款可看，頁面會標示
-    // 「資料暫時不完整」，快取到期重抓時搜尋恢復就自動回到 510 款。
+    // 「資料暫時不完整」，快取到期重抓時搜尋恢復就自動回到 900 款。
     if (data.steam.length === 0 && data.steamFree.length === 0) {
       throw new Error("Steam 特價全部抓取失敗（回傳 0 款，不快取空結果）");
     }
     return data;
   },
-  ["deals-page-v8"],
+  ["deals-page-v9"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-page"] }
 );
 
@@ -110,7 +112,9 @@ import {
  *  2026-11-23 每頁 24 款→30 款，key 換成 xbox-pc-deals-v5。
  *  2026-11-23 18:14 微軟端從 Vercel 抓失敗、空結果被快取 1 小時
  *  （XBOX PC 分頁變 0 款）；改成 0 款就拋錯、不快取空結果，key 換成
- *  xbox-pc-deals-v6 立刻重算（跟 /near-low commit b4dc3c49 同一套修法）。 */
+ *  xbox-pc-deals-v6 立刻重算（跟 /near-low commit b4dc3c49 同一套修法）。
+ *  2026-11-24 上限 510→900（Reco 取 10 頁 1000 個 id 取前 900），key 換成
+ *  xbox-pc-deals-v7。 */
 export const getCachedXboxPcDeals = unstable_cache(
   async (): Promise<XboxPcDealsData> => {
     const data = await fetchXboxPcDeals();
@@ -119,7 +123,7 @@ export const getCachedXboxPcDeals = unstable_cache(
     }
     return data;
   },
-  ["xbox-pc-deals-v6"],
+  ["xbox-pc-deals-v7"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["xbox-pc-deals"] }
 );
 
@@ -138,7 +142,9 @@ import {
  *  xbox-console-deals-v4。2026-11-23 18:14 微軟端從 Vercel 抓失敗、
  *  空結果被快取 1 小時（XBOX 家機分頁變 0 款）；改成 0 款就拋錯、
  *  不快取空結果，key 換成 xbox-console-deals-v5 立刻重算
- *  （跟 /near-low commit b4dc3c49 同一套修法）。 */
+ *  （跟 /near-low commit b4dc3c49 同一套修法）。
+ *  2026-11-24 上限 510→900（Reco 取 10 頁 1000 個 id 取前 900），key 換成
+ *  xbox-console-deals-v6。 */
 export const getCachedXboxConsoleDeals = unstable_cache(
   async (): Promise<XboxConsoleDealsData> => {
     const data = await fetchXboxConsoleDeals();
@@ -147,7 +153,7 @@ export const getCachedXboxConsoleDeals = unstable_cache(
     }
     return data;
   },
-  ["xbox-console-deals-v5"],
+  ["xbox-console-deals-v6"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["xbox-console-deals"] }
 );
 
@@ -168,7 +174,9 @@ import { fetchPsDeals, type PsDealsData } from "./ps-deals";
  *  key 換成 ps-deals-v6（舊快取是簡體標題）。
  *  2026-11-23：0 款就拋錯、不快取空結果（跟 Xbox 三個分頁 18:14
  *  空結果中毒同一類問題；「所有優惠」分類 2,862 款、≥50% 實測 510 款，
- *  真的 0 款只會是 GraphQL 抓失敗。key 不動，舊的好快取續用）。 */
+ *  真的 0 款只會是 GraphQL 抓失敗。key 不動，舊的好快取續用）。
+ *  2026-11-24 上限 510→900（最多掃 90 頁、抓滿 900 款 ≥50% 就停），key 換成
+ *  ps-deals-v7。 */
 export const getCachedPsDeals = unstable_cache(
   async (): Promise<PsDealsData> => {
     const data = await fetchPsDeals();
@@ -177,7 +185,7 @@ export const getCachedPsDeals = unstable_cache(
     }
     return data;
   },
-  ["ps-deals-v6"],
+  ["ps-deals-v7"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["ps-deals"] }
 );
 
