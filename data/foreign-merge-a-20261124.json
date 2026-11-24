@@ -1,0 +1,1611 @@
+{
+ "generatedAt": "2026-11-24",
+ "decision": "A 組 34 款：併入現有列，不新建遊戲（shawn 2026-11-24 決定）；B 組分開、C 組分開，由排程同步自動新建，不在本腳本處理",
+ "notes": [
+  "backrooms 併入 tw-70010000085256（the-backrooms 是 0 價格、0 編號的空殼列，之後再處理）",
+  "goodnight-universe 併入 tw-70010000098181（美國編號 98177 與 98181 最接近）",
+  "early-learning 併入 tw-70010000128857（123-...-language 是空殼列）",
+  "super-mega-baseballtm-4 併入 tw-70010000048939（遊戲本體列；4 筆 tw-7005 是同名 DLC，不併）",
+  "titleEn：把現有列的英文名改成乾淨英文標題（中文名不動），讓之後歐洲同步以標題比對時也認得是同一款、不再建重複遊戲；若 titleEn 與其他遊戲撞名，該列跳過改名、只併編號"
+ ],
+ "groups": [
+  {
+   "newSlug": "against-the-storm",
+   "existingSlug": "hk-70010000081353",
+   "titleEn": "Against The Storm",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000081349",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000081349",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000081349",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000081349",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000081349",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000081349",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000081349",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000081349",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "amazing-maze",
+   "existingSlug": "tw-70010000110417",
+   "titleEn": "Amazing Maze",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000110414",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000110414",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000110414",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000110414",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000110414",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000110414",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000110414",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000110414",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "backrooms",
+   "existingSlug": "tw-70010000085256",
+   "titleEn": "Backrooms",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000085247",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000085247",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000085247",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000085247",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000085247",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000085247",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000085247",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000085247",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "battle-force",
+   "existingSlug": "tw-70010000113874",
+   "titleEn": "Battle Force",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000113871",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000113871",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000113871",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000113871",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000113871",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000113871",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000113871",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000113871",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "battle-strike",
+   "existingSlug": "tw-70010000126178",
+   "titleEn": "Battle Strike",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000126175",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000126175",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000126175",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000126175",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000126175",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000126175",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000126175",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000126175",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "bullet-strike",
+   "existingSlug": "tw-70010000112511",
+   "titleEn": "Bullet Strike",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000112508",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000112508",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000112508",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000112508",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000112508",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000112508",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000112508",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000112508",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "cattos-post-office",
+   "existingSlug": "tw-70010000121386",
+   "titleEn": "Cattos Post Office",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000121383",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000121383",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000121383",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000121383",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000121383",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000121383",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000121383",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000121383",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "chained-beasts",
+   "existingSlug": "hk-70010000115468",
+   "titleEn": "Chained Beasts",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000115465",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000115465",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000115465",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000115465",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000115465",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000115465",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000115465",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000115465",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "combat-strike",
+   "existingSlug": "tw-70010000101076",
+   "titleEn": "Combat Strike",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000101072",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000101072",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000101072",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000101072",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000101072",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000101072",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000101072",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000101072",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "ghost-strike",
+   "existingSlug": "tw-70010000129333",
+   "titleEn": "Ghost Strike",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000129330",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000129330",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000129330",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000129330",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000129330",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000129330",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000129330",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000129330",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "modern-attack",
+   "existingSlug": "tw-70010000116290",
+   "titleEn": "Modern Attack",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000116287",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000116287",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000116287",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000116287",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000116287",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000116287",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000116287",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000116287",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "project-7-escape-room",
+   "existingSlug": "tw-70010000106796",
+   "titleEn": "Project 7 Escape Room",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000106793",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000106793",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000106793",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000106793",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000106793",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000106793",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000106793",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000106793",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "whos-at-the-door",
+   "existingSlug": "tw-70010000111531",
+   "titleEn": "Whos At The Door",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000111528",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000111528",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000111528",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000111528",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000111528",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000111528",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000111528",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000111528",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "volcano-princess",
+   "existingSlug": "tw-70010000113599",
+   "titleEn": "Volcano Princess",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000113596",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000113596",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000113596",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000113596",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000113596",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000113596",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000113596",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000113596",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "the-wandering-village",
+   "existingSlug": "hk-70010000082519",
+   "titleEn": "The Wandering Village",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000082515",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000082515",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000082515",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000082515",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000082515",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000082515",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000082515",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000082515",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "kingdom-rush-vengeance",
+   "existingSlug": "hk-70010000089263",
+   "titleEn": "Kingdom Rush Vengeance",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000089259",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000089259",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000089259",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000089259",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000089259",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000089259",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000089259",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000089259",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "mobile-suit-gundam-seed-battle-destiny-remastered",
+   "existingSlug": "tw-70010000095444",
+   "titleEn": "Mobile Suit Gundam Seed Battle Destiny Remastered",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000095441",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000095441",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000095441",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000095441",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000095441",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000095441",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000095441",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000095441",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "onimusha-2-samurais-destiny",
+   "existingSlug": "tw-70010000084002",
+   "titleEn": "Onimusha 2 Samurais Destiny",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000083998",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000083998",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000083998",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000083998",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000083998",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000083998",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000083998",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000083998",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "sonic-colors-ultimate",
+   "existingSlug": "tw-70010000028907",
+   "titleEn": "Sonic Colors Ultimate",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000028905",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000028905",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000028905",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000028905",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000028905",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000028905",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000028905",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000028905",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "the-battle-of-polytopia",
+   "existingSlug": "game-70010000045463",
+   "titleEn": "The Battle Of Polytopia",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000045464",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000045464",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000045464",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000045464",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000045464",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000045464",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000045464",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000045464",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "goodnight-universe",
+   "existingSlug": "tw-70010000098181",
+   "titleEn": "Goodnight Universe",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000098177",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000098177",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000098177",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000098177",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000098177",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000098177",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000098177",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000098177",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "over-requiemz",
+   "existingSlug": "tw-70010000111987",
+   "titleEn": "Over Requiemz",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000122196",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000122196",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000122196",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000122196",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000122196",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000122196",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000122196",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000122196",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "super-mega-baseballtm-4",
+   "existingSlug": "tw-70010000048939",
+   "titleEn": "Super Mega Baseball 4",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000048941",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000048941",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000048941",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000048941",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000048941",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000048941",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000048941",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000048941",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "adventure-time-pirates-of-the-enchiridion",
+   "existingSlug": "cartoon-network-adventure-time-pirates-of-the-enchiridion",
+   "titleEn": "Adventure Time Pirates Of The Enchiridion",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000000948",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000000948",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000000948",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000000948",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000000948",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000000948",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000000948",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000000948",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "angry-video-game-nerd-i-ii-deluxe",
+   "existingSlug": "angry-video-game-nerd-1-2-deluxe",
+   "titleEn": "Angry Video Game Nerd I II Deluxe",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000031387",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000031387",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000031387",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000031387",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000031387",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000031387",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000031387",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000031387",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "picross-s-namco-legendary-edition",
+   "existingSlug": "s-namco-legendary-edition",
+   "titleEn": "Picross S Namco Legendary Edition",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000076521",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000076521",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000076521",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000076521",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000076521",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000076521",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000076521",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000076521",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "naruto-shippuden-ultimate-ninja-storm-3-full-burst",
+   "existingSlug": "naruto-shippuden-ultimate-ninja-storm-3-full-burst-hd",
+   "titleEn": "Naruto Shippuden Ultimate Ninja Storm 3 Full Burst",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000003309",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000003309",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000003309",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000003309",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000003309",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000003309",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000003309",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000003309",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "mudrunner-american-wilds",
+   "existingSlug": "spintires-mudrunner-american-wilds",
+   "titleEn": "Mudrunner American Wilds",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000005706",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000005706",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000005706",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000005706",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000005706",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000005706",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000005706",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000005706",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "high-times",
+   "existingSlug": "tw-70010000104439",
+   "titleEn": "High Times",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000104437",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000104437",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000104437",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000104437",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000104437",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000104437",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000104437",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000104437",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "airplane-flight-simulator",
+   "existingSlug": "tw-70010000119643",
+   "titleEn": "Airplane Flight Simulator",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000022817",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000022817",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000022817",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000022817",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000022817",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000022817",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000022817",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000022817",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "early-learning-games-for-kids-toddlers-babies",
+   "existingSlug": "tw-70010000128857",
+   "titleEn": "Early Learning Games For Kids Toddlers Babies",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000081830",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000081830",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000081830",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000081830",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000081830",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000081830",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000081830",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000081830",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "formula-racing-pro-2026",
+   "existingSlug": "formula-racing-pro-2026-2026",
+   "titleEn": "Formula Racing Pro 2026",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000110736",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000110736",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000110736",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000110736",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000110736",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000110736",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000110736",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000110736",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "trials-rising-standard-edition",
+   "existingSlug": "tw-70010000110748",
+   "titleEn": "Trials Rising Standard Edition",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000007866",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000007866",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000007866",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000007866",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000007866",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000007866",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000007866",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000007866",
+     "source": "na-algolia"
+    }
+   ]
+  },
+  {
+   "newSlug": "real-driving-simulator",
+   "existingSlug": "real-driving-sim",
+   "titleEn": "Real Driving Simulator",
+   "rows": [
+    {
+     "country": "US",
+     "title_id": "70010000033331",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CA",
+     "title_id": "70010000033331",
+     "source": "na-algolia"
+    },
+    {
+     "country": "MX",
+     "title_id": "70010000033331",
+     "source": "na-algolia"
+    },
+    {
+     "country": "BR",
+     "title_id": "70010000033331",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CL",
+     "title_id": "70010000033331",
+     "source": "na-algolia"
+    },
+    {
+     "country": "CO",
+     "title_id": "70010000033331",
+     "source": "na-algolia"
+    },
+    {
+     "country": "AR",
+     "title_id": "70010000033331",
+     "source": "na-algolia"
+    },
+    {
+     "country": "PE",
+     "title_id": "70010000033331",
+     "source": "na-algolia"
+    }
+   ]
+  }
+ ]
+}
