@@ -13,9 +13,9 @@ export const metadata: Metadata = {
     images: [
       {
         alt: "Shawn Game Studio",
-        height: 724,
-        url: "https://shawn-game-studio.vercel.app/sgs-logo.png",
-        width: 2172,
+        height: 630,
+        url: "https://shawn-game-studio.vercel.app/og-image.png",
+        width: 1200,
       },
     ],
     locale: "zh_Hant",
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     description:
       "Switch / Switch 2 遊戲跨區比價：35 國 eShop 價格、歷史低價、特價提醒、收藏排行。",
-    images: ["https://shawn-game-studio.vercel.app/sgs-logo.png"],
+    images: ["https://shawn-game-studio.vercel.app/og-image.png"],
     title: "Shawn Game Studio",
   },
 };
@@ -50,7 +50,8 @@ export default function RootLayout({
         <footer className="footer">
           <div className="container">
             <p>
-              Shawn Game Studio ｜ 價格取自各官方商店公開資料，匯率為即時抓取（每小時快取）。
+              Shawn Game Studio ｜ 價格取自各官方商店公開資料；牆面匯率以當天 08:00
+              台北時間快照為準，NSO 比價頁匯率為即時抓取（每小時快取）。
             </p>
             <p className="footer-sub">
               本站為非官方網站，與任天堂、索尼互動娛樂、微軟、Valve、Epic
