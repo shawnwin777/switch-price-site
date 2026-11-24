@@ -8,6 +8,7 @@ import { type GamesPageFilters } from "@/lib/data";
 import { pageWindow } from "@/lib/pagination";
 import {
   COUNTRIES,
+  COUNTRY_MAP,
   DEFAULT_BLOCKED_CODES,
   VISIBLE_COUNTRIES_COOKIE,
   productTypeLabel,
@@ -28,6 +29,18 @@ function writeVisibleCookie(scope: string) {
     document.cookie = `${VISIBLE_COUNTRIES_COOKIE}=${encodeURIComponent(scope)}; path=/; max-age=31536000; SameSite=Lax`;
   } catch {
     // 寫入失敗不影響使用（伺服器端會用預設 TW/HK）。
+  }
+}
+
+/** 讀回可見國家 cookie（驗證寫入是否真的生效；寫不進去時不重載頁面）。 */
+function readVisibleCookie(): string | null {
+  try {
+    const m = document.cookie.match(
+      new RegExp(`(?:^|; )${VISIBLE_COUNTRIES_COOKIE}=([^;]*)`)
+    );
+    return m ? decodeURIComponent(m[1]) : null;
+  } catch {
+    return null;
   }
 }
 
@@ -94,6 +107,22 @@ export default function HomeClient({
     );
   }, [blocked]);
 
+  // 伺服器端這次查詢用的可見國家（props 傳來的 serverVisibleScope，
+  // canonical 字串；"ALL" = 全部 35 國）。卡片首屏／SSR 時先用它渲染，
+  // 名單與卡片才會是同一套國家。
+  const serverVisibleCountries = useMemo(() => {
+    if (serverVisibleScope === "ALL") {
+      return new Set(COUNTRIES.map((c) => c.code));
+    }
+    return new Set(
+      serverVisibleScope.split(",").filter((c) => COUNTRY_MAP[c])
+    );
+  }, [serverVisibleScope]);
+
+  // 同步 effect 要求重整的時間（router.refresh() 若沒讓伺服器端跟上，
+  // 下面的 effect 會在 2 秒後整頁重載一次當作退路）。
+  const syncRefreshAt = useRef<number | null>(null);
+
   useEffect(() => {
     if (!blockedLoaded) return;
     try {
@@ -112,10 +141,41 @@ export default function HomeClient({
       !filtersRef.current.onlyMine &&
       clientScope !== serverVisibleScope
     ) {
+      syncRefreshAt.current = Date.now();
       router.refresh();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blocked, blockedLoaded, clientScope, serverVisibleScope]);
+
+  // router.refresh() 若沒讓伺服器端跟上（例如拿到舊的快取頁），
+  // 兩邊設定會一直不一致；等 2 秒後仍不一致、且 cookie 已經是
+  // 本地設定（寫入確實生效、伺服器端理應採用），就整頁重載一次，
+  // 讓瀏覽器帶著新 cookie 重新請求。同一分頁 120 秒內最多一次，
+  // 且 cookie 寫不進去時不重載，避免重載循環。
+  useEffect(() => {
+    if (!blockedLoaded) return;
+    if (filtersRef.current.country || filtersRef.current.onlyMine) return;
+    if (clientScope === serverVisibleScope) return;
+    if (!syncRefreshAt.current || !clientScope) return;
+    const t = window.setTimeout(() => {
+      try {
+        const last = Number(
+          window.sessionStorage.getItem("spc-scope-hard-reload") ?? "0"
+        );
+        if (Date.now() - last < 120_000) return;
+        if (readVisibleCookie() !== clientScope) return;
+        window.sessionStorage.setItem(
+          "spc-scope-hard-reload",
+          String(Date.now())
+        );
+        window.location.reload();
+      } catch {
+        // 讀寫失敗就不重載（不要為了修一致性製造新問題）。
+      }
+    }, 2000);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blockedLoaded, clientScope, serverVisibleScope]);
 
   // 登入狀態（server 傳來的 userId 優先；瀏覽器端再確認一次，登入後免重整）。
   useEffect(() => {
@@ -128,11 +188,26 @@ export default function HomeClient({
     // 選了國家篩選時，卡片只顯示該國的價格（最低價、特價徽章、
     // 特價至都以該國為準）；沒選時沿用下方的國家顯示設定（預設只留台港）。
     if (filters.country) return new Set([filters.country]);
+    // 名單與卡片永遠用同一套可見國家：localStorage 還沒讀完（首屏／SSR
+    // 時 blocked 還是預設值）、或本地設定與伺服器端不一致（等重整收斂）
+    // 時，先用伺服器端這次查詢的範圍渲染卡片；否則會出現「名單有列、
+    // 卡片無價」（例如 cookie 是 ALL、本地卻擋了日本的遊戲）。兩邊
+    // 一致後才用本地設定。
+    if (!blockedLoaded || clientScope !== serverVisibleScope) {
+      return serverVisibleCountries;
+    }
     const blockedSet = new Set(blocked);
     return new Set(
       COUNTRIES.filter((c) => !blockedSet.has(c.code)).map((c) => c.code)
     );
-  }, [blocked, filters.country]);
+  }, [
+    blocked,
+    blockedLoaded,
+    clientScope,
+    filters.country,
+    serverVisibleCountries,
+    serverVisibleScope,
+  ]);
 
   // ---- 篩選／排序／分頁都走 URL，伺服器端重新抓資料 ----
   const filtersRef = useRef(filters);
