@@ -120,7 +120,17 @@ export interface CatalogSourceDef {
   reason?: string;
   /** 全量抓取（小來源）；完整來源另有 fetchPaged（分頁窗口＋游標）。 */
   fetch: () => Promise<CatalogSourceResult>;
-  fetchPaged?: (startPage: number, pageCount: number) => Promise<PagedFetchResult>;
+  fetchPaged?: (
+    startPage: number,
+    pageCount: number,
+    extra?: FetchExtra
+  ) => Promise<PagedFetchResult>;
+}
+
+/** fetchPaged 的額外輸入：目前只有 NA 逐款查詢用（缺 US 編號的遊戲清單，
+ *  由 lib/catalog-sync.ts 在讀庫後傳入；不傳時 NA 只跑人氣帶）。 */
+export interface FetchExtra {
+  naTitleTargets?: NaTitleTarget[];
 }
 
 // ---------------------------------------------------------------------------
@@ -694,14 +704,15 @@ export async function fetchKrList(): Promise<CatalogSourceResult> {
 
 // ---------------------------------------------------------------------------
 // 完整來源：分頁抓取（NA Algolia／EU Solr／JP 搜尋 API／AU Algolia）
-//   完整清單太大（NA 約 38 頁、EU 21 頁、JP 約 300 頁、AU 2 頁），
-//   單次 60 秒執行裝不下「全量」——所以用游標分片：每次只抓一個
-//   頁數窗口（startPage＋pageCount），游標存在 sync_state 表
-//   （見 supabase/migrations/20261117_catalog_sync_state.sql），
+//   完整清單太大（EU 21 頁、JP 約 300 頁），單次 60 秒執行裝不下
+//   「全量」——所以用游標分片：每次只抓一個窗口（startPage＋pageCount），
+//   游標存在 sync_state 表（見 supabase/migrations/20261117_catalog_sync_state.sql），
 //   下次從上次停的地方繼續；跑完一輪游標歸零。每日 4 支 sync cron
-//   各推進一個窗口，全目錄約 1 天跑完一輪（JP 約 300 頁是瓶頸，
-//   見 DATA_NOTES.md §12.3 的頁數與耗時表）。
+//   各推進一個窗口（JP 約 300 頁是瓶頸，見 DATA_NOTES.md §12.3）。
 //   單頁失敗就停在該頁（游標不前進，下次重試）、已抓到的照常用。
+//   NA／AU 不再是「頁」：Algolia offset 分頁上限 1,000 筆（見下方 NA／AU
+//   段落），窗口單位改為「切片（unit）」——NA 是人氣排名帶＋逐款標題
+//   查詢，AU 是發售年份切片；游標即單位編號，語義見各來源註解。
 // ---------------------------------------------------------------------------
 
 export interface PagedFetchResult {
@@ -715,13 +726,16 @@ export interface PagedFetchResult {
   error?: string;
 }
 
-/** 單次執行每來源最多抓幾頁（預設窗口；?pages= 可調）。
- *  NA 38 頁一輪、EU 21 頁一輪、JP 約 300 頁需 3 次、AU 2 頁一輪。 */
+/** 單次執行每來源最多抓幾個窗口單位（預設窗口；?pages= 可調）。
+ *  EU 21 頁一輪、JP 約 300 頁需 3 次；NA／AU 的單位見下方（NA 一輪約
+ *  18 個人氣帶＋數百個標題批次，AU 一輪 14 個年份切片）。 */
 export const PAGE_CAP: Record<string, number> = {
-  // 每輪抓的頁數要小到一次同步能在 Vercel Hobby 60 秒上限內跑完
+  // 每輪抓的單位數要小到一次同步能在 Vercel Hobby 60 秒上限內跑完
   // （抓＋比對＋寫庫＋查價），否則整輪被砍、游標永遠不前進、
   // 封面與上市日期永遠補不上（2026-11-18 前就是這樣：JP 100 頁／輪跑不完）。
-  "na-algolia": 10,
+  // NA 壓到 5：一個標題批次是 40 次查詢（約 3.5 秒），5 個單位上限
+  // 約 200 款查詢 ≈ 17 秒；人氣帶單位只有 1 次查詢，更輕。
+  "na-algolia": 5,
   "eu-solr": 10,
   "jp-search": 20,
   "au-algolia": 5,
@@ -761,24 +775,25 @@ async function fetchPagesInPool<T>(
 const NA_ALGOLIA_APP = "U3B6GR4UA3";
 const NA_ALGOLIA_KEY =
   process.env.NA_ALGOLIA_API_KEY ?? "a29c6927638bfd8cee23993e51e721c9";
-const NA_PAGE_SIZE = 1000;
 // AU Algolia：nintendo.com/au 官網首頁 RSC payload 內嵌的公開 search key。
 const AU_ALGOLIA_APP = "FMW57F6ERV";
 const AU_ALGOLIA_KEY =
   process.env.AU_ALGOLIA_API_KEY ?? "c8e4e9f60190ef785d167da77ba0b4fe";
-const AU_PAGE_SIZE = 1000;
 const EU_PAGE_SIZE = 1000;
 const JP_PAGE_SIZE = 100; // limit 上限未實測超過 150，用 100 保守值
 
-async function algoliaPage(
+/** Algolia 搜尋請求（params 是 URL-encoded 查詢字串：query／hitsPerPage／
+ *  facetFilters／numericFilters 任選；不帶 page——offset 分頁有 1,000 筆
+ *  上限，page × hitsPerPage ≥ 1,000 時回空，NA／AU 不再用它）。
+ *  探測實測：250–400ms 節流下數百次請求無 429；每請求前停 200ms，
+ *  逐款查詢並行度壓在 4（2026-11-24 實測 60 次查詢、4 並行、約 12 次／秒，
+ *  全數 200、無 429）。 */
+async function algoliaQuery(
   app: string,
   key: string,
   index: string,
-  page: number,
-  pageSize: number
+  params: string
 ): Promise<{ hits: unknown[]; nbHits: number }> {
-  // 探測實測：250–400ms 節流下數百次請求無 429；並行度壓在 2、每頁前
-  // 停 200ms，避免觸發限流。
   await new Promise((r) => setTimeout(r, 200));
   const res = await fetch(`https://${app}-dsn.algolia.net/1/indexes/${index}/query`, {
     method: "POST",
@@ -787,12 +802,10 @@ async function algoliaPage(
       "X-Algolia-Application-Id": app,
       "X-Algolia-API-Key": key,
     },
-    body: JSON.stringify({
-      params: `query=&hitsPerPage=${pageSize}&page=${page}`,
-    }),
+    body: JSON.stringify({ params }),
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
-  if (!res.ok) throw new Error(`Algolia ${index} HTTP ${res.status}（page=${page}）`);
+  if (!res.ok) throw new Error(`Algolia ${index} HTTP ${res.status}（${params.slice(0, 80)}）`);
   const data = (await res.json()) as { hits?: unknown[]; nbHits?: number };
   return { hits: data?.hits ?? [], nbHits: data?.nbHits ?? 0 };
 }
@@ -834,21 +847,161 @@ async function fetchPagedSource(
   };
 }
 
-/** NA Algolia 分頁：store_all_products_en_us，空查詢＋分頁瀏覽全部 hits。 */
-export async function fetchNaAlgoliaPages(
-  startPage: number,
-  pageCount: number
-): Promise<PagedFetchResult> {
-  return fetchPagedSource("na-algolia", "US", NA_PAGE_SIZE, startPage, pageCount, async (page) => {
-    const { hits, nbHits } = await algoliaPage(
-      NA_ALGOLIA_APP,
-      NA_ALGOLIA_KEY,
-      "store_all_products_en_us",
-      page,
-      NA_PAGE_SIZE
+// ---------------------------------------------------------------------------
+// NA Algolia：offset 分頁上限 1,000 筆的繞法（2026-11-24 實測，見任務回報）
+//   舊作法：空查詢＋offset 分頁（page 0..37），但 page ≥ 10（offset ≥ 1,000）
+//   永遠回空——每輪都在重抓第 0 頁的 1,000 筆，nbHits 37,800 只是假象；
+//   這很可能就是 game_region_ids 的 US 編號至今只有 31 款的原因。
+//   實測排除的作法：/browse（search key 回 403 Method not allowed）、
+//   facet 切分（最便宜的價格帶 × 評級仍有 6,580 筆／格，再拆要 6 維、
+//   數百切片）、其他排名（trendingRank 與 popularityRank 並集只到 17,331 筆）。
+//   新作法＝兩段式「單位（unit）」列舉，游標即單位編號：
+//   (1) 單位 0–17：popularityRank 數值帶，每帶 1,000 名，實測 912–991 筆，
+//       18 帶共 16,998 筆（人氣排名只覆蓋前約 17,500 名，長尾沒有排名）。
+//       排名會浮動，帶邊界的記錄可能在兩輪間換帶、當輪漏查，下輪補回。
+//   (2) 單位 18 起：逐款標題查詢（DB 驅動：lib/catalog-sync.ts 傳入的
+//       targets——缺 US 編號的遊戲，slug 排序）。每款 query=<標題>、
+//       hitsPerPage=10，只收「正規化標題完全相等」的第一筆命中
+//       （normalizeTitle，與 planCatalogSync 同規則），其餘命中一律不收——
+//       寧可漏查，不可錯掛編號。實測 20 款知名遊戲 20/20 命中；
+//       Edition 後綴款（標題多「– Nintendo Switch 2 Edition …」）因標題
+//       不完全相等會漏查，留給人氣帶或第二階段進口處理。
+//   單位總數 totalUnits ＝ 18 ＋ ceil(缺編號遊戲數 / NA_TITLE_BATCH_SIZE)；
+//   缺編號清單會縮水（編號補上後退出清單），游標若超出新總數視為跑完
+//   一輪、下次從頭（漏掉的下輪補回，冪等安全）。
+//   舊游標遷移：舊 totalPages＝38 是 offset 頁數；舊游標若停在 ≥18 頁
+//   （offset 幻影區），新語義會誤讀為「標題批次」、跳過人氣帶 0–17——
+//   lib/catalog-sync.ts 在組窗口時偵測到就歸零重跑（見該處註解）。
+// ---------------------------------------------------------------------------
+/** 人氣排名帶數：popularityRank 1–18,000，每帶 1,000 名。 */
+export const NA_RANK_BAND_COUNT = 18;
+/** 一個標題批次查幾款（40 款約 3.5 秒，4 並行、每請求前停 200ms）。 */
+export const NA_TITLE_BATCH_SIZE = 40;
+
+/** 逐款查詢的目標（一款缺 US 編號的遊戲；由 lib/catalog-sync.ts 產生）。 */
+export interface NaTitleTarget {
+  slug: string;
+  /** 查詢用標題（title_en 優先，無則 title_zh；須含拉丁字母，見同步端）。 */
+  title: string;
+}
+
+/** 逐款查詢一款：query=<標題>，只收正規化標題完全相等的命中，否則回 null。 */
+async function algoliaTitleLookup(title: string): Promise<unknown | null> {
+  const want = normalizeTitle(title);
+  if (!want) return null;
+  const { hits } = await algoliaQuery(
+    NA_ALGOLIA_APP,
+    NA_ALGOLIA_KEY,
+    "store_all_products_en_us",
+    `query=${encodeURIComponent(title)}&hitsPerPage=10`
+  );
+  return (
+    (hits as JsonRecord[]).find(
+      (h) => asStr(h?.nsuid) && normalizeTitle(asStr(h?.title)) === want
+    ) ?? null
+  );
+}
+
+/** 一個標題批次：每款 1 次查詢（4 並行）；單款失敗只跳過該款，不中斷整批。 */
+async function fetchNaTitleBatch(targets: NaTitleTarget[]): Promise<CatalogListEntry[]> {
+  const out: CatalogListEntry[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < targets.length; i += 4) {
+    const slice = targets.slice(i, i + 4);
+    const results = await Promise.all(
+      slice.map(async (t) => {
+        try {
+          return await algoliaTitleLookup(t.title);
+        } catch {
+          return null;
+        }
+      })
     );
-    return { entries: parseNaAlgoliaHits(hits), total: nbHits };
-  });
+    for (const hit of results) {
+      if (!hit) continue;
+      for (const e of parseNaAlgoliaHits([hit])) {
+        if (!seen.has(e.titleId)) {
+          seen.add(e.titleId);
+          out.push(e);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/** NA Algolia 單位抓取：startUnit 起抓 unitCount 個單位（人氣帶＋標題批次）。
+ *  無 targets 時只跑人氣帶（totalUnits＝18；標題批次需 DB 清單才能跑）。 */
+export async function fetchNaAlgoliaPages(
+  startUnit: number,
+  unitCount: number,
+  targets?: NaTitleTarget[]
+): Promise<PagedFetchResult> {
+  const titleUnits = targets ? Math.ceil(targets.length / NA_TITLE_BATCH_SIZE) : 0;
+  const totalUnits = NA_RANK_BAND_COUNT + titleUnits;
+  const entries: CatalogListEntry[] = [];
+  const seen = new Set<string>();
+  let error: string | undefined;
+  let lastOk = startUnit - 1;
+  if (startUnit >= totalUnits) {
+    return {
+      source: "na-algolia",
+      country: "US",
+      entries,
+      nextPage: null,
+      totalPages: totalUnits,
+      done: true,
+    };
+  }
+  for (
+    let unit = startUnit;
+    unit < Math.min(startUnit + unitCount, totalUnits);
+    unit++
+  ) {
+    try {
+      let unitEntries: CatalogListEntry[];
+      if (unit < NA_RANK_BAND_COUNT) {
+        const lo = unit * 1000;
+        const hi = (unit + 1) * 1000;
+        const { hits, nbHits } = await algoliaQuery(
+          NA_ALGOLIA_APP,
+          NA_ALGOLIA_KEY,
+          "store_all_products_en_us",
+          `query=&hitsPerPage=1000&numericFilters=popularityRank%3E${lo}%2CpopularityRank%3C%3D${hi}`
+        );
+        if (nbHits > 1000) {
+          error = `人氣帶 ${lo + 1}–${hi} 有 ${nbHits} 筆、超過單頁 1000 筆上限（已截斷，請拆帶）`;
+        }
+        unitEntries = parseNaAlgoliaHits(hits);
+      } else {
+        const batch = (targets ?? []).slice(
+          (unit - NA_RANK_BAND_COUNT) * NA_TITLE_BATCH_SIZE,
+          (unit - NA_RANK_BAND_COUNT + 1) * NA_TITLE_BATCH_SIZE
+        );
+        unitEntries = await fetchNaTitleBatch(batch);
+      }
+      for (const e of unitEntries) {
+        if (!seen.has(e.titleId)) {
+          seen.add(e.titleId);
+          entries.push(e);
+        }
+      }
+      lastOk = unit;
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+      break;
+    }
+  }
+  const done = lastOk + 1 >= totalUnits;
+  return {
+    source: "na-algolia",
+    country: "US",
+    entries,
+    nextPage: done ? null : lastOk + 1,
+    totalPages: totalUnits,
+    done,
+    error,
+  };
 }
 
 /** EU Solr 分頁：/en/ select，fq=type:GAME＋nsuid_txt:*，rows=1000。 */
@@ -895,21 +1048,95 @@ export async function fetchJpSearchPages(
   });
 }
 
-/** AU Algolia 分頁：prod_games_and_products，約 1,707 筆（2 頁）。 */
+// ---------------------------------------------------------------------------
+// AU Algolia：同樣有 offset 1,000 筆上限（2026-11-24 實測：page=1 回
+// nbHits 0；總量 1,713 筆，舊作法只拿到前 1,000 筆）。AU 索引沒有任何
+// facet（facets=* 回空），但 date_timestamp 是 Unix 秒、numericFilters
+// 可用：按發售年份切片，每年最多 343 筆（2024 年），全在單頁上限內。
+// 14 個單位：2015 年前、2015–2026、2027 年後（2027+ 有 28 筆預購）。
+// 缺 date_timestamp 的記錄共 2 筆（1,713−1,711），無法用任何過濾條件
+// 選出、offset 也搆不到——目前無解，先記在這裡；佔 AU 總量 0.1%，
+// 且很可能本就無 nsuid（parseAuAlgoliaHits 會跳過無 nsuid 者）。
+// 舊游標（totalPages＝2）對應的單位 0–1 只是年份切片 0–1，重抓冪等
+// 安全，不需遷移處理。
+// ---------------------------------------------------------------------------
+/** AU 年份切片：{ label, lo, hi }（Unix 秒，lo／hi 為 null 表不設下／上限）。 */
+export const AU_YEAR_SLICES: { label: string; lo: number | null; hi: number | null }[] = (() => {
+  const slices: { label: string; lo: number | null; hi: number | null }[] = [
+    { label: "pre-2015", lo: null, hi: Date.UTC(2015, 0, 1) / 1000 },
+  ];
+  for (let y = 2015; y <= 2026; y++) {
+    slices.push({
+      label: String(y),
+      lo: Date.UTC(y, 0, 1) / 1000,
+      hi: Date.UTC(y + 1, 0, 1) / 1000,
+    });
+  }
+  slices.push({ label: "2027+", lo: Date.UTC(2027, 0, 1) / 1000, hi: null });
+  return slices;
+})();
+
+/** AU Algolia 單位抓取：startUnit 起抓 unitCount 個年份切片（每片 1 次查詢）。 */
 export async function fetchAuAlgoliaPages(
-  startPage: number,
-  pageCount: number
+  startUnit: number,
+  unitCount: number
 ): Promise<PagedFetchResult> {
-  return fetchPagedSource("au-algolia", "AU", AU_PAGE_SIZE, startPage, pageCount, async (page) => {
-    const { hits, nbHits } = await algoliaPage(
-      AU_ALGOLIA_APP,
-      AU_ALGOLIA_KEY,
-      "prod_games_and_products",
-      page,
-      AU_PAGE_SIZE
-    );
-    return { entries: parseAuAlgoliaHits(hits), total: nbHits };
-  });
+  const totalUnits = AU_YEAR_SLICES.length;
+  const entries: CatalogListEntry[] = [];
+  const seen = new Set<string>();
+  let error: string | undefined;
+  let lastOk = startUnit - 1;
+  if (startUnit >= totalUnits) {
+    return {
+      source: "au-algolia",
+      country: "AU",
+      entries,
+      nextPage: null,
+      totalPages: totalUnits,
+      done: true,
+    };
+  }
+  for (
+    let unit = startUnit;
+    unit < Math.min(startUnit + unitCount, totalUnits);
+    unit++
+  ) {
+    try {
+      const slice = AU_YEAR_SLICES[unit];
+      const filters: string[] = [];
+      if (slice.lo != null) filters.push(`date_timestamp%3E%3D${slice.lo}`);
+      if (slice.hi != null) filters.push(`date_timestamp%3C${slice.hi}`);
+      const { hits, nbHits } = await algoliaQuery(
+        AU_ALGOLIA_APP,
+        AU_ALGOLIA_KEY,
+        "prod_games_and_products",
+        `query=&hitsPerPage=1000${filters.length ? `&numericFilters=${filters.join("%2C")}` : ""}`
+      );
+      if (nbHits > 1000) {
+        error = `AU 年份切片 ${slice.label} 有 ${nbHits} 筆、超過單頁 1000 筆上限（已截斷，請拆片）`;
+      }
+      for (const e of parseAuAlgoliaHits(hits)) {
+        if (!seen.has(e.titleId)) {
+          seen.add(e.titleId);
+          entries.push(e);
+        }
+      }
+      lastOk = unit;
+    } catch (err) {
+      error = err instanceof Error ? err.message : String(err);
+      break;
+    }
+  }
+  const done = lastOk + 1 >= totalUnits;
+  return {
+    source: "au-algolia",
+    country: "AU",
+    entries,
+    nextPage: done ? null : lastOk + 1,
+    totalPages: totalUnits,
+    done,
+    error,
+  };
 }
 
 /** 分頁來源調度：sourceId → 該窗口的抓取結果（小來源不用分頁，走全量）。 */
@@ -973,10 +1200,11 @@ export const CATALOG_SOURCES: CatalogSourceDef[] = [
   {
     id: "na-algolia",
     country: "US",
-    label: "美洲 Algolia（主來源，約 37,632 筆，遊戲 36,745）",
+    label: "美洲 Algolia（主來源，約 37,800 筆：人氣排名帶 18 切片＋逐款標題查詢）",
     status: "active",
     fetch: () => fetchSourcePages("na-algolia", 0, PAGE_CAP["na-algolia"]).then(toSourceResult),
-    fetchPaged: (startPage, pageCount) => fetchNaAlgoliaPages(startPage, pageCount),
+    fetchPaged: (startPage, pageCount, extra) =>
+      fetchNaAlgoliaPages(startPage, pageCount, extra?.naTitleTargets),
   },
   {
     id: "eu-solr",
@@ -989,7 +1217,7 @@ export const CATALOG_SOURCES: CatalogSourceDef[] = [
   {
     id: "au-algolia",
     country: "AU",
-    label: "澳洲 Algolia（精選子集 1,707 筆，唯一帶 genre 的來源）",
+    label: "澳洲 Algolia（精選子集 1,713 筆，唯一帶 genre 的來源：發售年份 14 切片）",
     status: "active",
     fetch: () => fetchSourcePages("au-algolia", 0, PAGE_CAP["au-algolia"]).then(toSourceResult),
     fetchPaged: (startPage, pageCount) => fetchAuAlgoliaPages(startPage, pageCount),
@@ -1074,12 +1302,14 @@ export const CATALOG_SOURCES: CatalogSourceDef[] = [
 
 /** 抓全部 active 來源（並行；單一來源失敗不影響其他來源）。
  *  分頁來源（NA／EU／JP／AU）可帶 pageWindows 指定窗口
- *  （{ startPage, pageCount }；預設從第 0 頁抓 PAGE_CAP 頁）；
+ *  （{ startPage, pageCount }；預設從第 0 單位抓 PAGE_CAP 個單位）；
  *  小來源（JP XML、台港、韓國）每次全量抓，不用窗口。
+ *  extra.naTitleTargets 傳給 NA 逐款查詢（不傳時 NA 只跑人氣帶）。
  *  回傳含 paging（nextPage／totalPages／done），呼叫端據此推進游標。 */
 export async function fetchCatalogLists(
   onlyIds?: string[],
-  pageWindows?: Record<string, { startPage: number; pageCount: number }>
+  pageWindows?: Record<string, { startPage: number; pageCount: number }>,
+  extra?: FetchExtra
 ): Promise<CatalogSourceResult[]> {
   const wanted = CATALOG_SOURCES.filter(
     (s) => s.status === "active" && (!onlyIds || onlyIds.includes(s.id))
@@ -1092,7 +1322,7 @@ export async function fetchCatalogLists(
             startPage: 0,
             pageCount: PAGE_CAP[s.id] ?? 10,
           };
-          const paged = await s.fetchPaged(window.startPage, window.pageCount);
+          const paged = await s.fetchPaged(window.startPage, window.pageCount, extra);
           return {
             ...toSourceResult(paged),
             paging: {

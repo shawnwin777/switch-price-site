@@ -1,8 +1,10 @@
 // 全自動目錄同步的 DB 編排（lib/catalog-sources.ts 的計畫 → 寫庫）。
 //
 // 流程（每天由 /api/sync-catalog 跑 4 次，見 SETUP.md §8.10）：
-//   1. 讀 sync_state 游標，分頁來源（NA／EU／JP／AU）從上次停的頁繼續抓
-//      PAGE_CAP 頁（?pages= 可覆蓋）；單一來源失敗不影響其他來源；
+//   1. 讀 sync_state 游標，分頁來源（NA／EU／JP／AU）從上次停的單位繼續抓
+//      PAGE_CAP 個單位（?pages= 可覆蓋）；NA 逐款查詢的目標清單在讀庫後才
+//      建（缺 US 編號的遊戲），一併傳入 fetchCatalogLists；單一來源失敗
+//      不影響其他來源；
 //   2. 分頁讀出現有 games＋game_region_ids（PostgREST 單次最多 1000 列，
 //      10,051 款必須分頁讀——舊版 /api/refresh 直接 .select() 全讀，
 //      實際只會拿到前 1000 款，這裡修掉，見 listAllGamesPaginated）；
@@ -22,6 +24,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  NA_RANK_BAND_COUNT,
   PAGED_SOURCES,
   PAGE_CAP,
   fetchCatalogLists,
@@ -30,6 +33,7 @@ import {
   type CatalogSourceResult,
   type ExistingGameLite,
   type ExistingRegionId,
+  type NaTitleTarget,
 } from "./catalog-sources";
 import {
   PRICE_COUNTRIES,
@@ -374,11 +378,15 @@ export async function runCatalogSync(
   const dateKey = taipeiDateKey();
   const errors: CatalogSyncSummary["errors"] = [];
 
-  // ---- 1. 抓各區官方清單（並行；單一來源失敗只記、不中斷）----
+  // ---- 1. 讀 sync_state 游標，決定各分頁來源的窗口 ----
   // 分頁來源（NA／EU／JP／AU）用 sync_state 游標決定窗口：
-  // 從上次停的頁繼續抓 PAGE_CAP 頁（?pages= 可覆蓋）；跑完一輪歸零。
-  // 表未建時游標預設 0（每次從第 0 頁重抓，新遊戲仍會被發現，
+  // 從上次停的單位繼續抓 PAGE_CAP 個單位（?pages= 可覆蓋）；跑完一輪歸零。
+  // 表未建時游標預設 0（每次從第 0 單位重抓，新遊戲仍會被發現，
   // 只是完整一輪跑不完——見 errors 的提醒）。
+  // NA 游標語義已改（2026-11-24）：單位 0–17 是人氣排名帶、18 起是
+  // 逐款標題批次；舊游標的 totalPages＝38 是 offset 頁數——舊游標若停在
+  // ≥18 頁（offset 幻影區，從未真正抓到資料），新語義會誤讀為「標題
+  // 批次」、跳過人氣帶 0–17，偵測到就歸零重跑（重抓冪等安全）。
   const { cursors, tableMissing: syncStateMissing } = await readSyncCursors(admin);
   if (syncStateMissing) {
     errors.push({
@@ -391,30 +399,22 @@ export async function runCatalogSync(
   for (const source of PAGED_SOURCES) {
     if (opts.sources && !opts.sources.includes(source)) continue;
     const cursor = cursors.get(source);
+    let startPage = cursor?.nextPage ?? 0;
+    if (
+      source === "na-algolia" &&
+      cursor?.totalPages === 38 &&
+      startPage >= NA_RANK_BAND_COUNT
+    ) {
+      startPage = 0;
+    }
     pageWindows[source] = {
-      startPage: cursor?.nextPage ?? 0,
+      startPage,
       pageCount: opts.pages ?? PAGE_CAP[source] ?? 10,
     };
   }
-  const sourceResults: CatalogSourceResult[] = await fetchCatalogLists(
-    opts.sources,
-    pageWindows
-  );
-  for (const r of sourceResults) {
-    if (r.status === "failed") {
-      errors.push({
-        stage: r.source,
-        message: `清單抓取失敗：${r.error ?? "未知錯誤"}（該區本次不同步，其他區照常）`,
-      });
-    } else if (r.status === "partial") {
-      errors.push({
-        stage: r.source,
-        message: `清單部分失敗：${r.error ?? ""}（已抓到的 ${r.entries.length} 筆照常用）`,
-      });
-    }
-  }
 
   // ---- 2. 讀現有目錄索引（分頁；10,051 款單次讀不完）----
+  // 先讀庫、再抓清單：NA 逐款查詢需要「缺 US 編號的遊戲」清單當目標。
   // release_date 欄位還沒建（migration 未跑）時不讀它，否則整輪同步
   // 會報錯；探測到欄位存在才讀取、才寫入上市日（見下方 4a/4b）。
   // price_countries 同理：有欄位才讀（供 §4e-2 全量重算比對用）。
@@ -433,6 +433,49 @@ export async function runCatalogSync(
       message:
         "對照表還沒建（migration 未跑），本次 TW/HK 編號無法寫入；請執行 supabase/migrations/20261116_game_region_ids.sql。JP 新遊戲照常進庫",
     });
+  }
+
+  // ---- 2b. NA 逐款查詢的目標：缺 US 編號的遊戲（slug 排序，見
+  // lib/catalog-sources.ts 的 NA 單位說明）。title_id 為 7005／7007 開頭
+  // 者是已知 DLC／組合包，NA 條目進不了目錄（planCatalogSync 會跳過），
+  // 不浪費查詢；title_id 為空者無法判斷，一律納入。查詢標題用 title_en
+  // 優先、無則 title_zh；標題完全沒有拉丁字母者跳過（NA 是英文索引，
+  // 用中文／日文標題查不到，留給人氣帶或第二階段進口處理）。對照表未建
+  // 時無法判斷誰缺編號，傳空清單（NA 只跑人氣帶，不做逐款查詢）。
+  const naTitleTargets: NaTitleTarget[] = [];
+  if (!tableMissing) {
+    const hasUsId = new Set(
+      existingRegionIds
+        .filter((r) => r.country.toUpperCase() === "US")
+        .map((r) => r.game_id)
+    );
+    for (const g of existingGames) {
+      if (hasUsId.has(g.id)) continue;
+      if (g.title_id && !g.title_id.startsWith("7001")) continue;
+      const title = (g.title_en || "").trim() || (g.title_zh || "").trim();
+      if (!title || !/[A-Za-z]/.test(title)) continue;
+      naTitleTargets.push({ slug: g.slug, title });
+    }
+  }
+
+  // ---- 2c. 抓各區官方清單（並行；單一來源失敗只記、不中斷）----
+  const sourceResults: CatalogSourceResult[] = await fetchCatalogLists(
+    opts.sources,
+    pageWindows,
+    { naTitleTargets }
+  );
+  for (const r of sourceResults) {
+    if (r.status === "failed") {
+      errors.push({
+        stage: r.source,
+        message: `清單抓取失敗：${r.error ?? "未知錯誤"}（該區本次不同步，其他區照常）`,
+      });
+    } else if (r.status === "partial") {
+      errors.push({
+        stage: r.source,
+        message: `清單部分失敗：${r.error ?? ""}（已抓到的 ${r.entries.length} 筆照常用）`,
+      });
+    }
   }
 
   // ---- 3. 比對計畫（純函式，不碰 DB／網路）----

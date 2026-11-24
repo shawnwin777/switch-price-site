@@ -662,9 +662,9 @@ node scripts/seed.mjs
 | 來源 | 端點 | 一次多少款／分頁 | 總量（2026-11-16 實測） | 抓取頻率／限制 |
 |---|---|---|---|---|
 | JP 搜尋 API（主來源） | `GET https://search.nintendo.jp/nintendo_soft/search.json?q=&limit=100&page=N` | limit=100、page 1-based；每輪 100 頁 | 約 29,995 件；在售 28,336（遊戲 14,970＋DLC 9,654＋S2 3,712） | 每天 4 輪、約 1 天跑完 300 頁；無反爬記錄 |
-| NA Algolia | `POST https://U3B6GR4UA3-dsn.algolia.net/1/indexes/store_all_products_en_us/query`（hitsPerPage=1000） | 每輪 40 頁、並行度 2、每頁前停 200ms | 37,632 筆（遊戲 36,745） | 每天 1 輪即跑完（38 頁）；key 問題見 §12.10 |
+| NA Algolia | `POST https://U3B6GR4UA3-dsn.algolia.net/1/indexes/store_all_products_en_us/query`（hitsPerPage=1000；offset 上限 1,000 筆，不再用 offset 分頁） | 人氣排名帶 18 切片（每帶 ≤1,000 筆）＋逐款標題查詢（缺 US 編號的遊戲，40 款／單位、4 並行、每請求前停 200ms） | 37,800 筆（2026-11-24 實測） | 人氣帶約 1 天跑完；逐款約 200 款／次、完整一輪約 25–37 天；key 問題見 §12.10 |
 | EU Solr | `GET https://search.nintendo-europe.com/en/select?q=*&fq=type:GAME&fq=nsuid_txt:*&rows=1000&start=M&wt=json` | rows=1000；每輪 25 頁 | GAME 有 nsuid 20,217 筆（EU 搜尋 23,932） | 每天 1 輪即跑完（21 頁）；只抓 /en/（≈GB） |
-| AU Algolia | `POST https://FMW57F6ERV-dsn.algolia.net/1/indexes/prod_games_and_products/query`（hitsPerPage=1000） | 每輪 5 頁 | 1,707 筆精選子集（唯一帶 genre 的來源） | 每天 1 輪即跑完（2 頁） |
+| AU Algolia | `POST https://FMW57F6ERV-dsn.algolia.net/1/indexes/prod_games_and_products/query`（hitsPerPage=1000；offset 上限 1,000 筆） | 發售年份 14 切片（每年 ≤343 筆） | 1,713 筆（2026-11-24 實測；可解析 1,363 筆，其餘為手冊／落地頁） | 約 3 次跑完一輪 |
 | JP XML（product-code 輔助） | `https://www.nintendo.co.jp/data/software/xml/switch.xml` | 全量一次 10,045 個 title ID | 已停更（最新發售日約 2025-05-01） | 只取 `InitialCode`（完整 product code）補欄位，不當目錄來源 |
 | TW／HK 清單 | `https://www.nintendo.com/{tw,hk}/software/switch/?spage=N`（RSC payload） | 分頁，每輪全抓 | TW 166／HK 176（精選，非完整） | 每週；命名（精選遊戲） |
 | KR 清單 | `https://www.nintendo.com/kr/software/switch/` | 單頁 | 約 13 個 nsuid（精選） | 每週；命名 |
@@ -749,9 +749,12 @@ GB App 24,314 與 EU 搜尋 23,932 差 1.6%。
 ≈ 30 秒，60 秒上限內有餘裕；`duration_ms` 常近 60 秒時先把
 `pair_budget` 調小到 8000（見 SETUP.md §8.5）。
 
-**目錄同步一輪**：NA 38 頁（每輪 40 頁，1 輪跑完）、EU 21 頁（每輪
-25 頁，1 輪）、JP 約 300 頁（每輪 100 頁，3 輪）、AU 2 頁（每輪 5 頁，
-1 輪）→ 每天 4 輪約 **1 天跑完一輪**（JP 是瓶頸）；新遊戲發現延遲約 1–2 天。
+**目錄同步一輪**：NA 人氣帶 18 切片（每輪 5 單位，約 1 天跑完）＋逐款
+標題查詢（約 200 款／次，完整一輪約 25–37 天；舊「38 頁 1 天跑完」是
+假象——offset 上限 1,000 筆使 page ≥ 10 永遠回空，見 §12.10）、EU 21 頁
+（每輪 25 頁，1 輪）、JP 約 300 頁（每輪 100 頁，3 輪）、AU 年份 14 切片
+（每輪 5 單位，約 3 次跑完）→ 每天 4 輪，EU／JP／AU 約 **1 天跑完一輪**
+（JP 是瓶頸）；新遊戲發現延遲約 1–2 天。
 新遊戲進目錄當天就有即時價（§12.6），不用等價格輪轉。
 
 **cron 配置**（共 12 支，Hobby 上限 100 支內；見 `vercel.json`）：

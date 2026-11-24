@@ -548,8 +548,8 @@ node scripts/verify-region-ids.mjs
 |---|---|
 | 觸發 | `vercel.json` 4 支 cron：UTC 18、19、21、22（台北 02、03、05、06） |
 | 來源 | JP 搜尋 API、NA Algolia、EU Solr、AU Algolia、TW／HK 清單、KR 清單（並行；單一來源失敗只記、不中斷） |
-| 游標 | `sync_state` 表（migration `20261117_catalog_sync_state.sql`）：分頁來源從上次停的頁繼續抓；跑完一輪歸零、記 `last_full_pass_date`。表未建時每次從第 0 頁重抓（新遊戲仍會被發現，只是完整一輪跑不完） |
-| 一輪 | NA 38 頁、EU 21 頁、JP 約 300 頁、AU 2 頁；每天 4 輪約 1 天跑完（JP 是瓶頸） |
+| 游標 | `sync_state` 表（migration `20261117_catalog_sync_state.sql`）：分頁來源從上次停的單位繼續抓（NA／AU 的單位是切片／標題批次，不是頁）；跑完一輪歸零、記 `last_full_pass_date`。表未建時每次從第 0 單位重抓（新遊戲仍會被發現，只是完整一輪跑不完） |
+| 一輪 | NA 人氣帶 18 切片＋逐款標題查詢、EU 21 頁、JP 約 300 頁、AU 年份 14 切片；每天 4 輪，EU／JP／AU 約 1 天跑完（JP 是瓶頸），NA 逐款完整一輪約 25–37 天 |
 | 寫入 | 冪等 upsert：games（by slug）、title_id／封面只在為空時回填、game_region_ids（by game_id,country）；重跑同一窗口＝0 寫入 |
 | 新遊戲即時價 | 商店前端價（JP 搜尋 API／NA Algolia，已驗證）先寫入，價格 API 查到同一國價時覆蓋（價格 API 為準）；EU Solr 參考價只做交叉驗證、永不寫入；上限 100 款／次；全程 50 秒軟預算，超過跳過價格階段（目錄已寫入，下次輪轉補價） |
 | 參數 | `?sources=jp-search,tw-list`（只跑指定來源）、`?pages=20`（分頁來源每支本次最多抓幾頁）、`?dry_run=1`（只比對、不寫庫）、`?skip_prices=1`（只寫目錄、不同步查價） |
