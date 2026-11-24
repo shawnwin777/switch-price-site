@@ -148,7 +148,10 @@ export default function HomeClient({
     const sp = new URLSearchParams();
     if (f.q) sp.set("q", f.q);
     if (f.platform) sp.set("platform", f.platform);
-    if (f.productType) sp.set("type", f.productType);
+    // 只有明確指定的 type 才寫進 URL；隱含預設（Switch 2→全部、
+    // 其餘→遊戲本體）由伺服器端依主機決定，寫死會蓋掉它（例如在
+    // 遊戲牆點主機 Switch 2 時，把隱含的 game 寫成 ?type=game）。
+    if (f.typeExplicit && f.productType) sp.set("type", f.productType);
     if (f.demo != null) sp.set("demo", String(f.demo));
     if (f.country) sp.set("country", f.country);
     if (f.sort && f.sort !== "deals") sp.set("sort", f.sort);
@@ -254,7 +257,9 @@ export default function HomeClient({
             <button
               type="button"
               className={`chip ${filters.productType === "all" ? "active" : ""}`}
-              onClick={() => applyFilter({ productType: "all" })}
+              onClick={() =>
+                applyFilter({ productType: "all", typeExplicit: true })
+              }
             >
               全部
             </button>
@@ -263,7 +268,9 @@ export default function HomeClient({
                 key={t}
                 type="button"
                 className={`chip ${filters.productType === t ? "active" : ""}`}
-                onClick={() => applyFilter({ productType: t })}
+                onClick={() =>
+                  applyFilter({ productType: t, typeExplicit: true })
+                }
               >
                 {productTypeLabel(t)}
               </button>

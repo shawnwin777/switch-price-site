@@ -52,23 +52,33 @@ function first(v: string | string[] | undefined): string | undefined {
 function parseParams(searchParams: SearchParams) {
   const q = (first(searchParams.q) ?? "").trim().slice(0, 100);
   const platform = first(searchParams.platform);
-  const type = first(searchParams.type);
+  const typeParam = first(searchParams.type);
   const demo = first(searchParams.demo);
   const country = first(searchParams.country);
   const sort = first(searchParams.sort);
   const page = Math.max(1, parseInt(first(searchParams.page) ?? "1", 10) || 1);
+  const parsedPlatform =
+    platform === "Switch" || platform === "Switch 2" ? platform : undefined;
+  // 商品類型：明確帶 ?type= 時照指定（all／game／dlc／bundle／subscription）；
+  // 沒帶參數時看主機——Switch 2 預設全部（Switch 2 內容多為組合包，
+  // 2026-11-24：預設只看遊戲本體讓 Switch 2＋台灣只剩 4 款），
+  // 其餘主機維持只列遊戲本體（DLC／組合包不混進遊戲牆）。
+  const typeExplicit =
+    typeParam === "all" ||
+    (typeParam != null && PRODUCT_TYPES.includes(typeParam));
+  const productType =
+    typeParam === "all"
+      ? "all"
+      : typeParam != null && PRODUCT_TYPES.includes(typeParam)
+        ? typeParam
+        : parsedPlatform === "Switch 2"
+          ? "all"
+          : "game";
   return {
     q,
-    platform:
-      platform === "Switch" || platform === "Switch 2" ? platform : undefined,
-    // 商品類型：沒帶參數預設只列遊戲本體（DLC／組合包不混進遊戲牆，
-    // 2026-11-23 DLC 匯入後才有差）；type=all 才是不篩類型。
-    productType:
-      type === "all"
-        ? "all"
-        : type && PRODUCT_TYPES.includes(type)
-          ? type
-          : "game",
+    platform: parsedPlatform,
+    productType,
+    typeExplicit,
     demo: demo === "1" || demo === "2" || demo === "3" ? Number(demo) : undefined,
     country:
       country && COUNTRY_MAP[country] ? country : undefined,
@@ -90,7 +100,10 @@ function toSearchParams(params: HomePageParams): URLSearchParams {
   const sp = new URLSearchParams();
   if (params.q) sp.set("q", params.q);
   if (params.platform) sp.set("platform", params.platform);
-  if (params.productType && params.productType !== "game")
+  // 只有明確指定的 type 才寫進 URL（隱含預設不寫，伺服器端重算時
+  // 依主機給預設；寫死會蓋掉它，例如越界導回時把 Switch 2 的隱含
+  // 全部寫成 ?type=game 就錯了）。
+  if (params.typeExplicit && params.productType)
     sp.set("type", params.productType);
   if (params.demo != null) sp.set("demo", String(params.demo));
   if (params.country) sp.set("country", params.country);

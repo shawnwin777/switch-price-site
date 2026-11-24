@@ -149,6 +149,11 @@ export interface GamesPageFilters {
   q?: string;
   platform?: string;
   productType?: string;
+  /** ?type= 是否由使用者明確指定（見 app/switch-price/page.tsx 的 parseParams）。
+   *  未指定時商品類型預設依主機而定（Switch 2 預設全部、其餘預設遊戲本體）；
+   *  前端寫回 URL 時只有明確指定才帶 type，避免隱含預設被寫成明確參數
+   *  （例如點主機 Switch 2 時把隱含的 game 寫成 ?type=game 蓋掉新預設）。 */
+  typeExplicit?: boolean;
   demo?: number;
   /** 國家篩選：只顯示在該國有價格的遊戲（國家代碼，如 JP）。 */
   country?: string;
