@@ -318,6 +318,25 @@ function AboutPreview() {
           </span>
         </li>
       </ul>
+      <div className="home-about-donate">
+        <p className="home-about-donate-text">
+          你的贊助，是我繼續抓價格的燃料。
+        </p>
+        <a
+          href="https://shawn-game-studio.bobaboba.me"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="home-about-donate-btn"
+        >
+          <img
+            src="https://s3.ap-southeast-1.amazonaws.com/media.anyonelab.com/images/boba/boba-embed-icon.png"
+            alt=""
+            aria-hidden="true"
+            className="home-about-donate-icon"
+          />
+          請我喝珍奶！
+        </a>
+      </div>
     </div>
   );
 }
