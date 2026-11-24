@@ -22,7 +22,12 @@
  *     salesStatus, regular, effective, currency, saleEnd,
  *     parentVerified, nameSource, imageSource }]
  *   - addonType：dlc_candidate（前綴 7005）／bundle_candidate（前綴 7007，
- *     Switch 2 Edition）；共 5,284 筆（DLC 4,170、組合包 1,114）。
+ *     組合包——注意：7007 只是「組合包」，不等於 Switch 2 Edition。
+ *     2026-11-24 查證：1,114 筆組合包裡只有 1 筆是 Switch 2 Edition
+ *     （寶可夢傳說 Z-A），其餘具名皆為 Switch 1；未具名 343 筆無法
+ *     從標題判斷（抽查有快打旋風 6、RAIDOU 等 Switch 2 原生組合包），
+ *     以商店「平台」欄為準，不要只憑標題硬判）；共 5,284 筆
+ *     （DLC 4,170、組合包 1,114）。
  *   - 全部 salesStatus=onsale、currency=TWD；具名 3,498 筆（皆有圖片），
  *     未具名 1,786 筆（title／imageUrl 皆 null）。
  *   - 沒有 releaseDate 欄位：這些都是在售商品，不屬於「準備上市」。
@@ -33,7 +38,10 @@
  *   - 寫入順序與 seed-unnamed-games 一致：games → game_region_ids → prices。
  *   - slug 一律 tw-<nsuid>（具名／未具名相同）：決定性、不碰撞、重跑可對上。
  *   - product_type：dlc_candidate → "dlc"、bundle_candidate → "bundle"；
- *     platform：dlc → "Switch"、bundle → "Switch 2"。
+ *     platform：DLC 一律 "Switch"；組合包看標題——含 "Switch 2"（或 NS2）
+ *     才判 "Switch 2"，其餘 "Switch"（見 platformOf 的註解：標題判斷是
+ *     啟發式，極少數 Switch 2 原生組合包標題不帶 "Switch 2"，以商店
+ *     「平台」欄為準，誤判者以 SQL 修正）。
  *   - 價格：TW 一國（currency TWD，不需匯率）；price_twd = effective；
  *     折扣由 regular／effective 現算；sale_end 照 JSON（多數為 null）；
  *     is_historical_low = true、games.historical_low_twd = effective
@@ -101,7 +109,19 @@ function productTypeOf(item) {
 }
 
 function platformOf(item) {
-  return item.addonType === 'bundle_candidate' ? 'Switch 2' : 'Switch';
+  // 7007 前綴只是「組合包」，不等於 Switch 2 Edition（2026-11-24 查證：
+  // 1,114 筆組合包裡只有 1 筆標題含 Switch 2；其餘具名皆為 Switch 1
+  // 的豪華版／組合包／季票，另有 17 筆經台灣官方目錄確認為 Nintendo Switch）。
+  // 標題含 "Switch 2"（或 NS2）才判 "Switch 2"，其餘組合包與 DLC 皆為 "Switch"。
+  // 注意：這是啟發式——極少數 Switch 2 原生組合包標題不帶 "Switch 2"
+  //（如快打旋風 6 Years 1-2 Fighters Edition、RAIDOU Remastered 數位豪華版，
+  // 皆為未具名、商店「平台」欄為 Nintendo Switch 2），以商店平台欄為準，
+  // 誤判者以 SQL 修正，不要只憑標題硬判。
+  if (item.addonType === 'bundle_candidate') {
+    const title = typeof item.title === 'string' ? item.title : '';
+    return /switch\s*2|NS2/i.test(title) ? 'Switch 2' : 'Switch';
+  }
+  return 'Switch';
 }
 
 function discountPctOf(item) {
