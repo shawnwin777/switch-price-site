@@ -10,9 +10,12 @@ import {
 } from "@/lib/data";
 import {
   getCachedGamesPagePublic,
+  getCachedHistoricalLowPage,
   getCachedLatestFx,
   getCachedLatestPriceUpdate,
+  getCachedNearLowPage,
   getCachedProductTypes,
+  getCachedUpcomingPage,
 } from "@/lib/cached-data";
 import { formatTaipei } from "@/lib/format";
 import {
@@ -152,7 +155,15 @@ export default async function HomePage({
     excludePurchasedIds = await getUserPurchaseGameIds(db, userId);
   }
 
-  const [pageRes, fx, lastUpdate, productTypes] = await Promise.all([
+  const [
+    pageRes,
+    fx,
+    lastUpdate,
+    productTypes,
+    nearLow,
+    upcoming,
+    historicalLow,
+  ] = await Promise.all([
     getCachedGamesPagePublic({
       ...params,
       visibleCountries: cookieVisible ?? undefined,
@@ -162,6 +173,32 @@ export default async function HomePage({
     getCachedLatestFx(),
     getCachedLatestPriceUpdate(),
     getCachedProductTypes(),
+    // 四格入口卡片的數字（2026-11-24 從舊首頁 f390ff07 還原）：用各列表頁
+    // 現有的快取 getter 取第 1 頁，只用 total；失敗時拋錯，接住後顯示
+    // 「資料準備中」／「資料補充中」，不能拖垮整面牆。
+    getCachedNearLowPage(1).catch(() => ({
+      games: [],
+      ratios: {},
+      total: 0,
+      page: 1,
+      totalPages: 0,
+      error: "查詢失敗",
+    })),
+    getCachedUpcomingPage(1).catch(() => ({
+      games: [],
+      total: 0,
+      page: 1,
+      totalPages: 0,
+      hasAnyReleaseDate: false,
+      unavailable: true,
+    })),
+    getCachedHistoricalLowPage(1).catch(() => ({
+      games: [],
+      total: 0,
+      page: 1,
+      totalPages: 0,
+      error: "查詢失敗",
+    })),
   ]);
   // 個人狀態即時補上（快取裡沒有個人資料）。
   const page = {
@@ -215,6 +252,44 @@ export default async function HomePage({
             </>
           )
         )}
+      </div>
+      <div className="feature-cards">
+        <Link href="/upcoming" className="feature-card">
+          <div className="feature-card-title">📅 準備上市</div>
+          <div className="feature-card-sub">
+            {upcoming.unavailable || !upcoming.hasAnyReleaseDate
+              ? "上市日期資料補充中"
+              : upcoming.total > 0
+                ? `${upcoming.total} 款即將上市`
+                : "目前沒有即將上市的遊戲"}
+          </div>
+        </Link>
+        <Link href="/near-low" className="feature-card">
+          <div className="feature-card-title">📉 接近歷史低價</div>
+          <div className="feature-card-sub">
+            {nearLow.error
+              ? "資料準備中"
+              : nearLow.total > 0
+                ? `${nearLow.total} 款只比歷史低貴一點點`
+                : "目前沒有接近歷史低價的遊戲"}
+          </div>
+        </Link>
+        <Link href="/nso" className="feature-card">
+          <div className="feature-card-title">🎮 NSO 會員跨區比價</div>
+          <div className="feature-card-sub">
+            一般、擴充、家庭會員與遊戲兌換券，35 國比價
+          </div>
+        </Link>
+        <Link href="/historical-low" className="feature-card">
+          <div className="feature-card-title">💰 歷史低價</div>
+          <div className="feature-card-sub">
+            {historicalLow.error
+              ? "資料準備中"
+              : historicalLow.total > 0
+                ? `${historicalLow.total} 款正在歷史低價`
+                : "目前沒有正在歷史低價的遊戲"}
+          </div>
+        </Link>
       </div>
       <div id="switch-wall">
       <HomeClient
