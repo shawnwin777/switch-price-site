@@ -6,7 +6,8 @@ import { safeNext } from "@/lib/safe-next";
 // Supabase Auth OAuth 回呼：GET /auth/callback?code=...&next=...
 //   Google / Discord 登入按鈕（components/LoginClient.tsx）的 redirectTo 指向這裡。
 // 流程：用授權碼向 Supabase 交換 session（PKCE code verifier 存在 cookie，
-// 由 @supabase/ssr 自動帶上），成功後導回 /home 或 ?next= 指定的站內頁。
+// 由 @supabase/ssr 自動帶上），成功後導回 /home 或 ?next=／spc-next cookie
+// 指定的站內頁（cookie 由 LoginClient 登入前寫入）。
 //
 // 回呼網址由 NEXT_PUBLIC_SITE_URL 組合（${NEXT_PUBLIC_SITE_URL}/auth/callback），
 // 絕對不要在程式碼寫死網址。部署後要把這個網址填回：
@@ -25,20 +26,34 @@ function siteUrl(request: NextRequest): string {
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");
-  const next = safeNext(searchParams.get("next"));
+  // 登入後返回頁：優先用 ?next=（舊連結、已登入者導向仍用它），沒有時
+  // 讀 LoginClient 登入前寫的 spc-next cookie——?next= 會在 Supabase／
+  // Google 來回中被弄丟，cookie 不走 OAuth 參數。
+  const next = safeNext(
+    searchParams.get("next") ?? request.cookies.get("spc-next")?.value
+  );
   const base = siteUrl(request);
+
+  // 三種回應都要清掉 spc-next（用完即丟，下次登入重寫）。
+  const clearNextCookie = (res: NextResponse) => {
+    res.cookies.set("spc-next", "", { maxAge: 0, path: "/" });
+    return res;
+  };
+
+  // 缺 code 時回登入頁重試，next 一併帶回去，
+  // 登入成功後仍回到原本要去的頁面。
+  if (!code) {
+    return clearNextCookie(
+      NextResponse.redirect(
+        `${base}/login?error=missing_code&next=${encodeURIComponent(next)}`
+      )
+    );
+  }
 
   // 先建好導向回應，再把 session cookie 寫在這份回應上
   //（Supabase SSR 官方寫法：exchangeCodeForSession 前就要有 response 物件）。
   const response = NextResponse.redirect(`${base}${next}`);
-
-  // 缺 code／換碼失敗時回登入頁重試，next 一併帶回去，
-  // 登入成功後仍回到原本要去的頁面。
-  if (!code) {
-    return NextResponse.redirect(
-      `${base}/login?error=missing_code&next=${encodeURIComponent(next)}`
-    );
-  }
+  clearNextCookie(response);
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -55,8 +70,10 @@ export async function GET(request: NextRequest) {
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
-    return NextResponse.redirect(
-      `${base}/login?error=auth_callback_failed&next=${encodeURIComponent(next)}`
+    return clearNextCookie(
+      NextResponse.redirect(
+        `${base}/login?error=auth_callback_failed&next=${encodeURIComponent(next)}`
+      )
     );
   }
 

@@ -26,6 +26,10 @@ export default function CommentsSection({
   const [busy, setBusy] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
+  // 一層回覆：正在回哪則上層留言（null＝沒展開）、回覆內文。
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyBody, setReplyBody] = useState("");
+  const [replyBusy, setReplyBusy] = useState(false);
   const router = useRouter();
 
   // 上次打的名字自動帶入（可改；只存在自己的瀏覽器裡）。
@@ -52,7 +56,7 @@ export default function CommentsSection({
     return () => subscription.unsubscribe();
   }, []);
 
-  // 讚數高 → 新，留言預設照這個順序。
+  // 讚數高 → 新，上層留言預設照這個順序；回覆在父留言下照時間先後。
   const sorted = useMemo(
     () =>
       [...comments].sort(
@@ -62,7 +66,28 @@ export default function CommentsSection({
       ),
     [comments]
   );
-  const visible = showAll ? sorted : sorted.slice(0, PAGE_SIZE);
+  const topLevel = useMemo(
+    () => sorted.filter((c) => !c.parent_comment_id),
+    [sorted]
+  );
+  const repliesByParent = useMemo(() => {
+    const map = new Map<string, CommentItem[]>();
+    comments
+      .filter((c) => c.parent_comment_id)
+      .forEach((c) => {
+        const parentId = c.parent_comment_id as string;
+        const arr = map.get(parentId) ?? [];
+        arr.push(c);
+        map.set(parentId, arr);
+      });
+    map.forEach((arr) =>
+      arr.sort((a, b) =>
+        (a.created_at ?? "").localeCompare(b.created_at ?? "")
+      )
+    );
+    return map;
+  }, [comments]);
+  const visible = showAll ? topLevel : topLevel.slice(0, PAGE_SIZE);
 
   async function submitComment() {
     const text = body.trim();
@@ -89,6 +114,7 @@ export default function CommentsSection({
         id: created.id ?? Date.now(),
         liked_by_me: false,
         likes_count: 0,
+        parent_comment_id: null,
         user_id: created.user_id ?? null,
       };
       setComments((prev) => [item, ...prev]);
@@ -104,6 +130,61 @@ export default function CommentsSection({
       alert("留言失敗，請稍後再試（需先登入）。");
     } finally {
       setBusy(false);
+    }
+  }
+
+  // 一層回覆：名字沿用下方表單共用的 authorName state，不另加名字欄。
+  async function submitReply(parent: CommentItem) {
+    const text = replyBody.trim();
+    if (!text) return;
+    const name = authorName.trim();
+    setReplyBusy(true);
+    try {
+      const res = await fetch("/api/comments", {
+        body: JSON.stringify({
+          body: text,
+          gameId,
+          author_name: name,
+          parent_comment_id: parent.id,
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      if (res.status === 401) {
+        router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+        return;
+      }
+      // 503＝parent migration 還沒跑，回覆功能尚未啟用（不是 500）。
+      if (res.status === 503) {
+        alert("回覆功能尚未啟用，請稍後再試");
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const created = await res.json();
+      const item: CommentItem = {
+        author_name: created.author_name ?? created.nickname ?? null,
+        body: created.body ?? text,
+        created_at: created.created_at ?? new Date().toISOString(),
+        game_id: gameId,
+        id: created.id ?? Date.now(),
+        liked_by_me: false,
+        likes_count: 0,
+        parent_comment_id: created.parent_comment_id ?? parent.id,
+        user_id: created.user_id ?? null,
+      };
+      setComments((prev) => [...prev, item]);
+      setReplyBody("");
+      setReplyingTo(null);
+      try {
+        if (name) localStorage.setItem("spc-comment-author", name);
+      } catch {
+        // 存不進去也沒關係。
+      }
+    } catch (e) {
+      console.error("回覆失敗：", e);
+      alert("回覆失敗，請稍後再試（需先登入）。");
+    } finally {
+      setReplyBusy(false);
     }
   }
 
@@ -182,53 +263,112 @@ export default function CommentsSection({
     }
   }
 
+  // 留言頭（上層留言和回覆共用）：左組讚按鈕緊貼名字、右組檢舉／刪除。
+  // 回覆沒有「回覆」按鈕——只做一層。
+  function renderCommentHead(c: CommentItem) {
+    return (
+      <div className="comment-head">
+        <span className="comment-head-left">
+          <button
+            type="button"
+            className={`icon-btn ${c.liked_by_me ? "active" : ""}`}
+            onClick={() => toggleLike(c)}
+            aria-pressed={c.liked_by_me}
+          >
+            👍 {c.likes_count}
+          </button>
+          <span className="comment-author">
+            {c.author_name ?? "玩家"} · {formatTaipei(c.created_at)}
+          </span>
+        </span>
+        <span className="comment-head-actions">
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => reportComment(c)}
+            disabled={reportedIds.has(c.id)}
+            title="檢舉這則留言"
+          >
+            {reportedIds.has(c.id) ? "已檢舉" : "🚩 檢舉"}
+          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => deleteComment(c)}
+              title="管理員刪除留言"
+            >
+              🗑️ 刪除
+            </button>
+          )}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <section aria-label="玩家留言">
       <h2>💬 玩家留言（依讚數排序）</h2>
-      {sorted.length === 0 ? (
+      <p className="comment-rules">⚠️ 留言請保持友善，嚴禁攻擊其他玩家。</p>
+      {topLevel.length === 0 ? (
         <p className="muted">還沒有留言，來分享這款遊戲好不好玩吧！</p>
       ) : (
         <>
           <div className="comment-list">
-            {visible.map((c) => (
-              <article key={c.id} className="comment">
-                <div className="comment-head">
-                  <span className="comment-author">
-                    {c.author_name ?? "玩家"} · {formatTaipei(c.created_at)}
-                  </span>
-                  <button
-                    type="button"
-                    className={`icon-btn ${c.liked_by_me ? "active" : ""}`}
-                    onClick={() => toggleLike(c)}
-                    aria-pressed={c.liked_by_me}
-                  >
-                    👍 {c.likes_count}
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-btn"
-                    onClick={() => reportComment(c)}
-                    disabled={reportedIds.has(c.id)}
-                    title="檢舉這則留言"
-                  >
-                    {reportedIds.has(c.id) ? "已檢舉" : "🚩 檢舉"}
-                  </button>
-                  {isAdmin && (
+            {visible.map((c) => {
+              const replies = repliesByParent.get(c.id) ?? [];
+              return (
+                <article key={c.id} className="comment">
+                  {renderCommentHead(c)}
+                  <p className="comment-body">{c.body}</p>
+                  <p className="comment-reply-toggle">
                     <button
                       type="button"
-                      className="icon-btn"
-                      onClick={() => deleteComment(c)}
-                      title="管理員刪除留言"
+                      className="link-btn"
+                      onClick={() =>
+                        setReplyingTo(replyingTo === c.id ? null : c.id)
+                      }
                     >
-                      🗑️ 刪除
+                      {replyingTo === c.id ? "收起回覆" : "💬 回覆"}
                     </button>
+                  </p>
+                  {replyingTo === c.id && (
+                    <div className="comment-reply-form">
+                      <textarea
+                        className="input"
+                        value={replyBody}
+                        onChange={(e) => setReplyBody(e.target.value)}
+                        placeholder={`回覆 ${c.author_name ?? "玩家"}…`}
+                        maxLength={1000}
+                        aria-label="回覆內容"
+                      />
+                      <p>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={() => submitReply(c)}
+                          disabled={replyBusy || replyBody.trim().length === 0}
+                        >
+                          {replyBusy ? "送出中…" : "送出回覆"}
+                        </button>
+                      </p>
+                    </div>
                   )}
-                </div>
-                <p className="comment-body">{c.body}</p>
-              </article>
-            ))}
+                  {replies.length > 0 && (
+                    <div className="comment-replies">
+                      {replies.map((r) => (
+                        <article key={r.id} className="comment">
+                          {renderCommentHead(r)}
+                          <p className="comment-body">{r.body}</p>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
           </div>
-          {sorted.length > PAGE_SIZE && (
+          {topLevel.length > PAGE_SIZE && (
             <p>
               <button
                 type="button"
@@ -237,7 +377,7 @@ export default function CommentsSection({
               >
                 {showAll
                   ? "收起留言"
-                  : `顯示全部（共 ${sorted.length} 則）`}
+                  : `顯示全部（共 ${topLevel.length} 則）`}
               </button>
             </p>
           )}

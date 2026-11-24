@@ -1711,6 +1711,54 @@ table.price-table {
   justify-content: space-between;
 }
 
+/* 留言列左右兩組：左組讚按鈕緊貼名字、右組檢舉／刪除留在右邊。 */
+.comment-head-left,
+.comment-head-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+/* 留言版規：常駐在標題下方。 */
+.comment-rules {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+}
+
+/* 一層回覆：回覆按鈕、回覆框、回覆列縮排。 */
+.comment-reply-toggle {
+  margin: 8px 0 0;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--cyan);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+}
+
+.comment-reply-form {
+  margin-top: 8px;
+}
+
+.comment-reply-form textarea {
+  min-height: 56px;
+}
+
+.comment-replies {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0 0 20px;
+}
+
 .comment-author {
   color: var(--muted);
   font-size: 13px;

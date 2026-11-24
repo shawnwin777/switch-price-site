@@ -57,6 +57,8 @@ export interface CommentItem {
   created_at: string | null;
   likes_count: number;
   liked_by_me: boolean;
+  // 一層回覆：指向上層留言的 id；上層留言為 null。
+  parent_comment_id: string | null;
 }
 
 export interface GameWithPrices extends Game {

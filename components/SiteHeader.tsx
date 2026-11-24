@@ -139,6 +139,9 @@ export default function SiteHeader() {
           {email && isAdminEmail(email) && (
             <Link href="/taiwan">台灣完整目錄</Link>
           )}
+          {email && isAdminEmail(email) && (
+            <Link href="/admin/reports">檢舉管理</Link>
+          )}
           <Link href="/ranking">
             <NavIcon>
               <path d="M8 4h8v5a4 4 0 0 1-8 0V4Z" />

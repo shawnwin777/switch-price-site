@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
+import { safeNext } from "@/lib/safe-next";
 
 // 登入頁本體：Google / Discord 按鈕走 Supabase Auth OAuth。
 // 實際登入流程（callback、session refresh）由登入組接：
@@ -24,7 +25,11 @@ export default function LoginClient() {
     setError("");
     try {
       const db = createSupabaseBrowserClient();
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+      // 登入後返回頁寫進 cookie（spc-next），不再放 redirectTo 的 ?next=：
+      // 實測 ?next= 會在 Supabase／Google 來回中被弄丟（/switch-price 登入
+      // 後仍跳回 /home），cookie 不走 OAuth 參數，callback 改從 cookie 讀。
+      document.cookie = `spc-next=${encodeURIComponent(safeNext(next))}; path=/; max-age=600; SameSite=Lax`;
+      const redirectTo = `${window.location.origin}/auth/callback`;
       const { error } = await db.auth.signInWithOAuth({
         options: { redirectTo },
         provider,

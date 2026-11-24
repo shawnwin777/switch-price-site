@@ -913,6 +913,9 @@ export async function getComments(
     created_at: (c.created_at as string | null) ?? null,
     likes_count: likeCount.get(c.id as string) ?? 0,
     liked_by_me: myLikeSet.has(c.id as string),
+    // 一層回覆：這裡用 select("*")，migration（20261124_add_comment_parent）
+    // 還沒跑時欄位不存在也不會報錯，值就是 null、只回上層留言，GET 不 500。
+    parent_comment_id: (c.parent_comment_id as string | null) ?? null,
   }));
 }
 
