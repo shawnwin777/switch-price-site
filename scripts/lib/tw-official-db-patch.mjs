@@ -6,6 +6,16 @@
 import { officialImageUrl, NSUID_PATTERN, CATALOG_SOURCE } from './tw-official-catalog.mjs';
 export const PLACEHOLDER = '/covers/placeholder.svg';
 
+/** 台灣官方目錄的 hardwareCategory → DB platform：只認含 "Switch" 的寫法
+ *  （如 "Nintendo Switch"／"Nintendo Switch 2"）；沒有或認不得 → null，
+ *  不猜。回填具名時有來源平台資訊就一併寫進 patch，沒有就留 NULL。 */
+export function platformFromHardwareCategory(value) {
+  if (typeof value !== 'string') return null;
+  if (/switch\s*2/i.test(value)) return 'Switch 2';
+  if (/switch/i.test(value)) return 'Switch';
+  return null;
+}
+
 export function buildTwBackfillChanges(plan, games, regionIds, maxWrites = 3000, currentPrices = null) {
   if (plan?.mode !== 'READ_ONLY_NO_SUPABASE' || !plan.complete || !Array.isArray(plan.candidates))
     throw new Error('Expected a complete, audited TW exact-NSUID plan');
@@ -72,11 +82,16 @@ export function buildTwBackfillChanges(plan, games, regionIds, maxWrites = 3000,
         patch.title_en=entry.proposedTitleZh.trim(); // games.title_en is NOT NULL; front-end hides duplicate translation
       if (canFillCover && url)patch.cover_url=url;
     }
+    // 平台：官方目錄有 hardwareCategory、且遊戲目前還沒有平台時一併寫；
+    // 沒有來源資訊或遊戲已有平台時不動（不猜、不覆蓋）。
+    const platform=platformFromHardwareCategory(entry.hardwareCategory);
+    if (platform && !game.platform) patch.platform=platform;
     changes.push({
       nsuid,gameId:game.id,slug:game.slug,source:entry.source,
       before:{
         title_zh:game.title_zh??null,title_en:game.title_en??null,
         is_unnamed:game.is_unnamed,cover_url:existingCover,
+        platform:game.platform??null,
       },
       patch,
     });

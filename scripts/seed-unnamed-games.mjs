@@ -69,6 +69,11 @@
  *   - games.price_countries 隨建檔／合併一起寫（title_id 有值算 1 國＋
  *     對照表 distinct 國家數；供 /api/refresh 切片用，見 migration
  *     20261117_game_price_countries.sql）。
+ *   - platform：回填具名／新建具名遊戲時，來源條目有平台資訊
+ *     （platform 或 hardwareCategory 欄位）就寫，沒有就留 NULL、不猜；
+ *     目前對照檔 tw-hk-full-ids.json 的條目沒有此欄位，所以現在一律是
+ *     NULL（佔位列亦然）；對照檔未來補上平台資訊時自動帶進去。
+ *     只寫來源給的平台，不以標題或編號推測。
  *   - 可重複執行：重跑一次應為新增 0 款、其餘全部更新或跳過。
  *
  * 連線：只用環境變數 NEXT_PUBLIC_SUPABASE_URL 與
@@ -140,6 +145,17 @@ function isNumericKey(key) {
 /** 佔位標題：title 欄位先放編號，等命名來源找到真名再合併改名。 */
 function placeholderTitles(nsuid) {
   return { titleZh: `未命名商品 ${nsuid}`, titleEn: String(nsuid) };
+}
+
+/** 來源條目的平台資訊（若有）：只認 "Switch"／"Switch 2" 兩種寫法
+ *  （e.platform 或 e.hardwareCategory，含 "Nintendo Switch 2" 這類寫法
+ *  也認）；沒有或認不得 → null，不猜。 */
+function platformFromEntry(e) {
+  const raw = e?.platform ?? e?.hardwareCategory ?? null;
+  if (typeof raw !== 'string') return null;
+  if (/switch\s*2/i.test(raw)) return 'Switch 2';
+  if (/switch/i.test(raw)) return 'Switch';
+  return null;
 }
 
 function priceEntryToRow(gameId, country, p, fxRate) {
@@ -694,6 +710,9 @@ async function live(opts) {
         is_unnamed: false,
         price_countries: priceCountriesFor(target.id, e.jpTitleId ?? target.title_id, [...entryCountries.keys()]),
       };
+      // 來源有平台資訊就一併寫，沒有就留著不動（不猜）。
+      const targetPlatform = platformFromEntry(e);
+      if (targetPlatform) patch.platform = targetPlatform;
       if (slugKey !== target.slug && !bySlug.has(slugKey)) {
         bySlug.delete(target.slug);
         patch.slug = slugKey;
@@ -732,6 +751,9 @@ async function live(opts) {
         is_unnamed: false,
         price_countries: priceCountriesFor(first.id, e.jpTitleId ?? first.title_id, [...entryCountries.keys()]),
       };
+      // 來源有平台資訊就一併寫，沒有就留著不動（不猜）。
+      const firstPlatform = platformFromEntry(e);
+      if (firstPlatform) patch.platform = firstPlatform;
       if (slugKey !== first.slug && !bySlug.has(slugKey)) {
         bySlug.delete(first.slug);
         patch.slug = slugKey;
@@ -759,6 +781,7 @@ async function live(opts) {
       title_en: e.titleEn ?? e.titleZh,
       title_id: e.jpTitleId ? String(e.jpTitleId) : null,
       product_type: 'game',
+      platform: platformFromEntry(e),
       is_unnamed: false,
       price_countries: (e.jpTitleId ? 1 : 0) + entryCountries.size,
     };

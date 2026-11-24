@@ -11,7 +11,10 @@ import {
 } from "@/lib/nintendo";
 import {
   DEFAULT_PAIR_BUDGET,
+  REFRESH_CURSOR_SOURCE,
   clampPairBudget,
+  cursorCycleCompleteDateKey,
+  cursorSlice,
   dayOfYearTaipei,
   pairsForGame,
   planWorkSlices,
@@ -24,7 +27,7 @@ import {
   planCountryIds,
   type CountryPlan,
 } from "@/lib/region-ids";
-import { listAllGamesPaginated } from "@/lib/catalog-sync";
+import { listAllGamesPaginated, readSyncCursors } from "@/lib/catalog-sync";
 
 // 每日更新：GET /api/refresh（Vercel Cron 用 GET）或 POST /api/refresh。
 // 由 vercel.json 的 8 支 cron 每天打 8 次（UTC 20、23、02、05、08、11、14、17，
@@ -56,12 +59,15 @@ import { listAllGamesPaginated } from "@/lib/catalog-sync";
 //     （?pair_budget= 可調，1000～50000，或環境變數 REFRESH_PAIR_BUDGET）。
 //     對數來源是 games.price_countries（sync-catalog 維護）；
 //     該欄位還沒建時以 35 計（舊行為）。實測速率：400 款 × 35 國抓價約 22 秒。
-//   - 不帶切片參數時自動輪轉：每天跑 runsPerDay 次（預設 8，環境變數
-//     REFRESH_RUNS_PER_DAY），每次依台北小時所在的時段跑一片；
-//     連續 slices 次執行跑完全部遊戲。遊戲總數 ≤ 一片時 slices = 1，
-//     行為與舊版全量更新完全一致（向下相容）。
+//   - 不帶切片參數時用持久化游標輪轉：sync_state 表 source='refresh-work'
+//     的 next_page 就是本次要跑的片，跑完存下一片（見 lib/refresh-slices.ts
+//     cursorSlice）。舊版時間取餘（globalIndex % slices）會因 slices 隨
+//     目錄成長變動而漏片（2026-11-24 稽核：5,738 筆價格 8 天未刷新），
+//     現只在游標表未建時退回時間輪轉。一輪 = slices 次執行，
+//     每天 8 次 → ceil(slices / 8) 天跑完（例如 29 片 → 4 天）。
 //   - 手動指定一片：?slice=2&slices=8（0-based）。slices 只用來驗證 slice 範圍，
 //     實際片數一律以當下對數與 pair_budget 推算；或 ?offset=800&limit=400。
+//     手動模式不動游標（不干擾輪轉）。
 //   - ?countries=JP,US,TW 保留，可與切片參數併用。
 //   - ?slice_size= 已退役（款數切片改為對數切片；explicit-offset 模式仍可用
 //     它當 limit 的預設值）；調片大小請用 ?pair_budget=。
@@ -260,13 +266,17 @@ async function handleRefresh(request: NextRequest) {
   const slices = workSlices.length;
   const pairsTotal = pairCounts.reduce((a, b) => a + b, 0);
 
-  // 模式：明確 ?slice= > 明確 ?offset=&limit= > 預設輪轉（台北時段）。
+  // 模式：明確 ?slice= > 明確 ?offset=&limit= > 預設輪轉（持久化游標）。
   const sliceParam = parseIntParam(params.get("slice"));
   const offsetParam = parseIntParam(params.get("offset"));
   const limitParam = parseIntParam(params.get("limit"));
   let mode: "rotation" | "explicit-slice" | "explicit-offset";
   let slice: number;
   let slot = 0;
+  // 持久化游標狀態（只在 rotation 模式用；手動模式不動游標）。
+  let cursorMode: "persistent" | "time-fallback" = "persistent";
+  let cursorNext = 0;
+  let cursorNote: string | null = null;
   if (sliceParam != null) {
     const slicesParam = parseIntParam(params.get("slices"));
     const effectiveSlices =
@@ -304,9 +314,26 @@ async function handleRefresh(request: NextRequest) {
     if (slice < 0) slice = 0;
   } else {
     mode = "rotation";
-    const rot = rotationWorkSlice(new Date(), slices, runsPerDay);
-    slice = rot.slice;
-    slot = rot.slot;
+    // 持久化游標（sync_state，source='refresh-work'）：上次存的 next_page
+    // 就是本次要跑的片；片數隨目錄成長變動時以取餘收斂，不再像舊的
+    // 時間取餘輪轉那樣因 slices 變動而漏片。表未建／讀不到時退回時間輪轉。
+    const { cursors, tableMissing: syncStateMissing } = await readSyncCursors(admin);
+    if (syncStateMissing) {
+      cursorMode = "time-fallback";
+      const rot = rotationWorkSlice(new Date(), slices, runsPerDay);
+      slice = rot.slice;
+      slot = rot.slot;
+      cursorNote =
+        "sync_state 表未建（請執行 supabase/migrations/20261117_catalog_sync_state.sql），本次用時間輪轉（舊行為）；游標未持久化";
+    } else {
+      const stored = cursors.get(REFRESH_CURSOR_SOURCE)?.nextPage ?? null;
+      if (stored == null) {
+        cursorNote = "首次持久化輪轉（sync_state 尚無 refresh-work 游標），從第 0 片開始";
+      }
+      const cur = cursorSlice(stored, slices);
+      slice = cur.slice;
+      cursorNext = cur.next;
+    }
   }
   const { offset, count } =
     mode === "explicit-offset"
@@ -395,7 +422,10 @@ async function handleRefresh(request: NextRequest) {
     string,
     { country: string; title_id: string; source: string }[]
   >();
-  const errors: { country: string; message: string }[] = [...regionReadErrors];
+  const errors: { country: string; message: string }[] = [
+    ...(cursorNote ? [{ country: "-", message: cursorNote }] : []),
+    ...regionReadErrors,
+  ];
   const missingFxCurrencies = new Set<string>();
 
   async function refreshCountry(country: (typeof PRICE_COUNTRIES)[number]) {
@@ -588,6 +618,26 @@ async function handleRefresh(request: NextRequest) {
     }
   }
 
+  // ---- 6. 推進持久化游標（輪轉模式＋持久化成功時才推進；寫入失敗
+  // 回 500 的路徑不走到這裡，下次重跑同一片——冪等，安全。手動模式不動游標。）----
+  if (mode === "rotation" && cursorMode === "persistent") {
+    const { error: cursorError } = await admin.from("sync_state").upsert(
+      {
+        source: REFRESH_CURSOR_SOURCE,
+        next_page: cursorNext,
+        total_pages: slices,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "source" }
+    );
+    if (cursorError) {
+      errors.push({
+        country: "-",
+        message: `游標推進失敗（${cursorError.message}），下次仍跑第 ${slice} 片（重跑安全，價格照常寫入）`,
+      });
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     date_key: dateKey,
@@ -607,8 +657,18 @@ async function handleRefresh(request: NextRequest) {
     games_in_slice: sliceGames.length,
     games_with_title_id: withTitleId.length,
     next_slice: (slice + 1) % slices,
+    rotation_cursor: {
+      mode: cursorMode,
+      slice,
+      next: cursorMode === "persistent" ? cursorNext : (slice + 1) % slices,
+      slices,
+      note: cursorNote,
+    },
     rotation_day_of_year: dayOfYearTaipei(new Date()),
-    cycle_complete_date: workCycleCompleteDateKey(new Date(), slices, runsPerDay),
+    cycle_complete_date:
+      cursorMode === "persistent"
+        ? cursorCycleCompleteDateKey(new Date(), slice, slices, runsPerDay)
+        : workCycleCompleteDateKey(new Date(), slices, runsPerDay),
     countries_attempted: countries.map((c) => c.code),
     countries_skipped_for_budget: countriesSkippedForBudget,
     prices_updated: pricesUpdated,

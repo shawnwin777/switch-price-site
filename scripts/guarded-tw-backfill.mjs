@@ -59,7 +59,7 @@ const [planOrIndex,currentPrices]=await Promise.all([
   readFile(indexPath??planPath,'utf8'),readFile(pricePath,'utf8'),
 ]).then(x=>x.map(JSON.parse));
 const [games,regionIds]=await Promise.all([
-  readAll('games','id,slug,title_zh,title_en,cover_url,is_unnamed,product_type'),
+  readAll('games','id,slug,title_zh,title_en,cover_url,is_unnamed,product_type,platform'),
   readAll('game_region_ids','id,game_id,country,title_id'),
 ]);
 const fullPlan=indexPath?planLiveTwBackfill(planOrIndex,currentPrices,games,regionIds):planOrIndex;
@@ -103,6 +103,7 @@ for(const c of changes){
   q.set('title_zh',c.before.title_zh===null?'is.null':'eq.'+c.before.title_zh);
   if('cover_url' in c.patch)q.set('cover_url',c.before.cover_url===null?'is.null':'eq.'+c.before.cover_url);
   if('title_en' in c.patch)q.set('title_en',c.before.title_en===null?'is.null':'eq.'+c.before.title_en);
+  if('platform' in c.patch)q.set('platform',c.before.platform===null?'is.null':'eq.'+c.before.platform);
   try{
     const updated=await request('games',q.toString(),'PATCH',c.patch);
     if(!Array.isArray(updated)||updated.length!==1||updated[0].id!==c.gameId)

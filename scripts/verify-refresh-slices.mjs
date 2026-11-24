@@ -139,6 +139,19 @@ check("rotationSlice 與 dayOfYear 一致（2026-11-16 台北）",
   check("workCycleDays：29 片／8 次＝4 天", S.workCycleDays(29, 8) === 4);
   check("workCycleCompleteDateKey 是本輪最後一片的那一天",
     S.workCycleCompleteDateKey(new Date("2026-11-16T04:00:00+08:00"), 29, 8) === "2026-11-19");
+  // 持久化游標（2026-11-24 稽核修復）：存哪片、跑哪片、跑完＋1、到尾包回 0
+  check("cursorSlice：無游標從 0 開始、跑完＋1",
+    S.cursorSlice(null, 29).slice === 0 && S.cursorSlice(null, 29).next === 1 &&
+    S.cursorSlice(0, 29).slice === 0 && S.cursorSlice(0, 29).next === 1);
+  check("cursorSlice：最後一片跑完包回 0",
+    S.cursorSlice(28, 29).slice === 28 && S.cursorSlice(28, 29).next === 0);
+  check("cursorSlice：片數縮水時取餘收斂（存 28、剩 10 片 → 第 8 片）",
+    S.cursorSlice(28, 10).slice === 8 && S.cursorSlice(28, 10).next === 9);
+  check("cursorSlice：單片恆為 0", S.cursorSlice(5, 1).slice === 0 && S.cursorSlice(5, 1).next === 0);
+  check("cursorCycleCompleteDateKey：29 片、從第 0 片起 8 次／天 → 4 天後跑完",
+    S.cursorCycleCompleteDateKey(new Date("2026-11-16T04:00:00+08:00"), 0, 29, 8) === "2026-11-19");
+  check("cursorCycleCompleteDateKey：29 片、從第 28 片起 → 當天跑完",
+    S.cursorCycleCompleteDateKey(new Date("2026-11-16T04:00:00+08:00"), 28, 29, 8) === "2026-11-16");
 }
 
 // 5. 實例：今天（台北 2026-11-16）3000 款的輪轉狀態

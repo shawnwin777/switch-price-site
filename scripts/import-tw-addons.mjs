@@ -38,10 +38,9 @@
  *   - 寫入順序與 seed-unnamed-games 一致：games → game_region_ids → prices。
  *   - slug 一律 tw-<nsuid>（具名／未具名相同）：決定性、不碰撞、重跑可對上。
  *   - product_type：dlc_candidate → "dlc"、bundle_candidate → "bundle"；
- *     platform：DLC 一律 "Switch"；組合包看標題——含 "Switch 2"（或 NS2）
- *     才判 "Switch 2"，其餘 "Switch"（見 platformOf 的註解：標題判斷是
- *     啟發式，極少數 Switch 2 原生組合包標題不帶 "Switch 2"，以商店
- *     「平台」欄為準，誤判者以 SQL 修正）。
+ *     platform：組合包看標題——含 "Switch 2"（或 NS2）才判 "Switch 2"，
+ *     其餘 "Switch"（見 platformOf 的註解）；DLC 也看標題——含 "Switch 2"
+ *     （或 NS2，如升級通行證）才判 "Switch 2"，其餘 "Switch"。
  *   - 價格：TW 一國（currency TWD，不需匯率）；price_twd = effective；
  *     折扣由 regular／effective 現算；sale_end 照 JSON（多數為 null）；
  *     is_historical_low = true、games.historical_low_twd = effective
@@ -56,6 +55,10 @@
  *   - 冪等與不覆蓋：重跑時，已存在的同 slug 列只補價格／編號；
  *     遊戲列本身只在「新建」或「佔位改名」時寫——已經是具名遊戲
  *     的列不覆蓋標題（命名來源可能在別處補過更好的名字）。
+ *     唯一例外是 product_type 前綴衝突：既有列是 'game'（或未填），
+ *     但本次 nsuid 前綴是 7005／7007 時，以前綴為準修正為 dlc／bundle
+ *     （例如每週 ingest 先建的列）；既有已是 dlc／bundle 但與本次
+ *     不同時，仍視為碰撞、不覆蓋。
  *     同一 nsuid 若已掛在別款遊戲名下（game_region_ids 查得到），
  *     價格掛到那款遊戲上，不另建。
  *   - 準備上市（/upcoming）只認 release_date > 今天：這批全部 onsale
@@ -121,7 +124,11 @@ function platformOf(item) {
     const title = typeof item.title === 'string' ? item.title : '';
     return /switch\s*2|NS2/i.test(title) ? 'Switch 2' : 'Switch';
   }
-  return 'Switch';
+  // DLC：標題含 "Switch 2"（或 NS2）的是 Switch 2 專屬（如升級通行證），
+  // 才判 "Switch 2"；其餘 DLC 為 "Switch"。舊行為是一律 "Switch"，
+  // 漏了 Switch 2 專屬 DLC（2026-11-24 稽核發現）。
+  const title = typeof item.title === 'string' ? item.title : '';
+  return /switch\s*2|NS2/i.test(title) ? 'Switch 2' : 'Switch';
 }
 
 function discountPctOf(item) {
@@ -352,6 +359,7 @@ async function live(opts) {
     gamesCreated: 0,
     gamesRenamed: 0,
     gamesPriceOnly: 0,
+    gamesTypeFixed: 0,
     attachedToExisting: 0,
     skippedCollision: [],
     regionIdsWritten: 0,
@@ -360,6 +368,7 @@ async function live(opts) {
 
   const gamesUpsert = []; // 只含「新建」列
   const renames = []; // { id, patch }：佔位遊戲原地改名
+  const typeFixes = []; // { id, product_type }：具名遊戲的前綴衝突修正
   const pendingRegion = new Map(); // slug → [{ country, titleId }]
   const pendingPrices = new Map(); // slug → [price]
   const slugToId = new Map();
@@ -394,11 +403,14 @@ async function live(opts) {
     if (existing) {
       slugToId.set(p.slug, existing.id);
       // 已是具名遊戲：不覆蓋標題（命名來源可能在別處補過更好的名字），
-      // 只補編號＋價格。
+      // 只補編號＋價格；但 product_type 前綴明確衝突時覆蓋修正——
+      // 既有列是 'game'（或未填，例如每週 ingest 先建的），本次 nsuid
+      // 前綴卻是 7005／7007 時，以前綴為準改為 dlc／bundle。
       if (!existing.is_unnamed) {
-        // 但 product_type 若還是舊的 'game'（例如每週 ingest 先建的），
-        // 也不在這裡改——DLC 分類以這支腳本新建的列為準，既有列不動。
-        if (existing.product_type !== 'game' && existing.product_type !== p.productType) {
+        if (existing.product_type === 'game' || existing.product_type == null) {
+          typeFixes.push({ id: existing.id, product_type: p.productType });
+          counts.gamesTypeFixed += 1;
+        } else if (existing.product_type !== p.productType) {
           counts.skippedCollision.push(
             `${p.slug}：既有 product_type=${existing.product_type}，與本次 ${p.productType} 不同，不覆蓋`,
           );
@@ -476,6 +488,11 @@ async function live(opts) {
     await patchGame(r.id, r.patch);
   }
 
+  // ---- 2b. product_type 前綴衝突修正（只改 game／NULL → dlc／bundle）----
+  for (const f of typeFixes) {
+    await patchGame(f.id, { product_type: f.product_type });
+  }
+
   // ---- 3. 寫入 game_region_ids（只補缺口：已有值保留）----
   for (const [slug, regs] of pendingRegion) {
     const gameId = slugToId.get(slug);
@@ -529,6 +546,7 @@ async function live(opts) {
 
   console.log(
     `\n完成：遊戲新建 ${counts.gamesCreated} 款、佔位改名 ${counts.gamesRenamed} 款、` +
+      `product_type 前綴修正 ${counts.gamesTypeFixed} 款、` +
       `只補價格 ${counts.gamesPriceOnly} 款、掛到既有遊戲 ${counts.attachedToExisting} 筆。`,
   );
   console.log(

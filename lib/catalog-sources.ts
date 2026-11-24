@@ -282,6 +282,21 @@ export function kindFromNsuid(nsuid: string): "game" | "dlc" | "bundle" | "upgra
   return "game";
 }
 
+/** NSUID 前綴 → DB product_type（寫庫用）：7005→dlc、7007→bundle，其餘→game。
+ *  注意與 kindFromNsuid 的區別：kindFromNsuid 是來源端的「項目種類」
+ *  （7005＝upgrade、7007＝dlc，僅用於過濾／計數、不寫 DB）；這裡是寫入
+ *  games.product_type 用的值（DB 只有 game／dlc／bundle 三種，見
+ *  scripts/import-tw-addons.mjs 的 productTypeOf）。TW/HK 清單不帶
+ *  productKind（見 parseTwHkRsc），台灣獨佔的 7007 組合包若不經這裡
+ *  守衛，會直接以 product_type=game 進庫（實例：tw-70070000030643
+ *  「超級瑪利歐銀河 ＋ 超級瑪利歐銀河 ２」）；JP 路徑的來源已濾掉
+ *  7005／7007，這裡是保險。 */
+export function productTypeFromNsuid(nsuid: string): "game" | "dlc" | "bundle" {
+  if (nsuid.startsWith("7005")) return "dlc";
+  if (nsuid.startsWith("7007")) return "bundle";
+  return "game";
+}
+
 function platformFromText(
   s: string | null | undefined
 ): "Switch" | "Switch 2" | null {
@@ -1134,6 +1149,9 @@ export interface ExistingGameLite {
   historical_low_twd?: number | null;
   /** 上市日期（YYYY-MM-DD；目錄同步讀取用，寫入時只補空值）。 */
   release_date?: string | null;
+  /** 可查價國家數（games.price_countries；目錄同步步驟 2 讀取時有欄位才帶，
+   *  供 §4e-2 全量重算比對用；缺欄位時為 undefined）。 */
+  price_countries?: number | null;
 }
 
 export interface ExistingRegionId {
@@ -1266,7 +1284,9 @@ export interface CatalogSyncPlan {
  *     release_date（條目的 salesDate：JP 搜尋 API sdate、EU Solr
  *     dates_released_dts、JP XML SalesDate、AU Algolia date_timestamp；
  *     TW/HK 清單沒有 → null，等回填腳本或日後來源補）、
- *     product_type = "game"、has_demo = 0。
+ *     product_type（NSUID 前綴定：7005→dlc、7007→bundle，其餘→game，
+ *     見 productTypeFromNsuid；TW/HK 清單不帶 productKind，全靠這裡守衛）、
+ *     has_demo = 0。
  *   - 填不了（留 null，等人工或日後來源補）：genre（除 AU 子集外沒有來源）、
  *     youtube_id、中文名（台港清單只覆蓋約 342 款，其餘新遊戲的 title_zh
  *     是日文／英文原文）、publisher（除 JP XML 外沒有來源）、封面
@@ -1484,7 +1504,7 @@ export function planCatalogSync(
       genre: e.genre ?? null,
       publisher: e.maker ?? null,
       platform: e.platform ?? "Switch",
-      product_type: "game",
+      product_type: productTypeFromNsuid(e.titleId),
       has_demo: 0,
       cover_url: e.coverUrl ?? "/covers/placeholder.svg",
       youtube_id: null,
@@ -1512,7 +1532,7 @@ export function planCatalogSync(
       plan.needsReview.push({
         slug,
         title: e.title,
-        reason: "標題疑似 DLC／追加內容，但 JP XML 的 SoftType 無法區分，仍先記 product_type=game，待人工確認",
+        reason: `標題疑似 DLC／追加內容，但 JP XML 的 SoftType 無法區分，仍先記 product_type=${row.product_type}，待人工確認`,
       });
     }
   }
@@ -1641,7 +1661,7 @@ export function planCatalogSync(
       genre: e.genre ?? null,
       publisher: null,
       platform: e.platform ?? "Switch",
-      product_type: "game",
+      product_type: productTypeFromNsuid(e.titleId),
       has_demo: 0,
       cover_url: e.coverUrl ?? "/covers/placeholder.svg",
       youtube_id: null,
@@ -1688,7 +1708,7 @@ export function planCatalogSync(
       plan.needsReview.push({
         slug,
         title: e.title,
-        reason: "標題疑似 DLC／追加內容，但清單無法區分，仍先記 product_type=game，待人工確認",
+        reason: `標題疑似 DLC／追加內容，但清單無法區分，仍先記 product_type=${row.product_type}，待人工確認`,
       });
     }
   }

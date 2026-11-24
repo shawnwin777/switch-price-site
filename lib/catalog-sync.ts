@@ -195,6 +195,10 @@ export interface CatalogSyncSummary {
   region_ids_upserted: number;
   /** 本次重算 price_countries 的遊戲數（供 /api/refresh 工作量切片用）。 */
   price_countries_updated: number;
+  /** 本次全量重算補上的 price_countries 列數（§4e-2，含 NULL 補值）。 */
+  price_countries_full_updated: number;
+  /** 全量重算後仍未補上的列數（達單次上限或時間預算，下次同步繼續）。 */
+  price_countries_full_remaining: number;
   new_game_prices: {
     attempted: number;
     priced: number;
@@ -310,6 +314,58 @@ export async function refreshPriceCountryCounts(
   }
   return updated;
 }
+/** 全量重算 price_countries（定期自我修復；2026-11-24 稽核修復）。
+ *  用步驟 2 已讀進記憶體的 games＋game_region_ids 直接算期望值
+ *  （有 title_id 算 1 國＋對照表 distinct 國家數），只 PATCH 與期望值
+ *  不符的列——NULL 也算不符，會被補上正確值，所以寫庫路徑漏寫的 NULL
+ *  不會一直留著、/api/refresh 也不再把 NULL 當 35 對虛增。
+ *  排除 excludeIds（本次同步剛動過的遊戲：記憶體裡的對照表還沒包含
+ *  本次新寫的編號，那幾款由 refreshPriceCountryCounts 從庫裡重算為準）。
+ *  每次最多更新 maxUpdates 列、且不超過 timeBudgetMs（剩下的留給下次
+ *  同步），所以平時幾乎 0 寫入、漂移累積時也能慢慢追平，不擠佔 60 秒預算。 */
+export async function refreshAllPriceCountryCounts(
+  admin: AdminClient,
+  games: ExistingGameLite[],
+  regionIds: ExistingRegionId[],
+  excludeIds: Set<string>,
+  errors: { stage: string; message: string }[],
+  opts: { maxUpdates?: number; startedAt?: number; timeBudgetMs?: number } = {}
+): Promise<{ checked: number; updated: number; remaining: number }> {
+  const maxUpdates = opts.maxUpdates ?? 1000;
+  const startedAt = opts.startedAt ?? Date.now();
+  const timeBudgetMs = opts.timeBudgetMs ?? SYNC_TIME_BUDGET_MS;
+  const byGame = new Map<string, Set<string>>();
+  for (const r of regionIds) {
+    const set = byGame.get(r.game_id) ?? new Set<string>();
+    set.add(String(r.country).toUpperCase());
+    byGame.set(r.game_id, set);
+  }
+  const mismatches: { id: string; n: number }[] = [];
+  for (const g of games) {
+    if (excludeIds.has(g.id)) continue;
+    const expected = (g.title_id ? 1 : 0) + (byGame.get(g.id)?.size ?? 0);
+    if (g.price_countries !== expected) mismatches.push({ id: g.id, n: expected });
+  }
+  let updated = 0;
+  for (const m of mismatches) {
+    if (updated >= maxUpdates) break;
+    if (Date.now() - startedAt > timeBudgetMs) break;
+    const { error } = await admin
+      .from("games")
+      .update({ price_countries: m.n })
+      .eq("id", m.id);
+    if (error) {
+      errors.push({
+        stage: "price_countries_full",
+        message: `全量重算寫入失敗（${m.id}）：${error.message}；剩餘 ${mismatches.length - updated} 列下次同步再算`,
+      });
+      break;
+    }
+    updated++;
+  }
+  return { checked: games.length, updated, remaining: mismatches.length - updated };
+}
+
 export async function runCatalogSync(
   admin: AdminClient,
   opts: CatalogSyncOptions = {}
@@ -361,13 +417,14 @@ export async function runCatalogSync(
   // ---- 2. 讀現有目錄索引（分頁；10,051 款單次讀不完）----
   // release_date 欄位還沒建（migration 未跑）時不讀它，否則整輪同步
   // 會報錯；探測到欄位存在才讀取、才寫入上市日（見下方 4a/4b）。
+  // price_countries 同理：有欄位才讀（供 §4e-2 全量重算比對用）。
   const hasReleaseDateColumn = await probeGamesColumn(admin, "release_date");
-  const existingGames = await listAllGamesPaginated(
-    admin,
-    hasReleaseDateColumn
-      ? "id, slug, title_id, title_zh, title_en, cover_url, historical_low_twd, release_date"
-      : undefined
-  );
+  const hasPriceCountriesColumn = await probeGamesColumn(admin, "price_countries");
+  const gameColumns =
+    "id, slug, title_id, title_zh, title_en, cover_url, historical_low_twd" +
+    (hasReleaseDateColumn ? ", release_date" : "") +
+    (hasPriceCountriesColumn ? ", price_countries" : "");
+  const existingGames = await listAllGamesPaginated(admin, gameColumns);
   const { rows: existingRegionIds, tableMissing } =
     await listAllRegionIdsPaginated(admin);
   if (tableMissing) {
@@ -401,6 +458,8 @@ export async function runCatalogSync(
     release_date_filled: 0,
     region_ids_upserted: 0,
     price_countries_updated: 0,
+    price_countries_full_updated: 0,
+    price_countries_full_remaining: 0,
     new_game_prices: {
       attempted: 0,
       priced: 0,
@@ -593,6 +652,23 @@ export async function runCatalogSync(
     }
     const n = await refreshPriceCountryCounts(admin, [...affected], titleIdById, errors);
     summary.price_countries_updated = n;
+    // ---- 4e-2. 全量重算 price_countries（定期自我修復；2026-11-24 稽核修復）----
+    // 只對本次沒動過的遊戲用記憶體裡的對照表重算（本次剛寫的編號還沒進
+    // 記憶體，那幾款上面已從庫裡重算過）；NULL／漂移值在這裡一次補齊，
+    // 下次 /api/refresh 切片不再把 NULL 當 35 對虛增。欄位未建時跳過
+    // （上面受影響重算已記過一筆錯誤，不重複報）。
+    if (hasPriceCountriesColumn) {
+      const full = await refreshAllPriceCountryCounts(
+        admin,
+        existingGames,
+        existingRegionIds,
+        affected,
+        errors,
+        { startedAt, timeBudgetMs: SYNC_TIME_BUDGET_MS }
+      );
+      summary.price_countries_full_updated = full.updated;
+      summary.price_countries_full_remaining = full.remaining;
+    }
   }
   // 目的：新遊戲進目錄當天就有價可看，不用等輪轉。
   // 價格來源優先順序：商店前端價（JP 搜尋 API／NA Algolia，已驗證）
