@@ -634,6 +634,21 @@ export async function fetchGamesPagePublicCore(
 
   const ids = games.map((g) => g.id);
   const extras = await fetchExtrasForIds(db, ids);
+  // 價格查詢失手時（Supabase 瞬斷）extras.prices 會是空陣列；此時名單上
+  // 的遊戲在 view 裡明明有價（國家篩選已保證每款至少在一個可見國家有價），
+  // 絕不能把「有名單、沒價格」的半空結果快取 1 小時（2026-11-25 台港
+  // 第一頁快取中毒：卡片全顯示「可見國家尚無價格」）。回 error，讓快取層
+  // 不寫快取、下次請求重查。只看我的收藏不套用：那是使用者自己的清單，
+  // 收藏的遊戲有可能真的沒有價格；退回模式（view 不存在）也不套用。
+  if (useStats && !args.onlyMine && extras.prices.length === 0) {
+    return {
+      ...empty,
+      total,
+      page,
+      totalPages,
+      error: "價格讀取失敗，請重整再試",
+    };
+  }
   let result = games.map((g) =>
     toGameWithPrices(
       g,
