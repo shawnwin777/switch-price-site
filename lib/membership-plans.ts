@@ -1,25 +1,22 @@
 // ============================================================================
-// 會員方案價目（/membership 靜態頁）：PS Plus 與 Xbox Game Pass 台灣方案。
+// 會員方案價目（/console 第一個分頁，2026-11-23 從 /membership 移進來）：
+// PS Plus 與 Xbox Game Pass 台灣方案。
 // 2026-11-23 上線。資料來源是 shawn 傳的兩張官方商店截圖（2026-11-23），
 // 並用官方頁面再核對過一次權益：
 //   PS Plus：playstation.com/zh-hant-tw/ps-plus/ ——三級距的權益勾選與截圖
 //     完全一致（基本 6 項、升級 8 項、高級 10 項）；基本 1 個月 NT$290 也對
-//     得上（頁面 JSON-LD Product.offers）；12 個月優惠價至 2026/11/30，
-//     官方頁有 Black Friday 註記「在 11 月 30 日前加入高級方案，即可享有
-//     Black Friday 特別折扣」。
+//     得上（頁面 JSON-LD Product.offers）。12 個月曾有 Black Friday 優惠價
+//     （至 2026/11/30），2026-11-25 shawn 說直接改回原價（要買的還是會買），
+//     不等優惠到期；以下 12 個月價格已是原價。
 //   Xbox Game Pass：xbox.com/zh-TW/xbox-game-pass ——四方案的權益與截圖
 //     完全一致（款數、首發當日／發佈後一年內、EA Play、Rewards 倍數）；
 //     價格在官網是遮罩的（$XX.XX，需登入才顯示），所以價格以截圖為準。
 // 注意：兩個服務放在同一頁，但各自呈現、不做對比表——讓玩家自己看
-// （shawn：省得麻煩）。價格是靜態表，變動時手動改這裡；PS 12 個月
-// 優惠價有期限（2026/11/30），頁面要標註。
+// （shawn：省得麻煩）。價格是靜態表，變動時手動改這裡。
 // ============================================================================
 
 /** 價格查核日期（截圖日期）。 */
 export const MEMBERSHIP_CHECK_DATE = "2026-11-23";
-
-/** PS 12 個月優惠價到期日（Black Friday，截圖＋官方頁皆有註記）。 */
-export const PS_PROMO_END = "2026/11/30";
 
 export interface MembershipPrice {
   months: number;
@@ -62,16 +59,15 @@ export const MEMBERSHIP_SERVICES: MembershipService[] = [
     officialUrl: "https://www.playstation.com/zh-hant-tw/ps-plus/",
     officialLabel: "PlayStation 官方 PS Plus 頁面",
     notes: [
-      "12 個月方案為 Black Friday 優惠價，至 2026/11/30 止；之後恢復原價。",
       "定期服務會持續至取消為止，可隨時取消。",
     ],
     plans: [
       {
         name: "基本",
         tagline: "每月遊戲、線上多人遊玩，以及更多內容",
-        monthlyApprox: 138,
+        monthlyApprox: 172,
         prices: [
-          { months: 12, price: 1654, original: 2068, savePct: 20 },
+          { months: 12, price: 2068 },
           { months: 3, price: 750 },
           { months: 1, price: 290 },
         ],
@@ -91,9 +87,9 @@ export const MEMBERSHIP_SERVICES: MembershipService[] = [
       {
         name: "升級",
         tagline: "探索數百款遊戲",
-        monthlyApprox: 218,
+        monthlyApprox: 291,
         prices: [
-          { months: 12, price: 2616, original: 3488, savePct: 25 },
+          { months: 12, price: 3488 },
           { months: 3, price: 1210 },
           { months: 1, price: 430 },
         ],
@@ -114,9 +110,9 @@ export const MEMBERSHIP_SERVICES: MembershipService[] = [
         name: "高級",
         tagline: "享受所有福利",
         highlight: "最超值",
-        monthlyApprox: 228,
+        monthlyApprox: 340,
         prices: [
-          { months: 12, price: 2732, original: 4078, savePct: 33 },
+          { months: 12, price: 4078 },
           { months: 3, price: 1430 },
           { months: 1, price: 500 },
         ],

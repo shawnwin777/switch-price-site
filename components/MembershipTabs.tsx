@@ -1,7 +1,6 @@
 import {
   MEMBERSHIP_CHECK_DATE,
   MEMBERSHIP_SERVICES,
-  PS_PROMO_END,
   type MembershipPlan,
   type MembershipService,
 } from "@/lib/membership-plans";
@@ -30,20 +29,10 @@ export default function MembershipServiceSection({
     >
       <h2 className="membership-title">{service.title}方案價目</h2>
       <p className="muted">{service.subtitle}</p>
-      <p className="muted">
-        價格查核日期 {MEMBERSHIP_CHECK_DATE}
-        {service.id === "ps-plus"
-          ? `；12 個月方案優惠價至 ${PS_PROMO_END}`
-          : ""}
-        。
-      </p>
+      <p className="muted">價格查核日期 {MEMBERSHIP_CHECK_DATE}。</p>
       <div className="plan-grid">
         {service.plans.map((plan) => (
-          <PlanCard
-            key={plan.name}
-            plan={plan}
-            showPromo={service.id === "ps-plus"}
-          />
+          <PlanCard key={plan.name} plan={plan} />
         ))}
       </div>
       {service.notes.map((note) => (
@@ -65,13 +54,7 @@ export default function MembershipServiceSection({
   );
 }
 
-function PlanCard({
-  plan,
-  showPromo,
-}: {
-  plan: MembershipPlan;
-  showPromo: boolean;
-}) {
+function PlanCard({ plan }: { plan: MembershipPlan }) {
   return (
     <article
       className={`plan-card${plan.highlight ? " plan-card-highlight" : ""}`}
@@ -98,9 +81,6 @@ function PlanCard({
             )}
             {p.savePct != null && (
               <span className="plan-save">省 {p.savePct}%</span>
-            )}
-            {showPromo && p.months === 12 && (
-              <span className="plan-promo">優惠至 {PS_PROMO_END}</span>
             )}
           </li>
         ))}
