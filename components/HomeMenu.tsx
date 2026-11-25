@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 
 /** /home 首頁斜切抽屜選單（2026-11-23 shawn 定）。
  *  左邊是斜切品牌板（SGS logo＋標語），右邊是五個選單；
@@ -329,7 +330,21 @@ function AboutPreview() {
 
 export default function HomeMenu({ previews }: { previews: HomePreviews }) {
   const [active, setActive] = useState<MenuKey | null>(null);
+  const [loggedIn, setLoggedIn] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 已登入時藏起「會員登入」卡（點了只會導回首頁、容易誤導）；
+  // 跟上方導覽列一樣用瀏覽器端 auth 狀態（首頁是 ISR 快取，不能由 server 端依使用者決定）。
+  useEffect(() => {
+    const db = createSupabaseBrowserClient();
+    db.auth.getUser().then(({ data }) => setLoggedIn(!!data.user));
+    const {
+      data: { subscription },
+    } = db.auth.onAuthStateChange((_event, session) =>
+      setLoggedIn(!!session?.user)
+    );
+    return () => subscription.unsubscribe();
+  }, []);
 
   const cancelClose = () => {
     if (closeTimer.current) {
@@ -415,7 +430,7 @@ export default function HomeMenu({ previews }: { previews: HomePreviews }) {
       </div>
 
       <nav className="home-menu-list" aria-label="遊戲選單">
-        {MENU.map((item) => {
+        {MENU.filter((item) => !loggedIn || item.key !== "login").map((item) => {
           const isActive = active === item.key;
           const body = (
             <>

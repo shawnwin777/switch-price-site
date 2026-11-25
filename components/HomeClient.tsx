@@ -397,11 +397,21 @@ export default function HomeClient({
             />
             只看我的收藏{userId ? "" : "（需登入）"}
           </label>
-          <label title={userId ? "" : "需先登入"}>
+          <label
+            title={
+              !userId
+                ? "需先登入"
+                : filters.onlyMine
+                  ? "只看我的收藏時不套用"
+                  : ""
+            }
+          >
             <input
               type="checkbox"
-              checked={filters.excludePurchased !== false}
-              disabled={!userId}
+              checked={
+                filters.onlyMine ? false : filters.excludePurchased !== false
+              }
+              disabled={!userId || filters.onlyMine}
               onChange={(e) =>
                 applyFilter({
                   excludePurchased: e.target.checked ? undefined : false,
