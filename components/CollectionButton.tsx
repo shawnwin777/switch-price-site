@@ -20,6 +20,11 @@ export default function CollectionButton({
 
   async function toggle() {
     if (busy) return;
+    // 樂觀更新（2026-11-25）：先顯示新狀態，背景再跟伺服器對帳；
+    // 失敗或未登入時還原。之前是等 API 回來才更新，體感要 5–6 秒。
+    const prevCollected = collected;
+    const nextCollected = !collected;
+    setCollected(nextCollected);
     setBusy(true);
     try {
       const res = await fetch("/api/collections", {
@@ -28,6 +33,7 @@ export default function CollectionButton({
         method: "POST",
       });
       if (res.status === 401) {
+        setCollected(prevCollected);
         router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
         return;
       }
@@ -35,6 +41,7 @@ export default function CollectionButton({
       const data = await res.json();
       setCollected(Boolean(data.collected));
     } catch (e) {
+      setCollected(prevCollected);
       console.error("收藏切換失敗：", e);
       alert("收藏失敗，請稍後再試（需先登入）。");
     } finally {

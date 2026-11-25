@@ -21,6 +21,13 @@ export default function LikeButton({
 
   async function toggle() {
     if (busy) return;
+    // 樂觀更新（2026-11-25）：先顯示新狀態與數字，背景再跟伺服器對帳；
+    // 失敗或未登入時還原。之前是等 API 回來才更新，體感要 5–6 秒。
+    const prevLiked = liked;
+    const prevCount = count;
+    const nextLiked = !liked;
+    setLiked(nextLiked);
+    setCount((c) => c + (nextLiked ? 1 : -1));
     setBusy(true);
     try {
       const res = await fetch("/api/likes", {
@@ -29,14 +36,19 @@ export default function LikeButton({
         method: "POST",
       });
       if (res.status === 401) {
+        setLiked(prevLiked);
+        setCount(prevCount);
         router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
         return;
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      // 以伺服器為準（數字可能因別人同時按讚而有差）。
       setLiked(Boolean(data.liked));
       if (typeof data.count === "number") setCount(data.count);
     } catch (e) {
+      setLiked(prevLiked);
+      setCount(prevCount);
       console.error("按讚失敗：", e);
       alert("按讚失敗，請稍後再試（需先登入）。");
     } finally {
