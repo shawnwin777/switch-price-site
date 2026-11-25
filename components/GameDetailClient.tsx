@@ -262,7 +262,7 @@ export default function GameDetailClient({
         <div className="detail-info">
           <h1>{game.title_zh}</h1>
           {game.title_en && <p className="muted">{game.title_en}</p>}
-          {(game.product_type === "dlc" || game.product_type === "bundle") && (
+          {(game.product_type === "dlc" || game.product_type === "bundle" || game.name_source === "titledb") && (
             <p className="muted">名稱來源：TitleDB 候選名（非官方譯名）</p>
           )}
           <div className="game-card-badges">

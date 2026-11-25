@@ -22,6 +22,8 @@ export interface Game {
   release_date?: string | null;
   /** 未具名商品（只有編號＋價格、尚未找到標題；true 時不出現在首頁遊戲牆／搜尋結果與接近歷史低價，見 migration 20261118_unnamed_games.sql）。 */
   is_unnamed?: boolean | null;
+  /** 名稱來源：'titledb' = 名稱是 TitleDB 候選名（非官方譯名），卡片／詳情頁／排行顯示免責小字；NULL = 官方或未標記（見 migration 20261125_games_name_source.sql）。 */
+  name_source?: string | null;
   is_manual: boolean | null;
   created_by: string | null;
   created_at: string | null;

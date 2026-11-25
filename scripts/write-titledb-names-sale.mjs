@@ -15,10 +15,11 @@
  *   - Only updates rows that are still unnamed (is_unnamed=true); already-named
  *     rows are skipped, never overwritten (weekly ingest may have named some).
  *   - Only product_type=game rows (the list is games only; guard anyway).
- *   - The TitleDB disclaimer ("名稱來源：TitleDB 候選名（非官方譯名）") currently
- *     shows only for dlc/bundle in GameCard/GameDetailClient. These 789 game
- *     rows will show NO disclaimer — if that label is wanted for games too,
- *     it needs a name_source column + UI change (separate step).
+ *   - The TitleDB disclaimer ("名稱來源：TitleDB 候選名（非官方譯名）")
+ *     shows for these rows via games.name_source='titledb' (marked by
+ *     scripts/mark-titledb-name-source.mjs; see migration
+ *     20261125_games_name_source.sql). DLC/bundle rows show it by
+ *     product_type in GameCard/GameDetailClient.
  *
  * Connection: NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY from env
  * (same convention as import-tw-addons.mjs; service key bypasses RLS).
