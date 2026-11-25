@@ -7,13 +7,13 @@ import Link from "next/link";
 /** /home 首頁斜切抽屜選單（2026-11-23 shawn 定）。
  *  左邊是斜切品牌板（SGS logo＋標語），右邊是五個選單；
  *  第一排「會員登入」→ /login?next=/home（首頁不顯示上方導覽列，登入入口在這裡），
+ *  點了直接進登入頁、不開抽屜（2026-11-25 shawn：抽屜裡的「前往登入」不好按）；
  *  再來 SWITCH → /switch-price、PC GAMES → /deals、
  *  GAMING CONSOLE → /console、關於我（第五格）。
- *  hover／點按任一選單時，品牌板像抽屜一樣被抽走（向左滑出＋微斜），
+ *  hover／點按其他選單時，品牌板像抽屜一樣被抽走（向左滑出＋微斜），
  *  露出底下的預覽圖列，停在那裡不彈回；移開後延遲一下才收回。
  *  SWITCH 預覽 = 站內特價 Switch 遊戲（Nintendo CDN 封面）；
  *  PC 預覽 = Steam＋Xbox PC 特價（官方圖）；家機預覽 = Xbox＋PS 特價；
- *  會員登入預覽 = 一句登入好處＋前往登入按鈕；
  *  關於我預覽 = 介紹文字＋IG／Threads／Discord 圖標。
  *  預覽圖由 server 端 page.tsx 抓好當 props 傳進來，失敗時這裡
  *  顯示漸層佔位、不讓整頁掛掉。
@@ -207,20 +207,6 @@ function PreviewTiles({ items }: { items: HomePreviewItem[] }) {
   );
 }
 
-/** 會員登入預覽：一句登入好處＋前往登入按鈕，不多做。 */
-function LoginPreview() {
-  return (
-    <div className="home-login-preview">
-      <p className="home-login-preview-text">
-        登入會員可以收藏喜歡的遊戲、同步已購買的遊戲，收藏的特價遊戲還會在收藏排行裡出現。
-      </p>
-      <Link href="/login?next=/home" className="home-login-preview-btn">
-        前往登入 →
-      </Link>
-    </div>
-  );
-}
-
 function AboutPreview() {
   return (
     <div className="home-about-preview">
@@ -369,9 +355,10 @@ export default function HomeMenu({ previews }: { previews: HomePreviews }) {
 
   /** 觸控裝置點連結：第一次點先展開預覽、留在本頁，
    *  已經展開時再點才真的進連結；手機寬度不攔截、直接進連結，
-   *  桌機 hover 不受影響。 */
+   *  桌機 hover 不受影響。會員登入不攔截：點了直接進 /login。 */
   const handleLinkClick = (key: MenuKey, e: MouseEvent) => {
     if (
+      key !== "login" &&
       typeof window !== "undefined" &&
       window.matchMedia("(hover: none)").matches &&
       !isMobileWidth()
@@ -402,8 +389,6 @@ export default function HomeMenu({ previews }: { previews: HomePreviews }) {
         >
           {active === "about" ? (
             <AboutPreview key="about" />
-          ) : active === "login" ? (
-            <LoginPreview key="login" />
           ) : active ? (
             <PreviewTiles key={active} items={previewItems} />
           ) : null}
@@ -448,14 +433,15 @@ export default function HomeMenu({ previews }: { previews: HomePreviews }) {
           );
           const common = {
             className: `home-menu-item${isActive ? " is-active" : ""}`,
-            /* 手機寬度不展開預覽：點按時 hover／focus 的合成事件
+            /* 會員登入不開抽屜：hover／focus 也不展開預覽，點了直接進 /login。
+             * 手機寬度不展開預覽：點按時 hover／focus 的合成事件
              *  也不要先把預覽展開、把頁面拉長；只有「關於我」
              *  按鈕用自己的 onClick 點按展開。 */
             onMouseEnter: () => {
-              if (!isMobileWidth()) open(item.key);
+              if (item.key !== "login" && !isMobileWidth()) open(item.key);
             },
             onFocus: () => {
-              if (!isMobileWidth()) open(item.key);
+              if (item.key !== "login" && !isMobileWidth()) open(item.key);
             },
           };
           return item.href ? (

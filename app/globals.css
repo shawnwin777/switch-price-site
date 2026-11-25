@@ -749,38 +749,6 @@ a.home-about-donate-btn:hover {
   width: 22px;
 }
 
-/* 會員登入預覽：一句登入好處＋前往登入按鈕。 */
-.home-login-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  height: 100%;
-  justify-content: center;
-}
-
-.home-login-preview-text {
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.8;
-  margin: 0;
-}
-
-.home-login-preview-btn {
-  align-self: flex-start;
-  background: var(--cyan);
-  border-radius: 10px;
-  color: #04121a;
-  font-weight: 800;
-  padding: 12px 20px;
-  text-decoration: none;
-  transition: filter 0.15s ease;
-}
-
-a.home-login-preview-btn:hover {
-  filter: brightness(1.15);
-  text-decoration: none;
-}
-
 /* 右邊選單：整體往下移，避開左邊品牌板的斜線。 */
 .home-menu-list {
   display: flex;
