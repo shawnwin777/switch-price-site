@@ -28,6 +28,8 @@ function NavIcon({ children }: { children: ReactNode }) {
 
 export default function SiteHeader() {
   const [email, setEmail] = useState<string | null>(null);
+  // 登入狀態查好之前不顯示「登入」：避免已登入的使用者剛進頁先閃一下「登入」。
+  const [authChecked, setAuthChecked] = useState(false);
   /* 手機版導覽：橫條整個隱藏，改成右上角一顆 48×48 浮動小方塊
    *  （.nav-fab，position: fixed，跟著捲動一直在）；點開後選單是
    *  固定在按鈕下方的下拉面板（.nav.nav-open），點連結或換頁自動收起。 */
@@ -53,11 +55,13 @@ export default function SiteHeader() {
     const db = createSupabaseBrowserClient();
     db.auth.getUser().then(({ data }) => {
       setEmail(data.user?.email ?? null);
+      setAuthChecked(true);
     });
     const {
       data: { subscription },
     } = db.auth.onAuthStateChange((_event, session) => {
       setEmail(session?.user?.email ?? null);
+      setAuthChecked(true);
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -152,7 +156,11 @@ export default function SiteHeader() {
             </NavIcon>
             收藏排行
           </Link>
-          {email ? (
+          {!authChecked ? (
+            <span className="user-chip" aria-hidden="true">
+              &nbsp;
+            </span>
+          ) : email ? (
             <>
               <span className="user-chip">{email}</span>
               <button type="button" className="btn" onClick={signOut}>

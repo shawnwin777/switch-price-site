@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
@@ -35,6 +35,22 @@ export default function GameDetailClient({
   const [blockedLoaded, setBlockedLoaded] = useState(false);
   const [isCollected, setIsCollected] = useState(collectedByMe);
   const [isPurchased, setIsPurchased] = useState(purchasedByMe);
+  // 收藏數（樂觀更新用）：初始為伺服器給的數字，收藏／取消時 ±1。
+  const [collectionsCount, setCollectionsCount] = useState(
+    game.collections_count
+  );
+  // 收藏狀態的最新值（ref）：CollectionButton 的回呼可能拿到舊閉包，
+  // 用 ref 擋重複更新（伺服器確認值＝樂觀值時不重複加減數字）。
+  const collectedRef = useRef(isCollected);
+  // 使用者已點過收藏：掛載時的資料庫回查（較晚回來）不得蓋掉使用者的操作。
+  const userToggledCollectRef = useRef(false);
+  const handleCollectedChange = useCallback((next: boolean) => {
+    userToggledCollectRef.current = true;
+    if (collectedRef.current === next) return;
+    collectedRef.current = next;
+    setIsCollected(next);
+    setCollectionsCount((c) => c + (next ? 1 : -1));
+  }, []);
 
   // 返回上一頁；沒有上一頁紀錄（例如直接開連結進來）時導向 /home。
   function goBack() {
@@ -78,7 +94,13 @@ export default function GameDetailClient({
         .eq("game_id", game.id)
         .eq("user_id", data.user.id)
         .maybeSingle();
-      setIsCollected(Boolean(row));
+      // 使用者還沒點過收藏時才用資料庫結果同步；點過了就以使用者的操作為準
+      // （這次查詢可能在使用者點收藏之前就發出，回來時已過期）。
+      if (!userToggledCollectRef.current) {
+        const next = Boolean(row);
+        collectedRef.current = next;
+        setIsCollected(next);
+      }
       const { data: purchaseRow } = await db
         .from("user_purchases")
         .select("id")
@@ -332,13 +354,15 @@ export default function GameDetailClient({
             <CollectionButton
               gameId={game.id}
               initialCollected={isCollected}
+              collected={isCollected}
+              onCollectedChange={handleCollectedChange}
             />
             <PurchaseButton
               gameId={game.id}
               initialPurchased={isPurchased}
             />
             <span className="muted">
-              ♥ {game.collections_count} 人收藏
+              ♥ {collectionsCount} 人收藏
             </span>
           </div>
         </div>
