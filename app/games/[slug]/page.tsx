@@ -1,11 +1,29 @@
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { getComments, overlayMyGameFlags } from "@/lib/data";
 import { getCachedGamePublic } from "@/lib/cached-data";
 import { fetchRelatedGames } from "@/lib/related-games";
 import GameDetailClient from "@/components/GameDetailClient";
 
 export const dynamic = "force-dynamic";
+
+// 封鎖名單（service-role 讀 comment_blocks；表還沒建時回空集合、
+// 頁面不 500；migration 跑完後自動生效）。
+async function getBlockedUserIds(): Promise<Set<string>> {
+  try {
+    const admin = createSupabaseAdminClient();
+    const { data, error } = await admin
+      .from("comment_blocks")
+      .select("user_id");
+    if (error || !data) return new Set();
+    return new Set(
+      (data as { user_id: string }[]).map((r) => r.user_id)
+    );
+  } catch {
+    return new Set();
+  }
+}
 
 export default async function GameDetailPage({
   params,
@@ -15,9 +33,10 @@ export default async function GameDetailPage({
   const db = createSupabaseServerClient();
   // auth 與快取遊戲沒有依賴關係，平行跑：未登入時 auth 很快回 null，
   // 登入時則省掉一次序列等待（Supabase 免費版單次往返約 0.3–0.4 秒）。
-  const [{ data: { user } }, game0] = await Promise.all([
+  const [{ data: { user } }, game0, blockedUserIds] = await Promise.all([
     db.auth.getUser(),
     getCachedGamePublic(params.slug),
+    getBlockedUserIds(),
   ]);
   const userId = user?.id ?? null;
   if (!game0) notFound();
@@ -30,7 +49,7 @@ export default async function GameDetailPage({
     userId
       ? overlayMyGameFlags(db, [game0], userId)
       : Promise.resolve([game0]),
-    getComments(db, game0.id, userId),
+    getComments(db, game0.id, userId, blockedUserIds),
     fetchRelatedGames(db, game0.id),
   ]);
 

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
 // POST /api/comments/[id]/report { reason?: string } → { ok: true, already?: boolean }
 // 檢舉留言。未登入回 401；留言不存在回 404；
@@ -19,6 +20,24 @@ export async function POST(
   const user = await getCurrentUser(supabase);
   if (!user) {
     return NextResponse.json({ error: "未登入" }, { status: 401 });
+  }
+
+  // 被封鎖者不能再檢舉（避免拿檢舉報復別人）。表還沒建時放行。
+  try {
+    const admin = createSupabaseAdminClient();
+    const { data: blockRow } = await admin
+      .from("comment_blocks")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (blockRow) {
+      return NextResponse.json(
+        { error: "你已被禁止留言與檢舉" },
+        { status: 403 }
+      );
+    }
+  } catch {
+    // comment_blocks 表未建（migration 空窗期）時放行。
   }
 
   let body: { reason?: unknown } = {};

@@ -891,11 +891,14 @@ export async function getLatestFx(
   return { rates, dateKey, asOf: rates[0]?.as_of ?? null };
 }
 
-/** 讀某遊戲留言（依讚數排序在前端做；這裡回傳原始留言 + 讚數 + 我是否按過讚）。 */
+/** 讀某遊戲留言（依讚數排序在前端做；這裡回傳原始留言 + 讚數 + 我是否按過讚）。
+ * blockedUserIds：被封鎖者的 UUID 集合，過濾掉他們的留言（封鎖不刪文，
+ * 解封後恢復顯示）。 */
 export async function getComments(
   db: SupabaseClient,
   gameId: string,
-  userId?: string | null
+  userId?: string | null,
+  blockedUserIds?: ReadonlySet<string>
 ): Promise<CommentItem[]> {
   const { data, error } = await db
     .from("comments")
@@ -906,7 +909,14 @@ export async function getComments(
     if (error) console.warn("[data] comments 讀取失敗：", error.message);
     return [];
   }
-  const ids = (data as { id: string }[]).map((c) => c.id);
+  // 封鎖過濾：被封鎖者的留言不顯示。
+  const rows =
+    blockedUserIds && blockedUserIds.size > 0
+      ? (data as Record<string, unknown>[]).filter(
+          (c) => !blockedUserIds.has(c.user_id as string)
+        )
+      : (data as Record<string, unknown>[]);
+  const ids = rows.map((c) => c.id as string);
   const [likes, myLikes] = await Promise.all([
     ids.length > 0
       ? db.from("comment_likes").select("comment_id").in("comment_id", ids)
@@ -924,7 +934,7 @@ export async function getComments(
     likeCount.set(r.comment_id, (likeCount.get(r.comment_id) ?? 0) + 1)
   );
   const myLikeSet = new Set((myLikes.data ?? []).map((r) => r.comment_id));
-  return (data as Record<string, unknown>[]).map((c) => ({
+  return rows.map((c) => ({
     id: c.id as string,
     game_id: c.game_id as string,
     // 不回傳 user_id：前端只顯示 author_name，留言者的 UUID 不應隨詳情頁

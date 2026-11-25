@@ -24,6 +24,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "未登入" }, { status: 401 });
   }
 
+  // 封鎖檢查：被封鎖者不能再留言。comment_blocks 只有 service-role
+  // 可讀，用 admin client 查；表還沒建（migration 空窗期）或 key 未設
+  // 時放行（fail-open），留言功能不中斷，見下方 catch。
+  let blocked = false;
+  try {
+    const admin = createSupabaseAdminClient();
+    const { data: blockRow, error: blockError } = await admin
+      .from("comment_blocks")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (blockError) throw blockError;
+    blocked = !!blockRow;
+  } catch (e) {
+    console.warn(
+      "[comments] 封鎖檢查失敗，放行：",
+      e instanceof Error ? e.message : e
+    );
+  }
+  if (blocked) {
+    return NextResponse.json(
+      { error: "你已被禁止留言，如有疑問請聯絡管理員" },
+      { status: 403 }
+    );
+  }
+
   let body: {
     gameId?: unknown;
     body?: unknown;
