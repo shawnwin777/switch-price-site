@@ -44,8 +44,10 @@ export async function POST(request: NextRequest) {
     );
   }
   if (blocked) {
+    // 訊息刻意寫得籠統（不直接說「你被封鎖了」）：只說留言失敗，
+    // 帳號未登入或是曾經違規，請聯絡我。
     return NextResponse.json(
-      { error: "你已被禁止留言，如有疑問請聯絡管理員" },
+      { error: "留言失敗：帳號未登入或是曾經違規，請聯絡我。" },
       { status: 403 }
     );
   }

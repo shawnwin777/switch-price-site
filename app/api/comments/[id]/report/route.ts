@@ -31,8 +31,9 @@ export async function POST(
       .eq("user_id", user.id)
       .maybeSingle();
     if (blockRow) {
+      // 訊息跟留言一樣寫得籠統，不直接說被封鎖了。
       return NextResponse.json(
-        { error: "你已被禁止留言與檢舉" },
+        { error: "檢舉失敗：帳號未登入或是曾經違規，請聯絡我。" },
         { status: 403 }
       );
     }

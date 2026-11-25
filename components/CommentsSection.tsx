@@ -12,6 +12,16 @@ import type { CommentItem } from "@/lib/types";
 // POST /api/comments/[id]/like → { liked, count }。
 const PAGE_SIZE = 5;
 
+/** 讀 API 回傳的錯誤訊息（{ error }）；讀不到回 null，改用預設訊息。 */
+async function readErrorMessage(res: Response): Promise<string | null> {
+  try {
+    const data: { error?: unknown } = await res.json();
+    return typeof data.error === "string" && data.error ? data.error : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function CommentsSection({
   gameId,
   initialComments,
@@ -104,7 +114,13 @@ export default function CommentsSection({
         router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
         return;
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        alert(
+          (await readErrorMessage(res)) ??
+            "留言失敗，請稍後再試（需先登入）。"
+        );
+        return;
+      }
       const created = await res.json();
       const item: CommentItem = {
         author_name: created.author_name ?? created.nickname ?? null,
@@ -159,7 +175,13 @@ export default function CommentsSection({
         alert("回覆功能尚未啟用，請稍後再試");
         return;
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        alert(
+          (await readErrorMessage(res)) ??
+            "回覆失敗，請稍後再試（需先登入）。"
+        );
+        return;
+      }
       const created = await res.json();
       const item: CommentItem = {
         author_name: created.author_name ?? created.nickname ?? null,
@@ -201,7 +223,13 @@ export default function CommentsSection({
         router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
         return;
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        alert(
+          (await readErrorMessage(res)) ??
+            "檢舉失敗，請稍後再試（需先登入）。"
+        );
+        return;
+      }
       setReportedIds((prev) => new Set(prev).add(comment.id));
     } catch (e) {
       console.error("檢舉留言失敗：", e);
