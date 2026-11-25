@@ -218,6 +218,41 @@ export function workCycleDays(slices: number, runsPerDay = 8): number {
 /** 持久化游標在 sync_state 表的 source 值。 */
 export const REFRESH_CURSOR_SOURCE = "refresh-work";
 
+// ---------------------------------------------------------------------------
+// 國家分組輪轉（2026-11-25）：refresh 按組分開跑，各組有自己的游標與切片。
+//
+//   背景：全量輪轉一輪約 10–12 天（目錄 50,337 款、對數切片 ~80 片、每天 8 次），
+//   但價格 98% 集中在 JP/TW/HK/KR 四國（JP 13,613、TW 9,833、HK 10,666、KR 9,671；
+//   其餘 31 國各約 31 筆）。分組後每組對數約 1–1.5 萬，pair_budget 12,000 下
+//   每組 1–2 片，每天 2 次 → 週期 0.5–1 天。
+//   組：jp（JP）、tw（TW）、hk（HK）、rest（其餘 32 國，含 KR）。
+//   各組游標來源獨立（refresh-work:jp 等），互不干擾；無 group 參數時走舊的全量
+//   輪轉（游標 refresh-work，相容舊行為）。
+// ---------------------------------------------------------------------------
+/** 分組名。 */
+export const REFRESH_GROUP_NAMES = ["jp", "tw", "hk", "rest"] as const;
+export type RefreshGroupName = (typeof REFRESH_GROUP_NAMES)[number];
+/** 各組的持久化游標來源（sync_state.source）。 */
+export const REFRESH_GROUP_CURSOR_SOURCE: Record<RefreshGroupName, string> = {
+  jp: "refresh-work:jp",
+  tw: "refresh-work:tw",
+  hk: "refresh-work:hk",
+  rest: "refresh-work:rest",
+};
+/** 各組的國家代碼：jp/tw/hk 各一國；rest 由傳入的全部國家清單推導（扣掉 JP/TW/HK），
+ *  避免在這裡手寫一份 32 國清單、兩處不同步。 */
+export function refreshGroupCountries(
+  group: RefreshGroupName,
+  allCountryCodes: readonly string[]
+): string[] {
+  if (group === "jp") return ["JP"];
+  if (group === "tw") return ["TW"];
+  if (group === "hk") return ["HK"];
+  return allCountryCodes.filter(
+    (code) => code !== "JP" && code !== "TW" && code !== "HK"
+  );
+}
+
 /** 持久化游標 → 本次切片：storedNext 是上次存的「下次跑第幾片」
  *  （null＝表裡還沒有此列，首次從第 0 片開始）。
  *  片數縮水時取餘收斂（存 28、剩 10 片 → 第 8 片）；片數變多時游標

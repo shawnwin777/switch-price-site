@@ -115,6 +115,30 @@ export async function listAllRegionIdsPaginated(
   return { rows, tableMissing: false };
 }
 
+/** 分頁讀指定國家的對照編號（供 refresh 分組輪轉用：先讀整組對照表，再由它算
+ *  每款遊戲的組內對數與查價計畫，避免按 game_id 大 IN 清單讀取）。 */
+export async function listRegionIdsForCountries(
+  admin: AdminClient,
+  countries: string[]
+): Promise<{ rows: ExistingRegionId[]; tableMissing: boolean }> {
+  const rows: ExistingRegionId[] = [];
+  if (countries.length === 0) return { rows, tableMissing: false };
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await admin
+      .from("game_region_ids")
+      .select("game_id, country, title_id")
+      .in("country", countries)
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      return { rows: [], tableMissing: true };
+    }
+    const page = (data ?? []) as ExistingRegionId[];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
+  return { rows, tableMissing: false };
+}
+
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));

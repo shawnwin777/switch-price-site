@@ -12,22 +12,31 @@ import {
 import {
   DEFAULT_PAIR_BUDGET,
   REFRESH_CURSOR_SOURCE,
+  REFRESH_GROUP_CURSOR_SOURCE,
+  REFRESH_GROUP_NAMES,
   clampPairBudget,
   cursorCycleCompleteDateKey,
   cursorSlice,
   dayOfYearTaipei,
   pairsForGame,
   planWorkSlices,
+  refreshGroupCountries,
   rotationWorkSlice,
   workCycleCompleteDateKey,
   workCycleDays,
+  type RefreshGroupName,
 } from "@/lib/refresh-slices";
 import {
   buildRegionIdIndex,
   planCountryIds,
   type CountryPlan,
 } from "@/lib/region-ids";
-import { listAllGamesPaginated, probeTableColumn, readSyncCursors } from "@/lib/catalog-sync";
+import {
+  listAllGamesPaginated,
+  listRegionIdsForCountries,
+  probeTableColumn,
+  readSyncCursors,
+} from "@/lib/catalog-sync";
 import { FOREIGN_PRICE_COUNTRIES } from "@/lib/catalog-sources";
 
 // 每日更新：GET /api/refresh（Vercel Cron 用 GET）或 POST /api/refresh。
@@ -58,18 +67,28 @@ import { FOREIGN_PRICE_COUNTRIES } from "@/lib/catalog-sources";
 // 切片與輪轉（遊戲太多、60 秒跑不完時；見 SETUP.md §8）：
 //   - 按「(遊戲、國家) 對數」切片：每片固定約 12,000 對
 //     （?pair_budget= 可調，1000～50000，或環境變數 REFRESH_PAIR_BUDGET）。
-//     對數來源是 games.price_countries（sync-catalog 維護）；
-//     該欄位還沒建時以 35 計（舊行為）。實測速率：400 款 × 35 國抓價約 22 秒。
-//   - 不帶切片參數時用持久化游標輪轉：sync_state 表 source='refresh-work'
-//     的 next_page 就是本次要跑的片，跑完存下一片（見 lib/refresh-slices.ts
-//     cursorSlice）。舊版時間取餘（globalIndex % slices）會因 slices 隨
-//     目錄成長變動而漏片（2026-11-24 稽核：5,738 筆價格 8 天未刷新），
-//     現只在游標表未建時退回時間輪轉。一輪 = slices 次執行，
-//     每天 8 次 → ceil(slices / 8) 天跑完（例如 29 片 → 4 天）。
+//     對數來源：全量輪轉用 games.price_countries（sync-catalog 維護）；
+//     該欄位還沒建時以 35 計（舊行為）。分組輪轉用該組實際對數
+//     （game_region_ids＋JP title_id 備援），所以組切片比全量小得多。
+//     實測速率：400 款 × 35 國抓價約 22 秒；單國 12,000 對約 240 次
+//     價格 API 呼叫、約 18–25 秒抓價。
+//   - 不帶切片參數時用持久化游標輪轉：sync_state 表的 next_page 就是本次要
+//     跑的片，跑完存下一片（見 lib/refresh-slices.ts cursorSlice）。
+//     游標來源：全量輪轉用 'refresh-work'；分組輪轉各組獨立
+//     （refresh-work:jp / :tw / :hk / :rest），互不干擾。
+//     舊版時間取餘（globalIndex % slices）會因 slices 隨目錄成長變動而漏片
+//     （2026-11-24 稽核：5,738 筆價格 8 天未刷新），現只在游標表未建時
+//     退回時間輪轉。一輪 = slices 次執行，每天 runsPerDay 次
+//     → ceil(slices / runsPerDay) 天跑完（全量例如 29 片 → 4 天）。
+//   - 分組輪轉（2026-11-25）：?group=jp|tw|hk|rest，各組每天預設 2 次、
+//     4 組共 8 次（與舊的全量 8 次相同）。JP 約 14,824 對→2 片（週期 1 天）、
+//     TW 9,831→1 片、HK 10,660→1 片、其餘 32 國（含 KR）約 10,189→1 片
+//     （週期各 0.5 天）；原全量輪轉約 10–12 天。cron 見 vercel.json。
 //   - 手動指定一片：?slice=2&slices=8（0-based）。slices 只用來驗證 slice 範圍，
 //     實際片數一律以當下對數與 pair_budget 推算；或 ?offset=800&limit=400。
 //     手動模式不動游標（不干擾輪轉）。
-//   - ?countries=JP,US,TW 保留，可與切片參數併用。
+//   - ?countries=JP,US,TW 保留，可與切片參數併用；恰好等於某組時歸到該組游標，
+//     否則用 refresh-work:custom:<國家> 自訂游標，不污染各組游標。
 //   - ?slice_size= 已退役（款數切片改為對數切片；explicit-offset 模式仍可用
 //     它當 limit 的預設值）；調片大小請用 ?pair_budget=。
 //
@@ -150,9 +169,12 @@ async function handleRefresh(request: NextRequest) {
   }
 
   // ---- 限定國家（?countries=JP,US，預設全部）----
+  // 分組輪轉（?group=jp|tw|hk|rest；2026-11-25）：各組有自己的國家清單、游標與
+  // 切片。?group= 優先於 ?countries=；?countries= 若恰好等於某組的國家清單，
+  // 也歸到該組（游標共用）；否則用自訂游標鍵，不污染各組游標。
   const params = request.nextUrl.searchParams;
   const wanted = params.get("countries");
-  const countries = wanted
+  let countries = wanted
     ? PRICE_COUNTRIES.filter((c) =>
         wanted
           .split(",")
@@ -166,6 +188,41 @@ async function handleRefresh(request: NextRequest) {
       { status: 400 }
     );
   }
+  const allCountryCodes = PRICE_COUNTRIES.map((c) => c.code);
+  let groupName: RefreshGroupName | null = null;
+  let cursorSource = REFRESH_CURSOR_SOURCE;
+  const groupParam = params.get("group")?.trim().toLowerCase() ?? null;
+  if (groupParam != null) {
+    if (!(REFRESH_GROUP_NAMES as readonly string[]).includes(groupParam)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `group 參數不正確：${groupParam}（請用 jp / tw / hk / rest）`,
+        },
+        { status: 400 }
+      );
+    }
+    groupName = groupParam as RefreshGroupName;
+    const groupCodes = refreshGroupCountries(groupName, allCountryCodes);
+    countries = PRICE_COUNTRIES.filter((c) => groupCodes.includes(c.code));
+    cursorSource = REFRESH_GROUP_CURSOR_SOURCE[groupName];
+  } else if (wanted) {
+    const sorted = [...countries.map((c) => c.code)].sort();
+    const matched = (
+      REFRESH_GROUP_NAMES as readonly RefreshGroupName[]
+    ).find(
+      (g) =>
+        JSON.stringify(
+          refreshGroupCountries(g, allCountryCodes).slice().sort()
+        ) === JSON.stringify(sorted)
+    );
+    if (matched) {
+      groupName = matched;
+      cursorSource = REFRESH_GROUP_CURSOR_SOURCE[matched];
+    } else {
+      cursorSource = `refresh-work:custom:${sorted.join(",")}`;
+    }
+  }
 
   // ---- 片大小：?pair_budget= 優先，其次環境變數，預設 12,000 對（夾在 1000～50000）----
   // ?slice_size= 已退役（款數切片改為對數切片）；explicit-offset 模式仍可用
@@ -175,15 +232,16 @@ async function handleRefresh(request: NextRequest) {
     parseIntParam(params.get("pair_budget")) ?? envPairBudget ?? DEFAULT_PAIR_BUDGET
   );
   const legacySliceSize = parseIntParam(params.get("slice_size")) ?? null;
-  // 每天跑幾次（環境變數 REFRESH_RUNS_PER_DAY，預設 8＝每 3 小時一次；
-  // ?runs_per_day= 可覆蓋，供手動測試）。slot＝台北小時所在的時段。
+  // 每天跑幾次（環境變數 REFRESH_RUNS_PER_DAY；?runs_per_day= 可覆蓋，供手動測試）。
+  // 預設：分組輪轉每天 2 次（每組 2 次、4 組共 8 次，與舊的全量 8 次相同），
+  // 全量輪轉預設 8 次（每 3 小時一次）。slot＝台北小時所在的時段。
   const runsPerDay = Math.max(
     1,
     Math.min(
       24,
       parseIntParam(params.get("runs_per_day")) ??
         parseIntParam(process.env.REFRESH_RUNS_PER_DAY ?? null) ??
-        8
+        (groupName != null ? 2 : 8)
     )
   );
 
@@ -267,7 +325,42 @@ async function handleRefresh(request: NextRequest) {
     }
   }
   const totalGames = allGames.length;
-  const pairCounts = allGames.map((g) => pairsForGame(g.price_countries));
+  // ---- 分組對數：組輪轉時以該組實際對數切片（區編號＋JP title_id 備援），
+  // 不用 games.price_countries（那是全 35 國的對數，會把組切片得跟全量一樣大、
+  // 週期一樣長）。全量輪轉（無 group）維持舊行為。
+  // 組對照表先讀整組（分頁），後面 2b 直接沿用，不再按 game_id 大 IN 清單重讀。
+  let pairCounts: number[];
+  let groupRegionIndex: Map<string, Map<string, string>> | null = null;
+  if (groupName != null) {
+    const groupCodes = refreshGroupCountries(groupName, allCountryCodes);
+    const { rows: groupRegionRows, tableMissing } =
+      await listRegionIdsForCountries(admin, groupCodes);
+    if (!tableMissing) {
+      groupRegionIndex = buildRegionIdIndex(
+        groupRegionRows as { game_id: string; country: string; title_id: string }[]
+      );
+      const countsByGame = new Map<string, number>();
+      for (const row of groupRegionRows) {
+        countsByGame.set(
+          row.game_id,
+          (countsByGame.get(row.game_id) ?? 0) + 1
+        );
+      }
+      pairCounts = allGames.map((g) => {
+        const regionCount = countsByGame.get(g.id) ?? 0;
+        if (groupName === "jp") {
+          // JP 每款最多 1 對：有區編號用區編號，否則有 title_id 就用備援。
+          return regionCount > 0 || g.title_id ? 1 : 0;
+        }
+        return regionCount;
+      });
+    } else {
+      // 對照表未建：退回全量對數切片（本輪仍可跑，只是組週期不會變短）。
+      pairCounts = allGames.map((g) => pairsForGame(g.price_countries));
+    }
+  } else {
+    pairCounts = allGames.map((g) => pairsForGame(g.price_countries));
+  }
   const workSlices = planWorkSlices(pairCounts, pairBudget);
   const slices = workSlices.length;
   const pairsTotal = pairCounts.reduce((a, b) => a + b, 0);
@@ -320,9 +413,10 @@ async function handleRefresh(request: NextRequest) {
     if (slice < 0) slice = 0;
   } else {
     mode = "rotation";
-    // 持久化游標（sync_state，source='refresh-work'）：上次存的 next_page
-    // 就是本次要跑的片；片數隨目錄成長變動時以取餘收斂，不再像舊的
-    // 時間取餘輪轉那樣因 slices 變動而漏片。表未建／讀不到時退回時間輪轉。
+    // 持久化游標（sync_state，source=cursorSource；分組時各組獨立來源，
+    // 互不干擾）：上次存的 next_page 就是本次要跑的片；片數隨目錄成長變動時
+    // 以取餘收斂，不再像舊的時間取餘輪轉那樣因 slices 變動而漏片。
+    // 表未建／讀不到時退回時間輪轉。
     const { cursors, tableMissing: syncStateMissing } = await readSyncCursors(admin);
     if (syncStateMissing) {
       cursorMode = "time-fallback";
@@ -332,9 +426,9 @@ async function handleRefresh(request: NextRequest) {
       cursorNote =
         "sync_state 表未建（請執行 supabase/migrations/20261117_catalog_sync_state.sql），本次用時間輪轉（舊行為）；游標未持久化";
     } else {
-      const stored = cursors.get(REFRESH_CURSOR_SOURCE)?.nextPage ?? null;
+      const stored = cursors.get(cursorSource)?.nextPage ?? null;
       if (stored == null) {
-        cursorNote = "首次持久化輪轉（sync_state 尚無 refresh-work 游標），從第 0 片開始";
+        cursorNote = `首次持久化輪轉（sync_state 尚無 ${cursorSource} 游標），從第 0 片開始`;
       }
       const cur = cursorSlice(stored, slices);
       slice = cur.slice;
@@ -365,7 +459,12 @@ async function handleRefresh(request: NextRequest) {
   let regionIndex = buildRegionIdIndex([]);
   let regionTableStatus: "ok" | "missing" | "empty" = "empty";
   const regionReadErrors: { country: string; message: string }[] = [];
-  if (sliceGames.length > 0) {
+  if (groupRegionIndex != null) {
+    // 組輪轉：對照表已在切片前整組讀好，直接沿用（是整組的、不限本片；
+    // planCountryIds 只會用到本片遊戲，所以沿用是正確的）。
+    regionIndex = groupRegionIndex;
+    regionTableStatus = groupRegionIndex.size > 0 ? "ok" : "empty";
+  } else if (sliceGames.length > 0) {
     const { data: regionRows, error: regionError } = await admin
       .from("game_region_ids")
       .select("game_id, country, title_id")
@@ -681,7 +780,7 @@ async function handleRefresh(request: NextRequest) {
   if (mode === "rotation" && cursorMode === "persistent") {
     const { error: cursorError } = await admin.from("sync_state").upsert(
       {
-        source: REFRESH_CURSOR_SOURCE,
+        source: cursorSource,
         next_page: cursorNext,
         total_pages: slices,
         updated_at: new Date().toISOString(),
@@ -703,6 +802,8 @@ async function handleRefresh(request: NextRequest) {
     fx_source: fx.source,
     fx_currencies: fxRows.length,
     mode,
+    group: groupName ?? "all",
+    cursor_source: cursorSource,
     slice,
     slices,
     pair_budget: pairBudget,
