@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import SiteHeader from "@/components/SiteHeader";
+import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
   description:
-    "Switch / Switch 2 遊戲跨區比價：35 國 eShop 價格、歷史低價、特價提醒、收藏排行。",
+    "Switch 跨區比價、PC 與家機特價、NSO 會員跨區比價、歷史低價：價格取自各官方商店公開資料。",
   metadataBase: new URL("https://shawn-game-studio.vercel.app"),
   openGraph: {
     description:
-      "Switch / Switch 2 遊戲跨區比價：35 國 eShop 價格、歷史低價、特價提醒、收藏排行。",
+      "Switch 跨區比價、PC 與家機特價、NSO 會員跨區比價、歷史低價：價格取自各官方商店公開資料。",
     images: [
       {
         alt: "Shawn Game Studio",
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     description:
-      "Switch / Switch 2 遊戲跨區比價：35 國 eShop 價格、歷史低價、特價提醒、收藏排行。",
+      "Switch 跨區比價、PC 與家機特價、NSO 會員跨區比價、歷史低價：價格取自各官方商店公開資料。",
     images: ["https://shawn-game-studio.vercel.app/og-image.png"],
     title: "Shawn Game Studio",
   },
@@ -64,6 +65,10 @@ export default function RootLayout({
                 IGDB（igdb.com）
               </a>
               。
+            </p>
+            <p className="footer-sub">
+              <Link href="/privacy">隱私權政策</Link>｜
+              <Link href="/terms">網站使用條款</Link>
             </p>
           </div>
         </footer>
