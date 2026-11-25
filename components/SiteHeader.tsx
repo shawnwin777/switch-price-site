@@ -103,7 +103,7 @@ export default function SiteHeader() {
           className={`nav${menuOpen ? " nav-open" : ""}`}
           onClick={() => setMenuOpen(false)}
         >
-          <Link href="/home">
+          <Link href="/home" className="nav-home-link">
             <NavIcon>
               <path d="M4 11l8-7 8 7" />
               <path d="M6 9.5V20h12V9.5" />

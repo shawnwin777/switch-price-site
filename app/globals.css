@@ -121,6 +121,12 @@ a:hover {
   text-decoration: none;
 }
 
+/* 桌機版導覽列不顯示「首頁」：左上 logo 就是回首頁，多一個容易誤觸；
+ * 手機版下拉選單裡保留（見下方手機 media query）。 */
+.nav a.nav-home-link {
+  display: none;
+}
+
 /* 導覽列連結圖標：跟首頁選單同一套，18px、電光青。 */
 .nav-link-icon {
   color: var(--cyan);
@@ -211,6 +217,11 @@ a:hover {
   .nav a {
     min-height: 44px;
     padding: 10px 12px;
+  }
+
+  /* 手機版下拉選單裡保留「首頁」（桌機版已在上方藏起）。 */
+  .nav.nav-open a.nav-home-link {
+    display: inline-flex;
   }
 
   .nav .user-chip {
