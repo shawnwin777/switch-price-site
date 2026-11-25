@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 import { cheapestPrice, isOnSale, isPriceOnSale, isVerifiedPrice, saleEndOf } from "@/lib/data";
 import { COUNTRIES, DEFAULT_BLOCKED_CODES, demoLabel, eshopUrl, productTypeLabel } from "@/lib/countries";
-import { formatRaw, formatTwd, isSaleEndingSoon, saleEndLabel } from "@/lib/format";
+import { formatRaw, formatTaipeiDate, formatTwd, isSaleEndingSoon, saleEndLabel } from "@/lib/format";
 import type { CommentItem, GameWithPrices, RelatedGameGroups } from "@/lib/types";
 import CollectionButton from "./CollectionButton";
 import PurchaseButton from "./PurchaseButton";
@@ -380,6 +380,7 @@ export default function GameDetailClient({
                 <th className="num">台幣約</th>
                 <th>折扣</th>
                 <th>特價結束</th>
+                <th>更新於</th>
                 <th>eShop</th>
               </tr>
             </thead>
@@ -420,6 +421,7 @@ export default function GameDetailClient({
                       )}
                     </td>
                     <td>{p.sale_end ? saleEndLabel(p.sale_end) : "—"}</td>
+                    <td>{formatTaipeiDate(p.updated_at)}</td>
                     <td>
                       <a
                         href={eshopUrl(p.country)}
