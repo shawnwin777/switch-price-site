@@ -102,6 +102,9 @@ import {
  *  2026-11-26 Steam 50 頁改分批抓（每批 10 個並行，見
  *  lib/deals-carousel.ts），key 換成 deals-page-v19，強制用分批抓重算
  *  （v18 快取是 50 並行被限流的版本，前 1200 只有 122 款 DLC）。
+ *  2026-11-26 EA 連結改用 franchiseSlug 路徑（見 lib/ea-deals.ts），
+ *  key 換成 deals-page-v20，強制重算（v19 快取的 EA 連結是舊的
+ *  單段 slug，104 款中有 34 款 404）。
  *  三個新來源都走同一套機制：fetchDealsPage 裡一起抓、每小時自動更新，
  *  不用另外開 cron、不用手動同步、不用推 GitHub 更新資料；
  *  單一來源失敗回空陣列、不拖垮整頁，下次快取到期自動重抓。 */
@@ -120,7 +123,7 @@ export const getCachedDealsPage = unstable_cache(
     }
     return data;
   },
-  ["deals-page-v19"],
+  ["deals-page-v20"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-page"] }
 );
 
