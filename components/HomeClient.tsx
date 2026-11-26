@@ -28,7 +28,7 @@ function writeVisibleCookie(scope: string) {
   try {
     document.cookie = `${VISIBLE_COUNTRIES_COOKIE}=${encodeURIComponent(scope)}; path=/; max-age=31536000; SameSite=Lax`;
   } catch {
-    // 寫入失敗不影響使用（伺服器端會用預設 TW/HK）。
+    // 寫入失敗不影響使用（伺服器端會用預設全部 35 國）。
   }
 }
 
@@ -94,7 +94,7 @@ export default function HomeClient({
         if (Array.isArray(list)) setBlocked(list.filter((c) => typeof c === "string"));
       }
     } catch {
-      // 讀不到就用預設（只留台港）。
+      // 讀不到就用預設（全部國家可見）。
     }
     setBlockedLoaded(true);
   }, []);
@@ -132,8 +132,8 @@ export default function HomeClient({
     }
     // 同步寫進 cookie，讓伺服器端下次查詢前就知道要撈哪些國家。
     writeVisibleCookie(clientScope);
-    // 設定變了（例如第一次載入時 localStorage 是「全部國家」、
-    // 但伺服器端這次用預設 TW/HK 查的），重整頁面讓伺服器端用新的
+    // 設定變了（例如第一次載入時 localStorage 是「只留台港」、
+    // 但伺服器端這次用預設全部 35 國查的），重整頁面讓伺服器端用新的
     // cookie 重查名單。?country=XX 或只看我的收藏時名單不受 cookie
     // 影響，就不重整。重整後 serverVisibleScope 會變成一致，不會循環。
     if (
@@ -186,7 +186,7 @@ export default function HomeClient({
 
   const visibleCountries = useMemo(() => {
     // 選了國家篩選時，卡片只顯示該國的價格（最低價、特價徽章、
-    // 特價至都以該國為準）；沒選時沿用下方的國家顯示設定（預設只留台港）。
+    // 特價至都以該國為準）；沒選時沿用下方的國家顯示設定（預設全部國家可見）。
     if (filters.country) return new Set([filters.country]);
     // 名單與卡片永遠用同一套可見國家：localStorage 還沒讀完（首屏／SSR
     // 時 blocked 還是預設值）、或本地設定與伺服器端不一致（等重整收斂）

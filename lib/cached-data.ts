@@ -334,10 +334,10 @@ const getCachedGamesPagePublicInner = unstable_cache(
     if (result.error) throw new Error(result.error);
     return result;
   },
-  // v6：2026-11-23 遊戲牆預設只列遊戲本體（productType 沒帶參數時
-  // 預設 "game"，不再是全部類型）；舊 key 的快取是不篩類型的舊列表，
-  // 換 key 讓它立刻重算（部署不會清 Data Cache）。
-  ["games-page-v6"],
+  // v7：2026-11-26 比價牆預設可見國家改成全部 35 國（之前預設只留
+  // 台港）；舊 key 的快取是只撈台港有價遊戲的舊列表，換 key 讓它立刻
+  // 重算（部署不會清 Data Cache）。
+  ["games-page-v7"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["games-page"] }
 );
 

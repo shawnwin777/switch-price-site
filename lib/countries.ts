@@ -52,10 +52,15 @@ export const COUNTRY_MAP: Record<string, CountryInfo> = Object.fromEntries(
   COUNTRIES.map((c) => [c.code, c])
 );
 
-/** 預設只顯示台灣、香港。 */
-export const DEFAULT_VISIBLE_CODES = ["TW", "HK"];
+/** 預設顯示全部 35 國（2026-11-26 改：之前只顯示台灣、香港，
+ *  shawn 說預設全部國家可見、共 33,865 款比較舒服）。 */
+export const DEFAULT_VISIBLE_CODES: string[] = COUNTRIES.map((c) => c.code);
 
-/** 預設封鎖清單：35 國中排除 TW、HK 之後的清單（第一次造訪、沒有儲存設定時使用）。 */
+/** 「只留台／港」預設：面板上「只留台／港」按鈕用的代碼（不是新訪客預設）。 */
+export const TW_HK_CODES = ["TW", "HK"];
+
+/** 預設封鎖清單：35 國中排除預設可見國家之後的清單（第一次造訪、沒有儲存設定時使用）。
+ *  預設全部可見時為空陣列。 */
 export const DEFAULT_BLOCKED_CODES: string[] = COUNTRIES.filter(
   (c) => !DEFAULT_VISIBLE_CODES.includes(c.code)
 ).map((c) => c.code);
@@ -75,7 +80,7 @@ export function serializeVisibleCountries(codes: string[]): string {
 }
 
 /** 解析可見國家 cookie：回傳 "ALL"（全部國家）或可見代碼清單；
- *  沒有 cookie、值為空、或解析後沒有任何合法代碼時回傳 null（呼叫端用預設 TW/HK）。
+ *  沒有 cookie、值為空、或解析後沒有任何合法代碼時回傳 null（呼叫端用預設全部 35 國）。
  *  不在 35 國清單內的代碼直接丟掉、不報錯。 */
 export function parseVisibleCountriesCookie(
   raw: string | null | undefined

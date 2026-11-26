@@ -1,6 +1,6 @@
 "use client";
 
-import { COUNTRIES, DEFAULT_VISIBLE_CODES } from "@/lib/countries";
+import { COUNTRIES, TW_HK_CODES } from "@/lib/countries";
 
 // 35 國顯示 / 封鎖設定。封鎖清單存在 localStorage（key: spc-blocked-countries），
 // 至少保留一個可見國家；封鎖的國家不會出現在卡片最低價、價格表與排行計算中。
@@ -47,7 +47,7 @@ export default function CountrySettings({
           className="btn"
           onClick={() =>
             onChange(
-              COUNTRIES.filter((c) => !DEFAULT_VISIBLE_CODES.includes(c.code)).map(
+              COUNTRIES.filter((c) => !TW_HK_CODES.includes(c.code)).map(
                 (c) => c.code
               )
             )

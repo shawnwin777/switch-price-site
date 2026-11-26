@@ -122,7 +122,7 @@ export default async function HomePage({
 }) {
   const params = parseParams(searchParams);
   // 可見國家設定：瀏覽器改設定時會同步寫進 cookie，伺服器端在查詢前讀它；
-  // 沒有 cookie（或非法值）時用預設 TW/HK。?country=XX 單一國家篩選優先
+  // 沒有 cookie（或非法值）時用預設全部 35 國。?country=XX 單一國家篩選優先
   // 於 cookie（見 lib/data.ts）。serverVisibleScope 傳給 HomeClient，
   // 讓瀏覽器端比對 localStorage 的設定與伺服器端用的是否一致。
   const cookieStore = cookies();
