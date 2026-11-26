@@ -758,11 +758,14 @@ async function handleRefresh(request: NextRequest) {
         .reduce((n, b) => n + b.length, 0);
     }
   }
-  // 歷史低價寫回 games：10 並行逐款 UPDATE 還是不夠（2026-11-26 11:49
-  // 實測：1000 筆價格已寫入，但仍 FUNCTION_INVOCATION_TIMEOUT）。數百款
-  // 新低就算 10 並行也要數十次來回。改成整批 upsert：一次把全部新低
-  // 以 {id, historical_low_twd} 寫回（onConflict: "id"，既有列只更新
-  // payload 內的欄位），200 筆一批、4 批並行，跟 prices 寫入同一套做法。
+  // 歷史低價寫回 games：只用 UPDATE，絕不用 upsert。
+  // 原因（2026-11-26 12:51 實測）：整批 upsert {id, historical_low_twd}
+  // onConflict:"id"（commit 35c236b8）會嘗試 INSERT 缺欄位的列，報
+  // 「null value in column "slug" of relation "games" violates not-null
+  // constraint」、歷史低價完全沒寫進去（games.slug／title_zh／title_en
+  // 皆 NOT NULL 無預設，見 supabase/schema.sql）。UPDATE 只更新已存在的
+  // 列，絕不 INSERT，語義正確；逐款更新但並行度拉到 20，預讀已改 8 並行、
+  // 時間預算較寬鬆，應可在 60 秒內完成。逐款回傳 id 以確認真的寫入。
   const lowUpdates: { id: string; historical_low_twd: number }[] = [];
   for (const [gameId, minNew] of newLowByGame) {
     const game = gameById.get(gameId);
@@ -774,26 +777,35 @@ async function handleRefresh(request: NextRequest) {
       lowUpdates.push({ id: gameId, historical_low_twd: finalLow });
     }
   }
+  let lowUpdated = 0;
   if (lowUpdates.length > 0) {
-    const LOW_BATCH_SIZE = 200;
-    const LOW_BATCH_CONCURRENCY = 4;
-    const lowBatches: { id: string; historical_low_twd: number }[][] = [];
-    for (let i = 0; i < lowUpdates.length; i += LOW_BATCH_SIZE) {
-      lowBatches.push(lowUpdates.slice(i, i + LOW_BATCH_SIZE));
-    }
-    for (let i = 0; i < lowBatches.length; i += LOW_BATCH_CONCURRENCY) {
+    const LOW_UPDATE_CONCURRENCY = 20;
+    for (let i = 0; i < lowUpdates.length; i += LOW_UPDATE_CONCURRENCY) {
+      const chunk = lowUpdates.slice(i, i + LOW_UPDATE_CONCURRENCY);
       const results = await Promise.all(
-        lowBatches
-          .slice(i, i + LOW_BATCH_CONCURRENCY)
-          .map((batch) =>
-            admin.from("games").upsert(batch, { onConflict: "id" })
-          )
+        chunk.map((u) =>
+          admin
+            .from("games")
+            .update({ historical_low_twd: u.historical_low_twd })
+            .eq("id", u.id)
+            .select("id")
+        )
       );
-      for (const { error } of results) {
+      for (let k = 0; k < results.length; k++) {
+        const { data, error } = results[k];
         if (error) {
           errors.push({
             country: "-",
-            message: `批次寫入歷史低價失敗：${error.message}`,
+            message: `寫入歷史低價失敗（${chunk[k].id}）：${error.message}`,
+          });
+        } else if (data && data.length > 0) {
+          lowUpdated++;
+        } else {
+          // UPDATE 沒命中任何列：該 id 在 games 表不存在（理論上不應發生，
+          // lowUpdates 只收 gameById 找得到的遊戲）；記下來以便追查。
+          errors.push({
+            country: "-",
+            message: `寫入歷史低價未命中（${chunk[k].id}）：games 表無此 id`,
           });
         }
       }
@@ -859,6 +871,7 @@ async function handleRefresh(request: NextRequest) {
     verified_column: hasVerifiedColumn,
     unverified_prices_written: unverifiedPricesWritten,
     games_with_new_low: gamesWithNewLow,
+    low_updated: lowUpdated,
     region_ids_used: regionIdsUsed,
     pending_no_title_id: pendingNoTitleId,
     price_not_found: notFound,
