@@ -152,8 +152,7 @@ export default async function NsoPage() {
       <p className="muted">
         價格來源：Bulbapedia「Nintendo Switch Online」價目（2025-11-18）為底；
         2026 年已證實調價的國家以新價為準——韓國 2026-07-01 漲價、巴西 2026-03
-        降價、墨西哥／秘魯／智利／哥倫比亞／阿根廷 2026 年調價（詳見
-        lib/nso-prices.ts 檔頭註解）。兌換券停售資訊見任天堂支援 FAQ。
+        降價、墨西哥／秘魯／智利／哥倫比亞／阿根廷 2026 年調價。兌換券停售資訊見任天堂支援 FAQ。
       </p>
     </>
   );

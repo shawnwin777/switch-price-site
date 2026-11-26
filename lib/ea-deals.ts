@@ -28,6 +28,7 @@ const PAGE_COUNT = 9;
 
 interface EaGameItem {
   slug?: string;
+  franchiseSlug?: string;
   title?: string;
   packArt?: { ar2X1?: string; ar1X1?: string };
   price?: {
@@ -36,6 +37,18 @@ interface EaGameItem {
     discountPercentage?: number;
     currency?: string;
   };
+}
+
+/** EA 遊戲頁網址。EA 站內多數遊戲放在系列子目錄下
+ *  （例如 Battlefield 1 是 /games/battlefield/battlefield-1），
+ *  只用 slug 會 404（2026-11-26 實測 104 款中有 34 款 404）。
+ *  __NEXT_DATA__ 每款都有 franchiseSlug：跟 slug 不同時就用
+ *  /games/<franchiseSlug>/<slug>，相同時用 /games/<slug>。
+ *  實測：franchise 寫法修好全部 34 款，且 0 款原本好的變壞。 */
+function eaGameUrl(slug: string, franchiseSlug?: string): string {
+  const fs = typeof franchiseSlug === "string" ? franchiseSlug.trim() : "";
+  if (fs && fs !== slug) return `https://www.ea.com/games/${fs}/${slug}`;
+  return `https://www.ea.com/games/${slug}`;
 }
 
 /** "$69.99" 或 "$ 69.99" 正規化成 "$69.99"；解析不到回 null。 */
@@ -125,6 +138,10 @@ export async function fetchEaDeals(
       const slug = typeof it?.slug === "string" ? it.slug : "";
       if (!slug || seen.has(slug)) continue;
       seen.add(slug);
+      const url = eaGameUrl(
+        slug,
+        typeof it?.franchiseSlug === "string" ? it.franchiseSlug : ""
+      );
       const title = typeof it?.title === "string" ? it.title.trim() : "";
       const discount =
         typeof it?.price?.discountPercentage === "number"
@@ -146,7 +163,7 @@ export async function fetchEaDeals(
           key: `ea-${slug}`,
           title,
           image,
-          url: `https://www.ea.com/games/${slug}`,
+          url,
           badge: "免費",
           priceLine:
             listAmt != null && listAmt > 0
@@ -170,7 +187,7 @@ export async function fetchEaDeals(
         key: `ea-${slug}`,
         title,
         image,
-        url: `https://www.ea.com/games/${slug}`,
+        url,
         badge: `-${discount}%`,
         priceLine:
           list && list !== sale && listTwd
