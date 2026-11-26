@@ -143,13 +143,7 @@ export default function GameDetailClient({
       ? twPrice.price_twd - cheapest.price_twd
       : null;
 
-  const youtubeUrl = game.youtube_id
-    ? `https://www.youtube.com/watch?v=${game.youtube_id}`
-    : null;
-
-  // 畫廊：影片（youtube_id）＋截圖（games.screenshots），點封面開啟，
-  // 左右切換（按鈕／觸控滑動／鍵盤左右鍵），ESC 關閉。沒有影片也沒有
-  // 截圖時不開 viewer，封面維持舊行為。
+  // 畫廊：影片（youtube_id）＋截圖（games.screenshots）。
   type GallerySlide =
     | { kind: "video"; youtubeId: string }
     | { kind: "image"; url: string };
@@ -175,6 +169,21 @@ export default function GameDetailClient({
   const [imgFailed, setImgFailed] = useState(false);
   const viewerOpen = viewerIndex !== null;
   const currentSlide = viewerIndex != null ? slides[viewerIndex] : null;
+
+  // 頁內輪播（2026-11-26）：截圖直接在詳細頁上看，不用點一下就跳全螢幕。
+  // 電腦按左右箭頭、手機左右滑動切換；點圖片或放大鈕才進全螢幕 viewer。
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [carouselTouchX, setCarouselTouchX] = useState<number | null>(null);
+  const [carouselImgFailed, setCarouselImgFailed] = useState(false);
+  const carouselSlide = slides[carouselIndex] ?? null;
+  const carouselPrev = () =>
+    setCarouselIndex((i) => (i - 1 + slides.length) % slides.length);
+  const carouselNext = () =>
+    setCarouselIndex((i) => (i + 1) % slides.length);
+  const openViewerAt = (i: number) => setViewerIndex(i);
+  useEffect(() => {
+    setCarouselImgFailed(false);
+  }, [carouselIndex]);
 
   const closeViewer = () => setViewerIndex(null);
   const showPrev = () =>
@@ -214,73 +223,21 @@ export default function GameDetailClient({
         ← 返回
       </button>
       <div className="detail-head">
-        {slides.length > 0 ? (
-          <button
-            type="button"
-            className="detail-cover-btn"
-            onClick={() => setViewerIndex(0)}
-            title={
-              game.youtube_id
-                ? "點封面看官方介紹影片與截圖"
-                : "點封面看截圖"
+        {/* 封面只是圖片，不再是開啟全螢幕的按鈕（2026-11-26）：
+         * 影片與截圖改在下方「影片與截圖」輪播直接看，點圖片或放大鈕
+         * 才進全螢幕；影片不內嵌（YouTube 擁有者關閉嵌入或有地區／
+         * 年齡限制時嵌了也播不了），一律連到 YouTube 新分頁看。 */}
+        <img
+          className="detail-cover"
+          src={game.cover_url ?? "/covers/placeholder.svg"}
+          alt={game.title_zh}
+          onError={(e) => {
+            const img = e.currentTarget;
+            if (!img.src.endsWith("/covers/placeholder.svg")) {
+              img.src = "/covers/placeholder.svg";
             }
-            aria-label={game.youtube_id ? "開啟影片與截圖" : "開啟截圖"}
-          >
-            <img
-              className="detail-cover"
-              src={game.cover_url ?? "/covers/placeholder.svg"}
-              alt={game.title_zh}
-              onError={(e) => {
-                const img = e.currentTarget;
-                if (!img.src.endsWith("/covers/placeholder.svg")) {
-                  img.src = "/covers/placeholder.svg";
-                }
-              }}
-            />
-            <span className="play-hint">
-              {game.youtube_id
-                ? `▶ 官方介紹影片（YouTube）${
-                    screenshotCount > 0
-                      ? ` · ${screenshotCount} 張截圖`
-                      : ""
-                  }`
-                : `點封面看截圖（共 ${screenshotCount} 張）`}
-            </span>
-          </button>
-        ) : youtubeUrl ? (
-          <a
-            className="detail-cover-link"
-            href={youtubeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="點封面在新分頁開官方 YouTube 介紹影片"
-          >
-            <img
-              className="detail-cover"
-              src={game.cover_url ?? "/covers/placeholder.svg"}
-              alt={game.title_zh}
-              onError={(e) => {
-                const img = e.currentTarget;
-                if (!img.src.endsWith("/covers/placeholder.svg")) {
-                  img.src = "/covers/placeholder.svg";
-                }
-              }}
-            />
-            <span className="play-hint">▶ 官方介紹影片（YouTube，新分頁）</span>
-          </a>
-        ) : (
-          <img
-            className="detail-cover"
-            src={game.cover_url ?? "/covers/placeholder.svg"}
-            alt={game.title_zh}
-            onError={(e) => {
-              const img = e.currentTarget;
-              if (!img.src.endsWith("/covers/placeholder.svg")) {
-                img.src = "/covers/placeholder.svg";
-              }
-            }}
-          />
-        )}
+          }}
+        />
         <div className="detail-info">
           <h1>{game.title_zh}</h1>
           {game.title_en && <p className="muted">{game.title_en}</p>}
@@ -367,6 +324,142 @@ export default function GameDetailClient({
           </div>
         </div>
       </div>
+
+      {/* 頁內輪播（2026-11-26）：影片與截圖直接在頁面上看。
+       * 電腦按左右箭頭、手機左右滑動切換；點圖片或放大鈕才進全螢幕，
+       * 平常不跳放大。影片不內嵌，縮圖＋連結到 YouTube 新分頁。 */}
+      {slides.length > 0 && carouselSlide && (
+        <section className="detail-carousel" aria-label="影片與截圖">
+          <h2 className="detail-carousel-title">
+            🎬 影片與截圖
+            <span className="muted detail-carousel-hint">
+              {game.youtube_id ? " · 影片在 YouTube 播放" : ""}
+            </span>
+          </h2>
+          <div
+            className="carousel-stage"
+            tabIndex={0}
+            role="region"
+            aria-roledescription="輪播"
+            aria-label={`影片與截圖，第 ${carouselIndex + 1} / ${slides.length} 張`}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowLeft") carouselPrev();
+              else if (e.key === "ArrowRight") carouselNext();
+            }}
+            onTouchStart={(e) =>
+              setCarouselTouchX(e.touches[0]?.clientX ?? null)
+            }
+            onTouchEnd={(e) => {
+              if (carouselTouchX == null) return;
+              const dx =
+                (e.changedTouches[0]?.clientX ?? carouselTouchX) -
+                carouselTouchX;
+              if (dx > 50) carouselPrev();
+              else if (dx < -50) carouselNext();
+              setCarouselTouchX(null);
+            }}
+          >
+            {carouselSlide.kind === "video" ? (
+              <div className="carousel-video">
+                <img
+                  className="carousel-video-thumb"
+                  src={`https://i.ytimg.com/vi/${carouselSlide.youtubeId}/hqdefault.jpg`}
+                  alt="官方介紹影片縮圖"
+                />
+                <a
+                  className="gallery-play-btn"
+                  href={`https://www.youtube.com/watch?v=${carouselSlide.youtubeId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  ▶ 在 YouTube 觀看官方介紹影片
+                </a>
+                <p className="muted">影片在 YouTube 播放（新分頁，不內嵌）。</p>
+              </div>
+            ) : carouselImgFailed ? (
+              <p className="carousel-error">圖片載入失敗</p>
+            ) : (
+              <button
+                type="button"
+                className="carousel-img-btn"
+                onClick={() => openViewerAt(carouselIndex)}
+                title="點一下放大看"
+                aria-label={`放大看截圖 ${carouselIndex + 1 - (game.youtube_id ? 1 : 0)}`}
+              >
+                <img
+                  className="carousel-img"
+                  src={carouselSlide.url}
+                  alt={`截圖 ${carouselIndex + 1 - (game.youtube_id ? 1 : 0)}`}
+                  onError={() => setCarouselImgFailed(true)}
+                />
+              </button>
+            )}
+            {slides.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  className="carousel-nav carousel-nav-prev"
+                  onClick={carouselPrev}
+                  aria-label="上一張"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  className="carousel-nav carousel-nav-next"
+                  onClick={carouselNext}
+                  aria-label="下一張"
+                >
+                  ›
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              className="carousel-zoom"
+              onClick={() => openViewerAt(carouselIndex)}
+              title="放大看"
+              aria-label="放大看"
+            >
+              ⤢
+            </button>
+            <span className="carousel-counter">
+              {carouselIndex + 1} / {slides.length}
+            </span>
+          </div>
+          {slides.length > 1 && (
+            <div className="carousel-thumbs" role="tablist" aria-label="選擇截圖">
+              {slides.map((s, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  role="tab"
+                  aria-selected={i === carouselIndex}
+                  aria-label={
+                    s.kind === "video"
+                      ? "官方介紹影片"
+                      : `截圖 ${i + 1 - (game.youtube_id ? 1 : 0)}`
+                  }
+                  className={`carousel-thumb${i === carouselIndex ? " is-active" : ""}`}
+                  onClick={() => setCarouselIndex(i)}
+                >
+                  {s.kind === "video" ? (
+                    <span className="carousel-thumb-video">▶</span>
+                  ) : (
+                    <img src={s.url} alt="" loading="lazy" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+          <p className="muted carousel-caption">
+            {carouselSlide.kind === "video"
+              ? "官方介紹影片"
+              : `截圖 ${carouselIndex + 1 - (game.youtube_id ? 1 : 0)} / ${screenshotCount}`}
+            {slides.length > 1 && " · 電腦按左右箭頭、手機左右滑動切換"}
+          </p>
+        </section>
+      )}
 
       {isCollected && onSale && cheapest && (
         <div className="sale-banner" role="alert">
