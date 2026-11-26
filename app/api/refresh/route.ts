@@ -637,13 +637,14 @@ async function handleRefresh(request: NextRequest) {
 
   // ---- 3b. 未確認價格標記（外國匯入寫入端合約）----
   // prices.verified 欄位存在時才標記；不存在時不帶 verified 鍵（否則寫入報 42703）。
+  // 關鍵：upsert 批次內每一列都必須帶 verified。PostgREST 收到混合批次
+  // （部分列有 verified、部分沒有）時，缺鍵的列會被補 NULL，ON CONFLICT
+  // UPDATE 就會把既有列的 verified 寫成 NULL、觸發 NOT NULL 錯誤——
+  // 這就是 rest 組一直報 null value in column "verified" 的原因
+  // （HK 全是非外國列、全部帶 true，所以 HK 從來不報錯）。
   // 非外國列（TW／HK／JP／KR 與其餘已確認國家）：一律帶 verified=true。
-  // 這些國家本來就是已確認，寫入時帶 true 絕對正確；且 INSERT 新列時
-  // verified 必填（NOT NULL 無預設），不帶就會報 null value in column
-  // "verified"（2026-11-26 rest 組實測兩次）。
-  // 外國列只標「新出現」的：先查既有 (game_id, country) 鍵，已在庫的列不帶
-  // verified 鍵（upsert 不動既有值，探針通過後改成的 true 不會被蓋回 false）；
-  // 新列才帶 verified=false。
+  // 外國列：新列帶 false；已在庫的列帶回目前庫裡的值（探針改成 true 的
+  // 不會被蓋回 false）。既有值是從同一趟查詢讀回來的。
   let hasVerifiedColumn = false;
   let unverifiedPricesWritten = 0;
   if (priceRows.length > 0) {
@@ -659,14 +660,14 @@ async function handleRefresh(request: NextRequest) {
       FOREIGN_PRICE_COUNTRIES.has(r.country)
     );
     const foreignGameIds = [...new Set(foreignRows.map((r) => r.game_id))];
-    const existingKeys = new Set<string>();
+    const existingVerified = new Map<string, boolean>();
     let lookupFailed = false;
     // 每批 50 個 ID：200 個 UUID 的 .in() 查詢字串約 7.4KB，逼近 URL 長度上限、
     // 失敗會讓 lookupFailed=true、全部外國新列拿不到 verified=false 而寫入報錯。
     for (let i = 0; i < foreignGameIds.length; i += 50) {
       const { data, error: existError } = await admin
         .from("prices")
-        .select("game_id, country")
+        .select("game_id, country, verified")
         .in("game_id", foreignGameIds.slice(i, i + 50));
       if (existError) {
         lookupFailed = true;
@@ -676,13 +677,23 @@ async function handleRefresh(request: NextRequest) {
         });
         break;
       }
-      for (const row of (data ?? []) as { game_id: string; country: string }[]) {
-        existingKeys.add(`${row.game_id}:${row.country}`);
+      for (const row of (data ?? []) as {
+        game_id: string;
+        country: string;
+        verified: boolean | null;
+      }[]) {
+        existingVerified.set(
+          `${row.game_id}:${row.country}`,
+          row.verified === true
+        );
       }
     }
     if (!lookupFailed) {
       for (const row of foreignRows) {
-        if (!existingKeys.has(`${row.game_id}:${row.country}`)) {
+        const key = `${row.game_id}:${row.country}`;
+        if (existingVerified.has(key)) {
+          row.verified = existingVerified.get(key)!;
+        } else {
           row.verified = false;
           unverifiedPricesWritten++;
         }
