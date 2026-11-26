@@ -59,6 +59,25 @@ export type DealsCarouselSource =
  *  （例如巫師 3 DLC 同時是 dlc 與 console-dlc）。 */
 export type FreeKind = "pc" | "dlc" | "console" | "console-dlc";
 
+/** 免費遊戲 PC／家機分流（2026-11-26 他說的：家機免費遊戲搬去 /console，
+ *  不要跟 PC 免費遊戲混在 /deals）：
+ *  純 PC（freeKinds 只有 pc／dlc）只在 /deals 免費區；
+ *  純家機（freeKinds 只有 console／console-dlc）只在 /console 免費遊戲分頁；
+ *  跨平台（freeKinds 同時有 PC 類與主機類）兩邊都顯示。 */
+export function isPcFreeItem(it: DealsCarouselItem): boolean {
+  return (
+    it.freeKinds?.includes("pc") === true ||
+    it.freeKinds?.includes("dlc") === true
+  );
+}
+
+export function isConsoleFreeItem(it: DealsCarouselItem): boolean {
+  return (
+    it.freeKinds?.includes("console") === true ||
+    it.freeKinds?.includes("console-dlc") === true
+  );
+}
+
 export interface DealsCarouselItem {
   source: DealsCarouselSource;
   /** 來源內的穩定 key（Steam app id／Epic urlSlug），給 React key 用。 */
@@ -610,13 +629,18 @@ export async function fetchDealsPage(): Promise<DealsPageData> {
     ...ubisoftFree,
     ...fanaticalFree,
   ].sort((a, b) => a.sortKey - b.sortKey);
+  // PC／家機分流（2026-11-26）：/deals 免費區只留 PC 側（freeKinds 含
+  // pc 或 dlc；跨平台品項同時有 PC 類所以仍留在 /deals）；純家機品項
+  // （freeKinds 只有 console／console-dlc）搬去 /console 免費遊戲分頁，
+  // 由 lib/cached-data.ts 的 getCachedConsoleFreeGames 另外抓（同一份
+  // fetchFreeGames、同樣每小時快取）。
   return {
     items,
     steam: steamItems,
     steamFree,
     epicCurrent,
     epicUpcoming,
-    freeGames: freeGamesMerged,
+    freeGames: freeGamesMerged.filter(isPcFreeItem),
     freeGamesUpcoming: freeGames.upcoming,
     ea,
     ubisoft,

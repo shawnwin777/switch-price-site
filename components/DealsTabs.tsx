@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import type { DealsCarouselItem, FreeKind } from "@/lib/deals-carousel";
+import type { DealsCarouselItem } from "@/lib/deals-carousel";
 import { pageWindow } from "@/lib/pagination";
 import DealCard from "./DealCard";
 import MembershipServiceSection from "./MembershipTabs";
@@ -102,18 +102,17 @@ export default function DealsTabs({
       : {}),
   });
 
-  // 免費遊戲領取的分類篩選（全部／PC／DLC／家機／家機 DLC），
-  // 切換時回到第 1 頁（篩選後總頁數變了，殘留頁碼會超出範圍）。
-  const [freeFilter, setFreeFilter] = useState<"all" | FreeKind>("all");
-  const freeFilterCounts: Record<"all" | FreeKind, number> = {
+  // 免費遊戲領取的分類篩選（全部／PC／DLC），切換時回到第 1 頁
+  //  （篩選後總頁數變了，殘留頁碼會超出範圍）。
+  //  2026-11-26：家機／家機 DLC 兩個篩選鈕拿掉——家機免費遊戲搬去
+  //  /console 免費遊戲分頁（見 lib/deals-carousel.ts 分流說明），
+  //  /deals 免費區只留 PC 側（freeKinds 含 pc／dlc；跨平台品項仍在
+  //  這裡，算進 PC 或 DLC 計數）。
+  const [freeFilter, setFreeFilter] = useState<"all" | "pc" | "dlc">("all");
+  const freeFilterCounts: Record<"all" | "pc" | "dlc", number> = {
     all: freeGames.length,
     pc: freeGames.filter((it) => it.freeKinds?.includes("pc")).length,
     dlc: freeGames.filter((it) => it.freeKinds?.includes("dlc")).length,
-    console: freeGames.filter((it) => it.freeKinds?.includes("console"))
-      .length,
-    "console-dlc": freeGames.filter((it) =>
-      it.freeKinds?.includes("console-dlc")
-    ).length,
   };
   const freeFiltered =
     freeFilter === "all"
@@ -364,8 +363,6 @@ export default function DealsTabs({
                         ["all", "全部"],
                         ["pc", "PC"],
                         ["dlc", "DLC"],
-                        ["console", "家機"],
-                        ["console-dlc", "家機 DLC"],
                       ] as const
                     ).map(([key, label]) => (
                       <button
@@ -387,7 +384,7 @@ export default function DealsTabs({
                 </div>
                 <p className="muted">
                   免費領取（Epic／GOG／GamerPower 聚合，點卡片去官方頁面領取；DLC
-                  與家機遊戲有標註）。
+                  有標註。家機免費遊戲請看 /console 免費遊戲分頁）。
                 </p>
                 {freeFiltered.length > 0 ? (
                   <>

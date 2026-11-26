@@ -93,6 +93,9 @@ import {
  *  key 換成 deals-page-v14。
  *  2026-11-26 新增 EA／Ubisoft／Fanatical 三個特價分頁（DealsPageData
  *  加 ea／ubisoft／fanatical 欄位），key 換成 deals-page-v15。
+ *  2026-11-26 免費遊戲 PC／家機分流：/deals 免費區只留 PC 側
+ *  （freeKinds 含 pc／dlc；純家機品項搬去 /console 免費遊戲分頁），
+ *  key 換成 deals-page-v16（舊快取的 freeGames 還含純家機品項）。
  *  三個新來源都走同一套機制：fetchDealsPage 裡一起抓、每小時自動更新，
  *  不用另外開 cron、不用手動同步、不用推 GitHub 更新資料；
  *  單一來源失敗回空陣列、不拖垮整頁，下次快取到期自動重抓。 */
@@ -111,7 +114,7 @@ export const getCachedDealsPage = unstable_cache(
     }
     return data;
   },
-  ["deals-page-v15"],
+  ["deals-page-v16"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-page"] }
 );
 
@@ -260,6 +263,41 @@ const getCachedGamePassNewPc = unstable_cache(
 );
 
 import { fetchPsPlusNew, type PsPlusNewData } from "./ps-plus";
+
+import { fetchFreeGames } from "./free-games";
+import { isConsoleFreeItem } from "./deals-carousel";
+import type { DealsCarouselItem } from "./deals-carousel";
+
+/** 家機免費遊戲（/console 免費遊戲分頁，伺服器端抓取、每小時更新一次）。
+ *  2026-11-26 新增：他說免費遊戲的家機跟家機 DLC 不要跟 PC 免費遊戲
+ *  混在 /deals，要在 /console 另外開一個免費遊戲區分類。來源就是
+ *  lib/free-games.ts 抓到的 GamerPower 品項裡 freeKinds 含 console／
+ *  console-dlc 者（純家機＋跨平台品項；跨平台品項在 /deals 跟 /console
+ *  兩邊都顯示，見 lib/deals-carousel.ts 的分流說明）。
+ *  跟 /deals 免費區同一份 fetchFreeGames、同樣每小時快取（各自的
+ *  unstable_cache key），不用另外開 cron、不用手動同步。
+ *  0 款不拋錯（家機免費遊戲本來就少、檔期外可能真的 0 款），只回空陣列、
+ *  分頁顯示空狀態；抓取失敗也回空陣列、不拖垮整頁。 */
+export interface ConsoleFreeGamesData {
+  items: DealsCarouselItem[];
+  fetchedAt: string;
+}
+
+export const getCachedConsoleFreeGames = unstable_cache(
+  async (): Promise<ConsoleFreeGamesData> => {
+    const data = await fetchFreeGames().catch(() => ({
+      current: [] as DealsCarouselItem[],
+      upcoming: [] as DealsCarouselItem[],
+      fetchedAt: new Date().toISOString(),
+    }));
+    return {
+      items: data.current.filter(isConsoleFreeItem),
+      fetchedAt: data.fetchedAt,
+    };
+  },
+  ["console-free-games-v1"],
+  { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["console-free-games"] }
+);
 
 /** PS Plus 本月新進（/console 家機頁 PS PLUS 分頁，伺服器端抓取、
  *  每小時更新一次）。2026-11-23 新增：PS Blog sitemap 自動發現當月

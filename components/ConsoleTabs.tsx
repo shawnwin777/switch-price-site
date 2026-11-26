@@ -10,16 +10,17 @@ import MembershipServiceSection from "./MembershipTabs";
 /** 每頁顯示款數（比照 /deals：一次只呈現 30 款，Xbox 900 款剛好 30 頁、PS 1621 款 55 頁）。 */
 const PAGE_SIZE = 30;
 
-type TabKey = "xbox-console" | "gamepass" | "ps" | "psplus";
+type TabKey = "xbox-console" | "gamepass" | "ps" | "psplus" | "free";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "xbox-console", label: "XBOX 家機" },
   { key: "gamepass", label: "XGP 家機" },
   { key: "ps", label: "PlayStation" },
   { key: "psplus", label: "PS Plus" },
+  { key: "free", label: "免費遊戲" },
 ];
 
-/** /console 家機頁的分頁框：只有四個分頁、順序固定，點了不跳頁
+/** /console 家機頁的分頁框：五個分頁、順序固定，點了不跳頁
  *  （同路由，只更新 ?tab=／?page=，見下方 URL 同步）。
  *  分頁狀態進 URL（低 B-3，2026-11-23）：server 從 ?tab=／?page=
  *  讀初始分頁／頁碼（app/console/page.tsx 傳 initialTab／initialPage），
@@ -36,6 +37,11 @@ const TABS: { key: TabKey; label: string }[] = [
  *     分類原始總數都用 live 數字（見 PS 分頁附註，不寫死 1621／2,862）。
  *  4. PS Plus：PS Plus 本月新進（遊戲目錄＋每月遊戲），PS Blog 當月文章
  *     解析、官方搜尋對應商店商品；下方接 PS Plus 方案價目。
+ *  5. 免費遊戲（2026-11-26 新增）：家機免費遊戲（GamerPower 聚合，
+ *     freeKinds 含 console／console-dlc 者；純家機＋跨平台品項，
+ *     跨平台品項在 /deals 跟 /console 兩邊都顯示），內有分類篩選
+ *     （全部／家機／家機 DLC）；卡片格式、截止日、DLC／主機備註沿用
+ *     /deals 免費區寫法，點卡片去官方頁面領取。
  *  2026-11-23 14:00 shawn 再定：獨立的「🎫 會員方案」分頁拿掉，
  *  方案價目改放進 XGP 家機與 PS Plus 兩個分頁裡（新進遊戲在上、
  *  方案價目在下，各自呈現、不做對比表）。
@@ -53,6 +59,7 @@ export default function ConsoleTabs({
   psplusMonth,
   psplusCatalogUrl,
   psplusMonthlyUrl,
+  consoleFree,
   initialTab,
   initialPage,
 }: {
@@ -66,14 +73,17 @@ export default function ConsoleTabs({
   psplusMonth?: string | null;
   psplusCatalogUrl?: string | null;
   psplusMonthlyUrl?: string | null;
+  /** 家機免費遊戲（GamerPower 聚合，freeKinds 含 console／console-dlc 者）。 */
+  consoleFree?: DealsCarouselItem[];
   /** server 從 ?tab=／?page= 讀到的初始分頁／頁碼（無效值已在 page 層濾掉）。 */
   initialTab?: TabKey;
   initialPage?: number;
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  // 四個分頁永遠顯示（XGP 家機、PS Plus 裡有靜態方案價目，
-  // 新進遊戲沒資料時分頁也不消失，只在遊戲區顯示空狀態）。
+  // 五個分頁永遠顯示（XGP 家機、PS Plus 裡有靜態方案價目，
+  // 新進遊戲沒資料時分頁也不消失，只在遊戲區顯示空狀態；
+  // 免費遊戲沒資料時也顯示分頁，只在遊戲區顯示空狀態）。
   const tabs = TABS;
   // 預設 XBOX 家機（第一分頁）；?tab= 有值時用它。
   const [active, setActive] = useState<TabKey>(initialTab ?? "xbox-console");
@@ -82,10 +92,36 @@ export default function ConsoleTabs({
     gamepass: 1,
     ps: 1,
     psplus: 1,
+    free: 1,
     ...(initialTab && initialPage && initialPage > 1
       ? { [initialTab]: initialPage }
       : {}),
   });
+
+  // 家機免費遊戲的分類篩選（全部／家機／家機 DLC），切換時回到第 1 頁
+  // （跟 /deals 免費區同一套寫法；跨平台品項算進家機或家機 DLC 計數）。
+  const [consoleFreeFilter, setConsoleFreeFilter] = useState<
+    "all" | "console" | "console-dlc"
+  >("all");
+  const consoleFreeList = consoleFree ?? [];
+  const consoleFreeFilterCounts: Record<
+    "all" | "console" | "console-dlc",
+    number
+  > = {
+    all: consoleFreeList.length,
+    console: consoleFreeList.filter((it) =>
+      it.freeKinds?.includes("console")
+    ).length,
+    "console-dlc": consoleFreeList.filter((it) =>
+      it.freeKinds?.includes("console-dlc")
+    ).length,
+  };
+  const consoleFreeFiltered =
+    consoleFreeFilter === "all"
+      ? consoleFreeList
+      : consoleFreeList.filter((it) =>
+          it.freeKinds?.includes(consoleFreeFilter)
+        );
 
   /** 分頁 URL：?tab= 一定帶，?page= 只有 >1 才帶（第 1 頁保持短網址）。 */
   const tabUrl = (tab: TabKey, page: number) =>
@@ -110,7 +146,8 @@ export default function ConsoleTabs({
         rawTab === "xbox-console" ||
         rawTab === "gamepass" ||
         rawTab === "ps" ||
-        rawTab === "psplus"
+        rawTab === "psplus" ||
+        rawTab === "free"
           ? rawTab
           : null;
       if (!tab) return;
@@ -128,9 +165,14 @@ export default function ConsoleTabs({
     gamepass: gamepass?.length ?? 0,
     ps: ps?.length ?? 0,
     psplus: psplus?.length ?? 0,
+    free: consoleFreeList.length,
   };
+  /** 免費遊戲分頁的分頁數以「目前篩選後的清單」為準（篩選切換時總頁數跟著變），
+   *  其他分頁以該平台總款數為準（跟 /deals 免費區同一套做法）。 */
+  const visibleCount = (key: TabKey) =>
+    key === "free" ? consoleFreeFiltered.length : counts[key];
   const totalPages = (key: TabKey) =>
-    Math.max(1, Math.ceil(counts[key] / PAGE_SIZE));
+    Math.max(1, Math.ceil(visibleCount(key) / PAGE_SIZE));
   const pageItems = (key: TabKey, all: DealsCarouselItem[]) => {
     const p = Math.min(Math.max(1, pages[key]), totalPages(key));
     return all.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
@@ -273,6 +315,7 @@ export default function ConsoleTabs({
   const psPage = pageItems("ps", ps ?? []);
   const gamepassPage = pageItems("gamepass", gamepass ?? []);
   const psplusPage = pageItems("psplus", psplus ?? []);
+  const freePage = pageItems("free", consoleFreeFiltered);
 
   return (
     <div>
@@ -441,6 +484,74 @@ export default function ConsoleTabs({
             )}
           </p>
           <MembershipServiceSection serviceId="ps-plus" />
+        </section>
+      )}
+
+      {active === "free" && (
+        <section className="deals-section" aria-label="免費遊戲">
+          {sectionHead(
+            "🎮 免費遊戲（家機）",
+            `免費領取 ${consoleFreeList.length} 款`
+          )}
+          <div className="deals-section-body">
+            {consoleFreeList.length > 0 ? (
+              <>
+                <div className="deals-filter-row">
+                  <h3 className="deals-subhead">家機免費遊戲領取</h3>
+                  <div
+                    className="deals-filter-btns"
+                    role="group"
+                    aria-label="家機免費遊戲分類"
+                  >
+                    {(
+                      [
+                        ["all", "全部"],
+                        ["console", "家機"],
+                        ["console-dlc", "家機 DLC"],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`chip ${consoleFreeFilter === key ? "active" : ""}`}
+                        aria-pressed={consoleFreeFilter === key}
+                        onClick={() => {
+                          setConsoleFreeFilter(key);
+                          // 分類切換時回到第 1 頁（篩選後總頁數變了，殘留頁碼會超出範圍），URL 的 ?page= 也清掉。
+                          setPages((prev) => ({ ...prev, free: 1 }));
+                          router.replace(tabUrl("free", 1), { scroll: false });
+                        }}
+                      >
+                        {label} ({consoleFreeFilterCounts[key]})
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="muted">
+                  家機免費領取（GamerPower 聚合，點卡片去官方頁面領取；DLC
+                  與主機平台有標註。跨平台品項在 /deals 免費區也有）。
+                </p>
+                {consoleFreeFiltered.length > 0 ? (
+                  <>
+                    <div className="deals-grid">
+                      {freePage.map((item) => (
+                        <DealCard key={item.key} item={item} />
+                      ))}
+                    </div>
+                    {renderPager("free")}
+                  </>
+                ) : (
+                  <p className="muted">
+                    這個分類目前沒有免費領取的項目。
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="muted">
+                目前沒有家機免費遊戲領取，請稍後再試。
+              </p>
+            )}
+          </div>
         </section>
       )}
 

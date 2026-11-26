@@ -1,8 +1,10 @@
 import {
+  getCachedConsoleFreeGames,
   getCachedGamePassNew,
   getCachedPsDeals,
   getCachedPsPlusNew,
   getCachedXboxConsoleDeals,
+  type ConsoleFreeGamesData,
 } from "@/lib/cached-data";
 import { formatTaipei } from "@/lib/format";
 import type { GamePassNewData } from "@/lib/gamepass";
@@ -28,9 +30,9 @@ export const metadata = {
  *  PC（/deals）、家機（本頁）、SWITCH（首頁）。
  *  2026-11-23 14:00 shawn 再定：會員方案不再單獨成頁，改放進
  *  XGP 家機（Game Pass）與 PS Plus 兩個分頁裡（新進遊戲在上、
- *  方案價目在下）；本頁只有四個分頁：XBOX 家機（預設）、XGP 家機、
- *  PlayStation、PS Plus。舊 /membership 導向本頁，導覽列不再單獨列
- *  會員方案。
+ *  方案價目在下）；本頁有五個分頁：XBOX 家機（預設）、XGP 家機、
+ *  PlayStation、PS Plus、免費遊戲（2026-11-26 新增，家機免費遊戲）。
+ *  舊 /membership 導向本頁，導覽列不再單獨列會員方案。
  *  XBOX 家機：Reco 特價清單＋Display Catalog（filter Windows.Xbox，
  *  與 PC 版同一條管線），前 900 款、每頁 30 款、折扣大→小，每小時快取。
  *  分頁狀態進 URL（低 B-3，2026-11-23）：?tab= 決定初始分頁（無效值
@@ -70,6 +72,10 @@ const EMPTY_PS_PLUS: PsPlusNewData = {
   totalCount: 0,
   shownCount: 0,
 };
+const EMPTY_CONSOLE_FREE: ConsoleFreeGamesData = {
+  items: [],
+  fetchedAt: "",
+};
 
 export default async function ConsolePage({
   searchParams,
@@ -78,11 +84,17 @@ export default async function ConsolePage({
 }) {
   // ?tab= 決定初始分頁（無效值回預設 xbox-console），?page= 決定該分頁初始頁碼。
   const rawTab = searchParams.tab;
-  const initialTab: "xbox-console" | "gamepass" | "ps" | "psplus" =
+  const initialTab:
+    | "xbox-console"
+    | "gamepass"
+    | "ps"
+    | "psplus"
+    | "free" =
     rawTab === "xbox-console" ||
     rawTab === "gamepass" ||
     rawTab === "ps" ||
-    rawTab === "psplus"
+    rawTab === "psplus" ||
+    rawTab === "free"
       ? rawTab
       : "xbox-console";
   const initialPage = Math.max(
@@ -91,12 +103,14 @@ export default async function ConsolePage({
   );
   // 單一來源抓失敗時（getter 拋錯、空結果不進快取）只讓該分頁顯示空狀態，
   // 不拖垮整頁；下次請求會重抓（2026-11-23 Xbox 三分頁 18:14 中毒的教訓）。
-  const [xboxConsole, ps, gamepassConsole, psplus] = await Promise.all([
-    getCachedXboxConsoleDeals().catch(() => EMPTY_XBOX_CONSOLE),
-    getCachedPsDeals().catch(() => EMPTY_PS),
-    getCachedGamePassNew("console").catch(() => EMPTY_GAMEPASS),
-    getCachedPsPlusNew().catch(() => EMPTY_PS_PLUS),
-  ]);
+  const [xboxConsole, ps, gamepassConsole, psplus, consoleFree] =
+    await Promise.all([
+      getCachedXboxConsoleDeals().catch(() => EMPTY_XBOX_CONSOLE),
+      getCachedPsDeals().catch(() => EMPTY_PS),
+      getCachedGamePassNew("console").catch(() => EMPTY_GAMEPASS),
+      getCachedPsPlusNew().catch(() => EMPTY_PS_PLUS),
+      getCachedConsoleFreeGames().catch(() => EMPTY_CONSOLE_FREE),
+    ]);
 
   return (
     <>
@@ -105,9 +119,11 @@ export default async function ConsolePage({
       </h1>
       <p className="muted">
         Xbox 家機特價、XGP 家機新進＋Game Pass 方案價目、PlayStation
-        特價、PS Plus 本月新進＋PS Plus 方案價目——四個分頁都在這一頁，
-        上方點分頁切換、不跳頁。
+        特價、PS Plus 本月新進＋PS Plus 方案價目、家機免費遊戲——五個分頁
+        都在這一頁，上方點分頁切換、不跳頁。
         特價清單是台灣區、每小時更新一次；只列台灣區——跨區帳號可能被鎖，這裡不做跨區切換。
+        家機免費遊戲跟 /deals 免費區同一份來源（GamerPower 聚合）、
+        每小時自動更新，DLC 與跨平台品項有標註。
       </p>
       <p className="muted">
         資料更新：
@@ -138,6 +154,7 @@ export default async function ConsolePage({
         psplusMonth={psplus.month}
         psplusCatalogUrl={psplus.catalogUrl}
         psplusMonthlyUrl={psplus.monthlyUrl}
+        consoleFree={consoleFree.items}
         initialTab={initialTab}
         initialPage={initialPage}
       />
