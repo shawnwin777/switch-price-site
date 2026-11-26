@@ -47,6 +47,12 @@ export type DealsCarouselSource =
   | "gamerpower"
   | "gog";
 
+/** 免費遊戲分類（/deals 免費遊戲領取的篩選鈕用）：
+ *  pc＝PC 完整遊戲、dlc＝PC DLC、console＝家機完整遊戲、
+ *  console-dlc＝家機 DLC。跨平台物品可同時屬於多類
+ *  （例如巫師 3 DLC 同時是 dlc 與 console-dlc）。 */
+export type FreeKind = "pc" | "dlc" | "console" | "console-dlc";
+
 export interface DealsCarouselItem {
   source: DealsCarouselSource;
   /** 來源內的穩定 key（Steam app id／Epic urlSlug），給 React key 用。 */
@@ -64,6 +70,8 @@ export interface DealsCarouselItem {
   subLine: string | null;
   /** 截止日警告：領取／特價期限在 24 小時內時為 true，卡片用 sale-urgent（琥珀色＋⚠）顯示，跟 Switch 牆一樣。 */
   endingSoon?: boolean;
+  /** 免費遊戲分類（只給免費遊戲領取的物品用；見上方 FreeKind）。 */
+  freeKinds?: FreeKind[];
   /** 排序鍵：Steam 折扣大→小；Epic 進行中（依截止日近→遠）在前、下週預告在後。 */
   sortKey: number;
 }

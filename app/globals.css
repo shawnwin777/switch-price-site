@@ -2541,6 +2541,24 @@ table.price-table {
   margin: 14px 0 8px;
 }
 
+/* 免費遊戲領取的分類篩選列：標題在左、篩選鈕在右，窄螢幕自動換行。 */
+.deals-filter-row {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.deals-filter-row .deals-subhead {
+  margin: 14px 0 8px;
+}
+
+.deals-filter-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .deals-grid {
   display: grid;
   gap: 12px;

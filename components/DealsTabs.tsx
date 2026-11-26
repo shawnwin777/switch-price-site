@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import type { DealsCarouselItem } from "@/lib/deals-carousel";
+import type { DealsCarouselItem, FreeKind } from "@/lib/deals-carousel";
 import { pageWindow } from "@/lib/pagination";
 import DealCard from "./DealCard";
 import MembershipServiceSection from "./MembershipTabs";
@@ -81,6 +81,24 @@ export default function DealsTabs({
       ? { [initialTab]: initialPage }
       : {}),
   });
+
+  // 免費遊戲領取的分類篩選（全部／PC／DLC／家機／家機 DLC），
+  // 切換時回到第 1 頁（免費分頁不翻頁，這裡只是避免殘留頁碼）。
+  const [freeFilter, setFreeFilter] = useState<"all" | FreeKind>("all");
+  const freeFilterCounts: Record<"all" | FreeKind, number> = {
+    all: freeGames.length,
+    pc: freeGames.filter((it) => it.freeKinds?.includes("pc")).length,
+    dlc: freeGames.filter((it) => it.freeKinds?.includes("dlc")).length,
+    console: freeGames.filter((it) => it.freeKinds?.includes("console"))
+      .length,
+    "console-dlc": freeGames.filter((it) =>
+      it.freeKinds?.includes("console-dlc")
+    ).length,
+  };
+  const freeFiltered =
+    freeFilter === "all"
+      ? freeGames
+      : freeGames.filter((it) => it.freeKinds?.includes(freeFilter));
 
   /** 分頁 URL：?tab= 一定帶，?page= 只有 >1 才帶（第 1 頁保持短網址）。 */
   const tabUrl = (tab: TabKey, page: number) =>
@@ -296,15 +314,49 @@ export default function DealsTabs({
           <div className="deals-section-body">
             {freeGames.length > 0 ? (
               <>
-                <h3 className="deals-subhead">免費遊戲領取</h3>
-                <p className="muted">
-                  PC 完整遊戲免費領取（Epic／GOG／GamerPower 聚合，點卡片去官方頁面領取）。
-                </p>
-                <div className="deals-grid">
-                  {freeGames.map((item) => (
-                    <DealCard key={item.key} item={item} />
-                  ))}
+                <div className="deals-filter-row">
+                  <h3 className="deals-subhead">免費遊戲領取</h3>
+                  <div
+                    className="deals-filter-btns"
+                    role="group"
+                    aria-label="免費遊戲分類"
+                  >
+                    {(
+                      [
+                        ["all", "全部"],
+                        ["pc", "PC"],
+                        ["dlc", "DLC"],
+                        ["console", "家機"],
+                        ["console-dlc", "家機 DLC"],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`chip ${freeFilter === key ? "active" : ""}`}
+                        aria-pressed={freeFilter === key}
+                        onClick={() => setFreeFilter(key)}
+                      >
+                        {label} ({freeFilterCounts[key]})
+                      </button>
+                    ))}
+                  </div>
                 </div>
+                <p className="muted">
+                  免費領取（Epic／GOG／GamerPower 聚合，點卡片去官方頁面領取；DLC
+                  與家機遊戲有標註）。
+                </p>
+                {freeFiltered.length > 0 ? (
+                  <div className="deals-grid">
+                    {freeFiltered.map((item) => (
+                      <DealCard key={item.key} item={item} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="muted">
+                    這個分類目前沒有免費領取的項目。
+                  </p>
+                )}
               </>
             ) : (
               <p className="muted">

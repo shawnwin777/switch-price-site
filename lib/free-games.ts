@@ -1,4 +1,8 @@
-import type { DealsCarouselItem, DealsCarouselSource } from "./deals-carousel";
+import type {
+  DealsCarouselItem,
+  DealsCarouselSource,
+  FreeKind,
+} from "./deals-carousel";
 import { isSaleEndingSoon, saleEndLabel } from "./format";
 
 /** 免費 PC 遊戲清單（/deals 免費遊戲分頁用），網站直接抓、完全自動化。
@@ -134,6 +138,7 @@ function parseEpic(data: unknown, nowMs: number): {
       current.push({
         badge: "免費",
         endingSoon: isSaleEndingSoon(freeNow.endDate),
+        freeKinds: ["pc"],
         image,
         key: `free-epic-${el.urlSlug}`,
         priceLine: originalPrice ? `原價 ${originalPrice}` : "免費領取",
@@ -147,6 +152,7 @@ function parseEpic(data: unknown, nowMs: number): {
       const start = formatTaipeiDate(freeNext.startDate);
       upcoming.push({
         badge: "即將免費",
+        freeKinds: ["pc"],
         image,
         key: `free-epic-${el.urlSlug}`,
         priceLine: originalPrice ? `原價 ${originalPrice}` : "即將免費",
@@ -250,9 +256,20 @@ function parseGamerPower(data: unknown): DealsCarouselItem[] {
       deadline && note
         ? `${deadline} · ${note}`
         : (deadline ?? note);
+    // 分類（篩選鈕用）：DLC 進 dlc／家機 DLC，完整遊戲進 pc／家機；
+    // 跨平台同時進兩類（例如巫師 3 DLC 同時是 dlc 與 console-dlc）。
+    const freeKinds: FreeKind[] = [];
+    if (g?.type === "DLC") {
+      if (hasPc) freeKinds.push("dlc");
+      if (consoles.length > 0) freeKinds.push("console-dlc");
+    } else {
+      if (hasPc) freeKinds.push("pc");
+      if (consoles.length > 0) freeKinds.push("console");
+    }
     items.push({
       badge: "免費",
       endingSoon,
+      freeKinds,
       image,
       key: `free-gamerpower-${g.id}`,
       priceLine: worth ? `原價 ${worth}` : "免費領取",
