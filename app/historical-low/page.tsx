@@ -6,6 +6,7 @@ import { COUNTRY_MAP } from "@/lib/countries";
 import { pageWindow } from "@/lib/pagination";
 import { formatTwd } from "@/lib/format";
 import RankCover from "@/components/RankCover";
+import PaginationFab from "@/components/PaginationFab";
 import NearLowCountryFilter from "@/components/NearLowCountryFilter";
 
 export const dynamic = "force-dynamic";
@@ -179,6 +180,12 @@ export default async function HistoricalLowPage({
               )}
             </nav>
           )}
+          <PaginationFab
+            page={result.page}
+            totalPages={result.totalPages}
+            basePath="/historical-low"
+            country={country}
+          />
         </>
       )}
     </>

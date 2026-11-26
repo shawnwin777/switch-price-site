@@ -5,6 +5,7 @@ import { cheapestPrice, UPCOMING_PAGE_SIZE } from "@/lib/data";
 import { pageWindow } from "@/lib/pagination";
 import { formatTwd } from "@/lib/format";
 import RankCover from "@/components/RankCover";
+import PaginationFab from "@/components/PaginationFab";
 
 export const dynamic = "force-dynamic";
 
@@ -150,6 +151,11 @@ export default async function UpcomingPage({
               )}
             </nav>
           )}
+          <PaginationFab
+            page={result.page}
+            totalPages={result.totalPages}
+            basePath="/upcoming"
+          />
         </>
       )}
     </>
