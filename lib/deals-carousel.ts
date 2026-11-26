@@ -1,4 +1,4 @@
-import { getFreeGames } from "./free-games";
+import { fetchFreeGames } from "./free-games";
 
 // ============================================================================
 // Steam 特價＋Epic 免費遊戲（/deals 獨立頁面）：伺服器端抓取（不需金鑰）。
@@ -492,9 +492,10 @@ function parseEpic(data: unknown, nowMs: number): {
  *  「Steam 資料暫時不完整」提示，不能當成正式結果默默呈現。 */
 export async function fetchDealsPage(): Promise<DealsPageData> {
   const nowMs = Date.now();
-  const [steamSearch, epicRes] = await Promise.allSettled([
+  const [steamSearch, epicRes, freeRes] = await Promise.allSettled([
     fetchSteamSearchTop(),
     fetchJson(EPIC_URL),
+    fetchFreeGames(),
   ]);
   let steamItems: DealsCarouselItem[] = [];
   let steamFree: DealsCarouselItem[] = [];
@@ -535,10 +536,15 @@ export async function fetchDealsPage(): Promise<DealsPageData> {
   }
   // Steam 特價在前（折扣大→小），Epic 免費在後（進行中→下週預告）。
   const items = [...steamItems, ...epicCurrent, ...epicUpcoming];
-  // 免費資源自動抓的 PC 完整遊戲（Epic＋GOG＋GamerPower；見 lib/free-games.ts）。
-  // 讀 data/free-games.json（每日同步 cron 從 artifact 重新產生），
+  // 免費遊戲直接抓（Epic US＋GamerPower；見 lib/free-games.ts），
   // 失敗時回空陣列、不影響 Steam／Epic。
-  const freeGames = getFreeGames();
+  const freeGames =
+    freeRes.status === "fulfilled"
+      ? freeRes.value
+      : { current: [] as DealsCarouselItem[], upcoming: [] as DealsCarouselItem[] };
+  if (freeRes.status === "rejected") {
+    console.warn("[deals-carousel] 免費遊戲抓取失敗：", freeRes.reason);
+  }
   return {
     items,
     steam: steamItems,
