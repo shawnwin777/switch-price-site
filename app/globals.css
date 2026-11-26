@@ -2387,6 +2387,25 @@ table.price-table {
   color: #c084fc;
 }
 
+/* EA／Ubisoft／Fanatical 特價分頁（2026-11-26 新增）。 */
+.deals-badge-ea {
+  background: rgba(245, 108, 45, 0.16);
+  border: 1px solid #f56c2d;
+  color: #ff9a66;
+}
+
+.deals-badge-ubisoft {
+  background: rgba(0, 112, 209, 0.16);
+  border: 1px solid #0070d1;
+  color: #6db3f2;
+}
+
+.deals-badge-fanatical {
+  background: rgba(139, 92, 246, 0.16);
+  border: 1px solid #8b5cf6;
+  color: #a78bfa;
+}
+
 .deals-item-title {
   color: var(--text);
   font-size: 20px;

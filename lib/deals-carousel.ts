@@ -1,4 +1,7 @@
+import { fetchEaDeals } from "./ea-deals";
+import { fetchFanaticalDeals } from "./fanatical-deals";
 import { fetchFreeGames } from "./free-games";
+import { fetchUbisoftDeals } from "./ubisoft-deals";
 
 // ============================================================================
 // Steam 特價＋Epic 免費遊戲（/deals 獨立頁面）：伺服器端抓取（不需金鑰）。
@@ -45,7 +48,10 @@ export type DealsCarouselSource =
   | "xbox"
   | "ps"
   | "gamerpower"
-  | "gog";
+  | "gog"
+  | "ea"
+  | "ubisoft"
+  | "fanatical";
 
 /** 免費遊戲分類（/deals 免費遊戲領取的篩選鈕用）：
  *  pc＝PC 完整遊戲、dlc＝PC DLC、console＝家機完整遊戲、
@@ -94,6 +100,15 @@ export interface DealsPageData {
   freeGames: DealsCarouselItem[];
   /** 免費資源自動抓的即將免費遊戲（下週預告）。 */
   freeGamesUpcoming: DealsCarouselItem[];
+  /** EA 特價（美國商店、美元計價；見 lib/ea-deals.ts）。
+   *  只含特價品項（折扣 <100%）；免費品項已合併進 freeGames。 */
+  ea: DealsCarouselItem[];
+  /** Ubisoft 特價（美國商店、美元計價；見 lib/ubisoft-deals.ts，
+   *  目前只列特價頁前 36 款）。只含特價品項；免費品項已合併進 freeGames。 */
+  ubisoft: DealsCarouselItem[];
+  /** Fanatical 特價（官方授權序號商、美國商店、美元計價；
+   *  見 lib/fanatical-deals.ts）。只含特價品項；免費品項已合併進 freeGames。 */
+  fanatical: DealsCarouselItem[];
   /** 抓取時間（ISO），除錯／快取觀察用。 */
   fetchedAt: string;
   steamCount: number;
@@ -110,6 +125,9 @@ export interface DealsPageData {
   steamFromFallback: boolean;
   epicCurrentCount: number;
   epicUpcomingCount: number;
+  eaCount: number;
+  ubisoftCount: number;
+  fanaticalCount: number;
 }
 
 const STEAM_URL =
@@ -502,11 +520,15 @@ function parseEpic(data: unknown, nowMs: number): {
  *  「Steam 資料暫時不完整」提示，不能當成正式結果默默呈現。 */
 export async function fetchDealsPage(): Promise<DealsPageData> {
   const nowMs = Date.now();
-  const [steamSearch, epicRes, freeRes] = await Promise.allSettled([
-    fetchSteamSearchTop(),
-    fetchJson(EPIC_URL),
-    fetchFreeGames(),
-  ]);
+  const [steamSearch, epicRes, freeRes, eaRes, ubiRes, fanRes] =
+    await Promise.allSettled([
+      fetchSteamSearchTop(),
+      fetchJson(EPIC_URL),
+      fetchFreeGames(),
+      fetchEaDeals(),
+      fetchUbisoftDeals(),
+      fetchFanaticalDeals(),
+    ]);
   let steamItems: DealsCarouselItem[] = [];
   let steamFree: DealsCarouselItem[] = [];
   let steamTotalCount = 0;
@@ -555,14 +577,50 @@ export async function fetchDealsPage(): Promise<DealsPageData> {
   if (freeRes.status === "rejected") {
     console.warn("[deals-carousel] 免費遊戲抓取失敗：", freeRes.reason);
   }
+  // EA／Ubisoft／Fanatical 特價：各自失敗回空陣列、不拖垮其他來源；
+  // 下次快取到期自動重抓（每小時，見 lib/cached-data.ts）。
+  // 免費／特價分流（2026-11-26）：三個來源的免費品項（fetcher 已標
+  // freeKinds ["pc"]、badge「免費」）不進各平台特價分頁，改合併進
+  // 免費遊戲區，跟 Epic／GamerPower 同一個清單；特價品項（折扣 <100%）
+  // 才留各平台自己的分頁。免費區按現有規則重排：截止日近→遠在前、
+  // 無截止日排最後（sortKey＝截止日毫秒或 MAX_SAFE_INTEGER）。
+  const eaAll = eaRes.status === "fulfilled" ? eaRes.value : [];
+  const ubisoftAll = ubiRes.status === "fulfilled" ? ubiRes.value : [];
+  const fanaticalAll = fanRes.status === "fulfilled" ? fanRes.value : [];
+  if (eaRes.status === "rejected") {
+    console.warn("[deals-carousel] EA 特價抓取失敗：", eaRes.reason);
+  }
+  if (ubiRes.status === "rejected") {
+    console.warn("[deals-carousel] Ubisoft 特價抓取失敗：", ubiRes.reason);
+  }
+  if (fanRes.status === "rejected") {
+    console.warn("[deals-carousel] Fanatical 特價抓取失敗：", fanRes.reason);
+  }
+  const isFreeItem = (it: DealsCarouselItem) =>
+    (it.freeKinds?.length ?? 0) > 0;
+  const eaFree = eaAll.filter(isFreeItem);
+  const ubisoftFree = ubisoftAll.filter(isFreeItem);
+  const fanaticalFree = fanaticalAll.filter(isFreeItem);
+  const ea = eaAll.filter((it) => !isFreeItem(it));
+  const ubisoft = ubisoftAll.filter((it) => !isFreeItem(it));
+  const fanatical = fanaticalAll.filter((it) => !isFreeItem(it));
+  const freeGamesMerged = [
+    ...freeGames.current,
+    ...eaFree,
+    ...ubisoftFree,
+    ...fanaticalFree,
+  ].sort((a, b) => a.sortKey - b.sortKey);
   return {
     items,
     steam: steamItems,
     steamFree,
     epicCurrent,
     epicUpcoming,
-    freeGames: freeGames.current,
+    freeGames: freeGamesMerged,
     freeGamesUpcoming: freeGames.upcoming,
+    ea,
+    ubisoft,
+    fanatical,
     fetchedAt: new Date(nowMs).toISOString(),
     steamCount: steamItems.length,
     steamFreeCount: steamFree.length,
@@ -570,5 +628,8 @@ export async function fetchDealsPage(): Promise<DealsPageData> {
     steamFromFallback,
     epicCurrentCount: epicCurrent.length,
     epicUpcomingCount: epicUpcoming.length,
+    eaCount: ea.length,
+    ubisoftCount: ubisoft.length,
+    fanaticalCount: fanatical.length,
   };
 }

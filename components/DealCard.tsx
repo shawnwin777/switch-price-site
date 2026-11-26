@@ -7,6 +7,9 @@ const SOURCE_LABEL: Record<DealsCarouselItem["source"], string> = {
   ps: "PlayStation",
   gamerpower: "GamerPower",
   gog: "GOG",
+  ea: "EA",
+  ubisoft: "Ubisoft",
+  fanatical: "Fanatical",
 };
 
 const SOURCE_BADGE_CLASS: Record<DealsCarouselItem["source"], string> = {
@@ -16,6 +19,9 @@ const SOURCE_BADGE_CLASS: Record<DealsCarouselItem["source"], string> = {
   ps: "deals-badge-ps",
   gamerpower: "deals-badge-gamerpower",
   gog: "deals-badge-gog",
+  ea: "deals-badge-ea",
+  ubisoft: "deals-badge-ubisoft",
+  fanatical: "deals-badge-fanatical",
 };
 
 /** /deals 用的單一特價／免費遊戲卡片：圖片在上、標題＋價格在下，

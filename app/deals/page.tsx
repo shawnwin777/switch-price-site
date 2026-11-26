@@ -34,9 +34,16 @@ export const metadata = {
  *  XBOX PC 分頁取折扣最大的前 900 款（台灣區共約 500 款特價）。
  *  GAME PASS 分頁（2026-11-23 新增）：Game Pass 最近新增（PC），
  *  官方最近新增清單順序、卡片標「新進」（見 lib/gamepass.ts）。
+ *  EA／UBISOFT／FANATICAL 分頁（2026-11-26 新增）：三家都是美國商店、
+ *  美元計價；EA 特價頁全清單、Ubisoft 特價頁前 36 款、Fanatical
+ *  官方 MCP 特價前 100 款（見 lib/ea-deals.ts、lib/ubisoft-deals.ts、
+ *  lib/fanatical-deals.ts；每小時自動更新）。
  *  家機不在這頁：2026-11-23 12:17 shawn 改方向，Xbox 家機改去獨立頁
  *  /console（PS 家機也在那頁等上線），本頁維持 PC 頁。
- *  資料伺服器端抓取、每小時快取（lib/cached-data.ts）。 */
+ *  資料伺服器端抓取、每小時快取（lib/cached-data.ts）。
+ *  版權聲明（2026-11-26 新增，頁面最下方）：本頁各平台的遊戲名稱、
+ *  圖片、價格皆取自該平台官方商店，版權與商標歸各權利人所有；
+ *  本站與各平台均無關聯，亦未獲得其背書或授權。 */
 const EMPTY_DEALS: DealsPageData = {
   items: [],
   steam: [],
@@ -45,6 +52,9 @@ const EMPTY_DEALS: DealsPageData = {
   epicUpcoming: [],
   freeGames: [],
   freeGamesUpcoming: [],
+  ea: [],
+  ubisoft: [],
+  fanatical: [],
   fetchedAt: "",
   steamCount: 0,
   steamFreeCount: 0,
@@ -52,6 +62,9 @@ const EMPTY_DEALS: DealsPageData = {
   steamFromFallback: false,
   epicCurrentCount: 0,
   epicUpcomingCount: 0,
+  eaCount: 0,
+  ubisoftCount: 0,
+  fanaticalCount: 0,
 };
 const EMPTY_XBOX_PC: XboxPcDealsData = {
   items: [],
@@ -73,11 +86,21 @@ export default async function DealsPage({
 }) {
   // ?tab= 決定初始分頁（無效值回預設 steam），?page= 決定該分頁初始頁碼。
   const rawTab = searchParams.tab;
-  const initialTab: "free" | "steam" | "xbox" | "gamepass" =
+  const initialTab:
+    | "free"
+    | "steam"
+    | "xbox"
+    | "gamepass"
+    | "ea"
+    | "ubisoft"
+    | "fanatical" =
     rawTab === "free" ||
     rawTab === "steam" ||
     rawTab === "xbox" ||
-    rawTab === "gamepass"
+    rawTab === "gamepass" ||
+    rawTab === "ea" ||
+    rawTab === "ubisoft" ||
+    rawTab === "fanatical"
       ? rawTab
       : "steam";
   const initialPage = Math.max(
@@ -99,7 +122,8 @@ export default async function DealsPage({
       </h1>
       <p className="muted">
         台灣區 Steam 特價、免費遊戲領取（Epic／GOG／GamerPower）、Xbox PC
-        特價與 Game Pass 最近新增完整清單，每小時更新一次。
+        特價、Game Pass 最近新增，以及 EA、Ubisoft、Fanatical（美國商店、
+        美元計價）特價完整清單，每小時更新一次。
         只列台灣區——跨區帳號可能被鎖，這裡不做跨區切換。
       </p>
       <p className="muted">
@@ -137,9 +161,22 @@ export default async function DealsPage({
         xboxTotalCount={xbox.totalCount}
         gamepass={gamepassPc.items}
         gamepassTotalCount={gamepassPc.totalCount}
+        ea={deals.ea}
+        ubisoft={deals.ubisoft}
+        fanatical={deals.fanatical}
         initialTab={initialTab}
         initialPage={initialPage}
       />
+      {/* 版權聲明（2026-11-26 新增，整頁最下方）：本頁各平台的遊戲名稱、
+          圖片、價格皆取自該平台官方商店，版權與商標歸各權利人所有；
+          本站與各平台均無關聯，亦未獲得其背書或授權；圖片為直接引用
+          官方商店圖片連結，未下載轉存；價格僅供參考，以各官方商店
+          結帳頁為準。語氣跟頁尾非官方聲明一致。 */}
+      <p className="muted">
+        本頁遊戲名稱、圖片、價格皆取自各平台官方商店公開資料：Steam、Epic
+        Games、Xbox／Microsoft（含 Game
+        Pass）、EA、Ubisoft、Fanatical、GamerPower、GOG，版權與商標歸各權利人所有。本站與上述任何平台均無關聯，亦未獲得其背書或授權。圖片為直接引用官方商店圖片連結，未下載轉存；價格僅供參考，以各官方商店結帳頁為準。
+      </p>
     </>
   );
 }

@@ -90,7 +90,12 @@ import {
  *  2026-11-26 免費遊戲截止日跟 Switch 牆一樣：顯示時間＋倒數，
  *  24 小時內琥珀色＋⚠ 警告，key 換成 deals-page-v13。
  *  2026-11-26 免費遊戲領取加分類篩選（全部／PC／DLC／家機／家機 DLC），
- *  key 換成 deals-page-v14。 */
+ *  key 換成 deals-page-v14。
+ *  2026-11-26 新增 EA／Ubisoft／Fanatical 三個特價分頁（DealsPageData
+ *  加 ea／ubisoft／fanatical 欄位），key 換成 deals-page-v15。
+ *  三個新來源都走同一套機制：fetchDealsPage 裡一起抓、每小時自動更新，
+ *  不用另外開 cron、不用手動同步、不用推 GitHub 更新資料；
+ *  單一來源失敗回空陣列、不拖垮整頁，下次快取到期自動重抓。 */
 export const getCachedDealsPage = unstable_cache(
   async (): Promise<DealsPageData> => {
     const data = await fetchDealsPage();
@@ -106,7 +111,7 @@ export const getCachedDealsPage = unstable_cache(
     }
     return data;
   },
-  ["deals-page-v14"],
+  ["deals-page-v15"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-page"] }
 );
 

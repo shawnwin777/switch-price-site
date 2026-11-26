@@ -10,13 +10,16 @@ import MembershipServiceSection from "./MembershipTabs";
 /** 每頁顯示款數（shawn 定：一次只呈現 30 款，900 款剛好 30 頁）。 */
 const PAGE_SIZE = 30;
 
-type TabKey = "free" | "steam" | "xbox" | "gamepass";
+type TabKey = "free" | "steam" | "xbox" | "gamepass" | "ea" | "ubisoft" | "fanatical";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "free", label: "免費遊戲" },
   { key: "steam", label: "STEAM" },
   { key: "xbox", label: "XBOX PC" },
   { key: "gamepass", label: "PC Game Pass" },
+  { key: "ea", label: "EA" },
+  { key: "ubisoft", label: "UBISOFT" },
+  { key: "fanatical", label: "FANATICAL" },
 ];
 
 /** /deals 分頁框：同一頁上方四個分頁，點了不跳頁（同路由，只更新
@@ -39,7 +42,12 @@ const TABS: { key: TabKey; label: string }[] = [
  *  GAME PASS 分頁（2026-11-23 新增，標籤「PC Game Pass」）：
  *  Game Pass 最近新增（PC），官方最近新增清單順序、卡片標「新進」、
  *  不寫價格（訂閱內含）；下方接 Game Pass 方案價目。分頁永遠顯示，
- *  新進遊戲沒資料時只在遊戲區顯示空狀態。 */
+ *  新進遊戲沒資料時只在遊戲區顯示空狀態。
+ *  EA／UBISOFT／FANATICAL 分頁（2026-11-26 新增）：
+ *  三家都是美國商店、美元計價；EA 抓特價頁全清單（104 款，見
+ *  lib/ea-deals.ts）、Ubisoft 抓特價頁前 36 款（見 lib/ubisoft-deals.ts）、
+ *  Fanatical 抓官方 MCP 特價前 100 款（見 lib/fanatical-deals.ts）。
+ *  單一來源失敗只讓該分頁顯示空狀態，不拖垮其他分頁。 */
 export default function DealsTabs({
   freeGames,
   freeGamesUpcoming,
@@ -51,6 +59,9 @@ export default function DealsTabs({
   xboxTotalCount,
   gamepass,
   gamepassTotalCount,
+  ea,
+  ubisoft,
+  fanatical,
   initialTab,
   initialPage,
 }: {
@@ -64,6 +75,9 @@ export default function DealsTabs({
   xboxTotalCount: number;
   gamepass: DealsCarouselItem[];
   gamepassTotalCount: number;
+  ea: DealsCarouselItem[];
+  ubisoft: DealsCarouselItem[];
+  fanatical: DealsCarouselItem[];
   /** server 從 ?tab=／?page= 讀到的初始分頁／頁碼（無效值已在 page 層濾掉）。 */
   initialTab?: TabKey;
   initialPage?: number;
@@ -77,6 +91,9 @@ export default function DealsTabs({
     steam: 1,
     xbox: 1,
     gamepass: 1,
+    ea: 1,
+    ubisoft: 1,
+    fanatical: 1,
     ...(initialTab && initialPage && initialPage > 1
       ? { [initialTab]: initialPage }
       : {}),
@@ -123,7 +140,10 @@ export default function DealsTabs({
         rawTab === "free" ||
         rawTab === "steam" ||
         rawTab === "xbox" ||
-        rawTab === "gamepass"
+        rawTab === "gamepass" ||
+        rawTab === "ea" ||
+        rawTab === "ubisoft" ||
+        rawTab === "fanatical"
           ? rawTab
           : null;
       if (!tab) return;
@@ -141,6 +161,9 @@ export default function DealsTabs({
     steam: steam.length,
     xbox: xbox.length,
     gamepass: gamepass.length,
+    ea: ea.length,
+    ubisoft: ubisoft.length,
+    fanatical: fanatical.length,
   };
   const totalPages = (key: TabKey) =>
     Math.max(1, Math.ceil(counts[key] / PAGE_SIZE));
@@ -285,6 +308,9 @@ export default function DealsTabs({
   const steamPage = pageItems("steam", steam);
   const xboxPage = pageItems("xbox", xbox);
   const gamepassPage = pageItems("gamepass", gamepass);
+  const eaPage = pageItems("ea", ea);
+  const ubisoftPage = pageItems("ubisoft", ubisoft);
+  const fanaticalPage = pageItems("fanatical", fanatical);
 
   return (
     <div>
@@ -503,6 +529,101 @@ export default function DealsTabs({
             </a>
           </p>
           <MembershipServiceSection serviceId="game-pass" />
+        </section>
+      )}
+
+      {active === "ea" && (
+        <section className="deals-section" aria-label="EA">
+          {sectionHead(
+            "🟠 EA",
+            `折扣大→小 · 特價中 ${ea.length} 款`
+          )}
+          {eaPage.length > 0 ? (
+            <div className="deals-grid">
+              {eaPage.map((item) => (
+                <DealCard key={item.key} item={item} />
+              ))}
+            </div>
+          ) : (
+            <p className="muted">
+              目前 EA 美國商店沒有特價資訊，請稍後再試。
+            </p>
+          )}
+          {renderPager("ea")}
+          <p className="muted">
+            EA 特價為美元計價（EA 美國商店）。完整清單請看{" "}
+            <a
+              href="https://www.ea.com/sales/deals/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              EA 特價頁 →
+            </a>
+          </p>
+        </section>
+      )}
+
+      {active === "ubisoft" && (
+        <section className="deals-section" aria-label="UBISOFT">
+          {sectionHead(
+            "🟣 UBISOFT",
+            `折扣大→小 · 特價頁前 ${ubisoft.length} 款`
+          )}
+          {ubisoftPage.length > 0 ? (
+            <div className="deals-grid">
+              {ubisoftPage.map((item) => (
+                <DealCard key={item.key} item={item} />
+              ))}
+            </div>
+          ) : (
+            <p className="muted">
+              目前 Ubisoft 美國商店沒有特價資訊，請稍後再試。
+            </p>
+          )}
+          {renderPager("ubisoft")}
+          <p className="muted">
+            Ubisoft 特價為美元計價（Ubisoft 美國商店）；目前只列特價頁前 36
+            款。完整清單請看{" "}
+            <a
+              href="https://store.ubisoft.com/us/bargain-bin-sale"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Ubisoft 特價頁 →
+            </a>
+          </p>
+        </section>
+      )}
+
+      {active === "fanatical" && (
+        <section className="deals-section" aria-label="FANATICAL">
+          {sectionHead(
+            "💎 FANATICAL",
+            `折扣大→小 · 特價中 ${fanatical.length} 款`
+          )}
+          {fanaticalPage.length > 0 ? (
+            <div className="deals-grid">
+              {fanaticalPage.map((item) => (
+                <DealCard key={item.key} item={item} />
+              ))}
+            </div>
+          ) : (
+            <p className="muted">
+              目前 Fanatical 沒有特價資訊，請稍後再試。
+            </p>
+          )}
+          {renderPager("fanatical")}
+          <p className="muted">
+            Fanatical 特價為美元計價（美國商店）；官方授權序號商，賣
+            Steam／Epic／GOG 序號。完整清單請看{" "}
+            <a
+              href="https://www.fanatical.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Fanatical 商店 →
+            </a>
+          </p>
         </section>
       )}
 
