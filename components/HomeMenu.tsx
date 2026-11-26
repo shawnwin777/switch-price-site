@@ -285,7 +285,12 @@ function AboutPreview() {
           </a>
         </li>
         <li>
-          <span className="home-about-social-link home-about-social-static">
+          <a
+            href="https://discord.com/users/913092036079517717"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="home-about-social-link"
+          >
             <span className="home-about-social-icon" aria-hidden="true">
               <svg
                 viewBox="0 0 24 24"
@@ -304,7 +309,7 @@ function AboutPreview() {
               <span className="home-about-social-name">Discord</span>
               <span className="home-about-social-handle">shawn1106</span>
             </span>
-          </span>
+          </a>
         </li>
       </ul>
       <div className="home-about-donate">
