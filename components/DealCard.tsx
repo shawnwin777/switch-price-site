@@ -5,6 +5,8 @@ const SOURCE_LABEL: Record<DealsCarouselItem["source"], string> = {
   epic: "Epic",
   xbox: "Xbox",
   ps: "PlayStation",
+  gamerpower: "GamerPower",
+  gog: "GOG",
 };
 
 const SOURCE_BADGE_CLASS: Record<DealsCarouselItem["source"], string> = {
@@ -12,6 +14,8 @@ const SOURCE_BADGE_CLASS: Record<DealsCarouselItem["source"], string> = {
   epic: "deals-badge-epic",
   xbox: "deals-badge-xbox",
   ps: "deals-badge-ps",
+  gamerpower: "deals-badge-gamerpower",
+  gog: "deals-badge-gog",
 };
 
 /** /deals 用的單一特價／免費遊戲卡片：圖片在上、標題＋價格在下，

@@ -79,7 +79,9 @@ import {
  *  這裡拋錯會連 Epic 一起丟掉，標記＋提示比丟掉更實用；
  *  (3) key 換成 deals-page-v8，立刻丟掉被 10 款備援污染的 v7 快取、馬上重抓搜尋。
  *  2026-11-24 上限 510→900（Steam 抓 10 頁 1000 列取前 900），key 換成
- *  deals-page-v9。 */
+ *  deals-page-v9。2026-11-26 免費分頁改吃免費資源自動抓的清單
+ *  （data/free-games.json；DealsPageData 加 freeGames／freeGamesUpcoming），
+ *  key 換成 deals-page-v10（舊快取沒有這兩個欄位）。 */
 export const getCachedDealsPage = unstable_cache(
   async (): Promise<DealsPageData> => {
     const data = await fetchDealsPage();
@@ -95,7 +97,7 @@ export const getCachedDealsPage = unstable_cache(
     }
     return data;
   },
-  ["deals-page-v9"],
+  ["deals-page-v10"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-page"] }
 );
 

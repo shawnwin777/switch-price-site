@@ -23,8 +23,12 @@ export const metadata = {
  *  回預設 STEAM），?page= 決定該分頁初始頁碼；切換時元件用
  *  router.push／replace 更新 URL，上一頁能還原分頁。
  *  每平台取前 900 款（2026-11-24 從 510 改成 900），一次只顯示 30 款，在頁內翻頁（900 款剛好 30 頁）。
- *  免費遊戲分頁：Epic 免費遊戲（本週＋下週預告；Epic 特價抓不到——
- *  官網 403 擋機器人）＋Steam 限時免費領取（折扣 100% 的付費遊戲）；
+ *  免費遊戲分頁（2026-11-26 改吃免費資源自動抓的清單）：
+ *  免費資源自動抓（Epic 官方＋GOG 官方＋GamerPower 聚合）的 PC 完整遊戲
+ *  （進行中＋即將免費，見 data/free-games.json、lib/free-games.ts，
+ *  每日同步 cron 從 artifact 重新產生）＋Steam 限時免費領取
+ *  （折扣 100% 的付費遊戲）；Epic 本來就在免費資源清單裡，
+ *  原本只顯示 Epic 的專區已併入，不再單獨列。
  *  STEAM 分頁取折扣最大的前 900 款（特價搜尋 API，抓前 10 頁 1000 列再取前 900，
  *  不是全台灣 15,020 款裡的全域前 900）；
  *  XBOX PC 分頁取折扣最大的前 900 款（台灣區共約 500 款特價）。
@@ -39,6 +43,8 @@ const EMPTY_DEALS: DealsPageData = {
   steamFree: [],
   epicCurrent: [],
   epicUpcoming: [],
+  freeGames: [],
+  freeGamesUpcoming: [],
   fetchedAt: "",
   steamCount: 0,
   steamFreeCount: 0,
@@ -92,8 +98,8 @@ export default async function DealsPage({
         🎮 PC遊戲<span>特價</span>
       </h1>
       <p className="muted">
-        台灣區 Steam 特價、Epic 免費遊戲、Xbox PC 特價與 Game Pass
-        最近新增完整清單，每小時更新一次。
+        台灣區 Steam 特價、免費遊戲領取（Epic／GOG／GamerPower）、Xbox PC
+        特價與 Game Pass 最近新增完整清單，每小時更新一次。
         只列台灣區——跨區帳號可能被鎖，這裡不做跨區切換。
       </p>
       <p className="muted">
@@ -121,8 +127,8 @@ export default async function DealsPage({
         裡的全域前 900 款。
       </p>
       <DealsTabs
-        epicCurrent={deals.epicCurrent}
-        epicUpcoming={deals.epicUpcoming}
+        freeGames={deals.freeGames}
+        freeGamesUpcoming={deals.freeGamesUpcoming}
         steamFree={deals.steamFree}
         steam={deals.steam}
         steamTotalCount={deals.steamTotalCount}

@@ -28,8 +28,11 @@ const TABS: { key: TabKey; label: string }[] = [
  *  popstate 把 URL 讀回 state（元件不重掛，useSearchParams 會要
  *  Suspense 包裝所以不用它）。
  *  面板永遠展開、不摺疊（2026-11-23：分頁框模式下摺疊沒意義）。
- *  免費遊戲分頁：Epic 免費遊戲（本週＋下週預告）＋Steam 限時免費領取
- *  （折扣 100% 的付費遊戲，可永久保留；免費遊玩 F2P 不在這裡）。
+ *  免費遊戲分頁（2026-11-26 改吃免費資源自動抓的清單）：
+ *  免費資源自動抓（Epic 官方＋GOG 官方＋GamerPower 聚合）的 PC 完整遊戲
+ *  （進行中＋即將免費）＋Steam 限時免費領取（折扣 100% 的付費遊戲，
+ *  可永久保留；免費遊玩 F2P 不在這裡）。Epic 本來就在免費資源清單裡，
+ *  所以原本只顯示 Epic 的專區已併入免費資源清單，不再單獨列。
  *  每平台取前 900 款（2026-11-24 從 510 改成 900），一次只顯示 30 款，在頁內翻頁（900 款剛好 30 頁）。
  *  家機不在這頁：2026-11-23 12:17 shawn 改方向，Xbox 家機改去獨立頁
  *  /console，本頁維持 PC 頁（免費遊戲／STEAM／XBOX PC）。
@@ -38,8 +41,8 @@ const TABS: { key: TabKey; label: string }[] = [
  *  不寫價格（訂閱內含）；下方接 Game Pass 方案價目。分頁永遠顯示，
  *  新進遊戲沒資料時只在遊戲區顯示空狀態。 */
 export default function DealsTabs({
-  epicCurrent,
-  epicUpcoming,
+  freeGames,
+  freeGamesUpcoming,
   steamFree,
   steam,
   steamTotalCount,
@@ -51,8 +54,8 @@ export default function DealsTabs({
   initialTab,
   initialPage,
 }: {
-  epicCurrent: DealsCarouselItem[];
-  epicUpcoming: DealsCarouselItem[];
+  freeGames: DealsCarouselItem[];
+  freeGamesUpcoming: DealsCarouselItem[];
   steamFree: DealsCarouselItem[];
   steam: DealsCarouselItem[];
   steamTotalCount: number;
@@ -116,7 +119,7 @@ export default function DealsTabs({
   }, []);
 
   const counts: Record<TabKey, number> = {
-    free: epicCurrent.length + epicUpcoming.length + steamFree.length,
+    free: freeGames.length + freeGamesUpcoming.length + steamFree.length,
     steam: steam.length,
     xbox: xbox.length,
     gamepass: gamepass.length,
@@ -288,28 +291,31 @@ export default function DealsTabs({
         <section className="deals-section" aria-label="免費遊戲">
           {sectionHead(
             "🎮 免費遊戲",
-            `Epic 本週 ${epicCurrent.length} 款 · 下週預告 ${epicUpcoming.length} 款 · Steam 限時免費 ${steamFree.length} 款`
+            `免費領取 ${freeGames.length} 款 · 即將免費 ${freeGamesUpcoming.length} 款 · Steam 限時免費 ${steamFree.length} 款`
           )}
           <div className="deals-section-body">
-            {epicCurrent.length > 0 ? (
+            {freeGames.length > 0 ? (
               <>
-                <h3 className="deals-subhead">Epic 本週免費領取</h3>
+                <h3 className="deals-subhead">免費遊戲領取</h3>
+                <p className="muted">
+                  PC 完整遊戲免費領取（Epic／GOG／GamerPower 聚合，點卡片去官方頁面領取）。
+                </p>
                 <div className="deals-grid">
-                  {epicCurrent.map((item) => (
+                  {freeGames.map((item) => (
                     <DealCard key={item.key} item={item} />
                   ))}
                 </div>
               </>
             ) : (
               <p className="muted">
-                本週 Epic 台灣區暫無進行中的免費遊戲，下週預告如下。
+                目前沒有進行中的免費遊戲領取，下週預告如下。
               </p>
             )}
-            {epicUpcoming.length > 0 && (
+            {freeGamesUpcoming.length > 0 && (
               <>
-                <h3 className="deals-subhead">Epic 下週預告</h3>
+                <h3 className="deals-subhead">即將免費</h3>
                 <div className="deals-grid">
-                  {epicUpcoming.map((item) => (
+                  {freeGamesUpcoming.map((item) => (
                     <DealCard key={item.key} item={item} />
                   ))}
                 </div>
@@ -327,7 +333,7 @@ export default function DealsTabs({
             )}
             {counts.free === 0 && (
               <p className="muted">
-                目前 Epic 與 Steam 台灣區都沒有免費遊戲資訊，請稍後再試。
+                目前沒有免費遊戲資訊，請稍後再試。
               </p>
             )}
           </div>

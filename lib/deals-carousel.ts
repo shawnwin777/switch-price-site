@@ -1,3 +1,5 @@
+import { getFreeGames } from "./free-games";
+
 // ============================================================================
 // Steam 特價＋Epic 免費遊戲（/deals 獨立頁面）：伺服器端抓取（不需金鑰）。
 // ----------------------------------------------------------------------------
@@ -37,7 +39,13 @@
 // 頁面只顯示另一來源；兩邊都失敗時顯示空狀態（頁面不壞）。
 // ============================================================================
 
-export type DealsCarouselSource = "steam" | "epic" | "xbox" | "ps";
+export type DealsCarouselSource =
+  | "steam"
+  | "epic"
+  | "xbox"
+  | "ps"
+  | "gamerpower"
+  | "gog";
 
 export interface DealsCarouselItem {
   source: DealsCarouselSource;
@@ -69,6 +77,13 @@ export interface DealsPageData {
   epicCurrent: DealsCarouselItem[];
   /** Epic 下週預告。 */
   epicUpcoming: DealsCarouselItem[];
+  /** 免費資源自動抓的 PC 完整遊戲（進行中；Epic＋GOG＋GamerPower，
+   *  見 data/free-games.json、lib/free-games.ts）。2026-11-26 起，
+   *  /deals 免費分頁改以這份清單為主（取代原本只顯示 Epic 的專區，
+   *  Epic 本來就在這份清單裡）。 */
+  freeGames: DealsCarouselItem[];
+  /** 免費資源自動抓的即將免費遊戲（下週預告）。 */
+  freeGamesUpcoming: DealsCarouselItem[];
   /** 抓取時間（ISO），除錯／快取觀察用。 */
   fetchedAt: string;
   steamCount: number;
@@ -520,12 +535,18 @@ export async function fetchDealsPage(): Promise<DealsPageData> {
   }
   // Steam 特價在前（折扣大→小），Epic 免費在後（進行中→下週預告）。
   const items = [...steamItems, ...epicCurrent, ...epicUpcoming];
+  // 免費資源自動抓的 PC 完整遊戲（Epic＋GOG＋GamerPower；見 lib/free-games.ts）。
+  // 讀 data/free-games.json（每日同步 cron 從 artifact 重新產生），
+  // 失敗時回空陣列、不影響 Steam／Epic。
+  const freeGames = getFreeGames();
   return {
     items,
     steam: steamItems,
     steamFree,
     epicCurrent,
     epicUpcoming,
+    freeGames: freeGames.current,
+    freeGamesUpcoming: freeGames.upcoming,
     fetchedAt: new Date(nowMs).toISOString(),
     steamCount: steamItems.length,
     steamFreeCount: steamFree.length,

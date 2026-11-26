@@ -2373,6 +2373,20 @@ table.price-table {
   color: #7dbfff;
 }
 
+/* 免費遊戲聚合來源（2026-11-26：/deals 免費分頁改吃免費資源自動抓的
+ * 清單，GamerPower 聚合＋GOG 官方；Epic 沿用原本的粉色）。 */
+.deals-badge-gamerpower {
+  background: rgba(255, 193, 7, 0.16);
+  border: 1px solid #ffc107;
+  color: #ffd54f;
+}
+
+.deals-badge-gog {
+  background: rgba(168, 85, 247, 0.16);
+  border: 1px solid #a855f7;
+  color: #c084fc;
+}
+
 .deals-item-title {
   color: var(--text);
   font-size: 20px;
