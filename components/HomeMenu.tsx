@@ -217,7 +217,8 @@ function AboutPreview() {
         是個人經營的非官方遊戲比價站：Switch 跨區比價、PC
         與家機特價、NSO 會員跨區比價與歷史低價，價格取自 Nintendo、Sony、
         Microsoft、Valve、Epic 各官方商店的公開資料，僅供參考，實際價格以商店頁面為準。
-        本站與任天堂、索尼、微軟、Valve、Epic 沒有任何關聯。
+        本站與任天堂、索尼、微軟、Valve、Epic、EA、Ubisoft、Fanatical、GamerPower、GOG
+        沒有任何關聯。
       </p>
       <ul className="home-about-social">
         <li>

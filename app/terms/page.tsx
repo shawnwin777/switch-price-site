@@ -19,8 +19,10 @@ export default function TermsPage() {
       <h2>二、非官方聲明</h2>
       <p>
         本站為非官方網站，與任天堂、索尼互動娛樂、微軟、Valve、Epic
-        Games 無關，亦未經其授權或認可。Nintendo Switch、PlayStation、Xbox、Steam、Epic
-        Games 等名稱與商標屬各權利人所有。
+        Games、EA、Ubisoft、Fanatical、GamerPower、GOG
+        無關，亦未經其授權或認可。Nintendo Switch、PlayStation、Xbox、Steam、Epic
+        Games、EA、Ubisoft、Fanatical、GamerPower、GOG
+        等名稱與商標屬各權利人所有。
       </p>
 
       <h2>三、價格與資料免責</h2>

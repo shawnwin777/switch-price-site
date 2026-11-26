@@ -56,8 +56,10 @@ export default function RootLayout({
             </p>
             <p className="footer-sub">
               本站為非官方網站，與任天堂、索尼互動娛樂、微軟、Valve、Epic
-              Games 無關，亦未經其授權或認可。Nintendo Switch、PlayStation、Xbox、Steam、Epic
-              Games 等名稱與商標屬各權利人所有。價格與特價資訊取自各官方商店公開資料，僅供參考，實際價格以商店頁面為準。
+              Games、EA、Ubisoft、Fanatical、GamerPower、GOG
+              無關，亦未經其授權或認可。Nintendo Switch、PlayStation、Xbox、Steam、Epic
+              Games、EA、Ubisoft、Fanatical、GamerPower、GOG
+              等名稱與商標屬各權利人所有。價格與特價資訊取自各官方商店公開資料，僅供參考，實際價格以商店頁面為準。
             </p>
             <p className="footer-sub">
               部分封面圖片來源：

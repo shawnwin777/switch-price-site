@@ -1691,6 +1691,7 @@ a.home-about-donate-btn:hover {
  * 窄螢幕隱藏）。點圖片或右上角放大鈕才進全螢幕。 */
 .cover-carousel {
   align-items: center;
+  align-self: flex-start;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--line);
   border-radius: var(--radius);
