@@ -758,6 +758,11 @@ async function handleRefresh(request: NextRequest) {
         .reduce((n, b) => n + b.length, 0);
     }
   }
+  // 歷史低價寫回 games：原本是逐款 await 循序更新，1000 筆價格若有數百款
+  // 新低就要數百次來回（每趟約 50～100ms），很容易把 60 秒吃光、函式被殺
+  // 在游標推進之前（2026-11-26 09:54 HK 實測：1000 筆價格已寫入，但函式
+  // 仍 FUNCTION_INVOCATION_TIMEOUT、游標沒推進）。改成 10 並行批次更新。
+  const lowUpdates: { id: string; historical_low_twd: number }[] = [];
   for (const [gameId, minNew] of newLowByGame) {
     const game = gameById.get(gameId);
     if (!game) continue;
@@ -765,12 +770,33 @@ async function handleRefresh(request: NextRequest) {
     const finalLow = oldLow == null ? minNew : Math.min(oldLow, minNew);
     if (oldLow == null || minNew < oldLow) {
       gamesWithNewLow.push(game.slug);
-      const { error } = await admin
-        .from("games")
-        .update({ historical_low_twd: finalLow })
-        .eq("id", gameId);
-      if (error) {
-        errors.push({ country: "-", message: `更新 ${game.slug} 歷史低價失敗：${error.message}` });
+      lowUpdates.push({ id: gameId, historical_low_twd: finalLow });
+    }
+  }
+  const LOW_UPDATE_CONCURRENCY = 10;
+  for (let i = 0; i < lowUpdates.length; i += LOW_UPDATE_CONCURRENCY) {
+    const chunk = lowUpdates.slice(i, i + LOW_UPDATE_CONCURRENCY);
+    const results = await Promise.all(
+      chunk.map((u) =>
+        admin
+          .from("games")
+          .update({ historical_low_twd: u.historical_low_twd })
+          .eq("id", u.id)
+          .then(
+            (r) => ({ slug: gameById.get(u.id)?.slug ?? u.id, error: r.error }),
+            (e) => ({
+              slug: gameById.get(u.id)?.slug ?? u.id,
+              error: e as { message: string },
+            })
+          )
+      )
+    );
+    for (const r of results) {
+      if (r.error) {
+        errors.push({
+          country: "-",
+          message: `更新 ${r.slug} 歷史低價失敗：${r.error.message}`,
+        });
       }
     }
   }
