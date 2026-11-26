@@ -75,44 +75,83 @@ export async function probeGamesColumn(
   return probeTableColumn(admin, "games", column);
 }
 
+/** 分頁並行讀取（2026-11-26）：原本逐頁循序讀，50,337 款要 ~51 次來回，
+ *  加上對照表 ~11 次，預讀就吃掉 45 秒以上，價格還沒開始抓就超過
+ *  45 秒時間預算、整組被跳過（2026-11-26 12:33 實測：ok:true 但
+ *  prices_updated:0、游標空轉）。先取總筆數算頁數，再 8 並行抓各頁。 */
+const PAGE_FETCH_CONCURRENCY = 8;
+
+async function fetchPagesParallel<T>(
+  total: number,
+  fetchPage: (from: number, to: number) => Promise<T[]>
+): Promise<T[]> {
+  const pages = Math.ceil(total / PAGE_SIZE);
+  const out: T[][] = new Array(pages);
+  for (let i = 0; i < pages; i += PAGE_FETCH_CONCURRENCY) {
+    const batch = Array.from(
+      { length: Math.min(PAGE_FETCH_CONCURRENCY, pages - i) },
+      (_, k) => i + k
+    );
+    const results = await Promise.all(
+      batch.map((p) => fetchPage(p * PAGE_SIZE, (p + 1) * PAGE_SIZE - 1))
+    );
+    batch.forEach((p, k) => {
+      out[p] = results[k];
+    });
+  }
+  return out.flat();
+}
+
 /** 分頁讀全部遊戲（按 slug 排序；PostgREST 單次上限 1000 列，必須分頁）。 */
 export async function listAllGamesPaginated(
   admin: AdminClient,
   columns = "id, slug, title_id, title_zh, title_en, cover_url, historical_low_twd"
 ): Promise<ExistingGameLite[]> {
-  const out: ExistingGameLite[] = [];
-  for (let from = 0; ; from += PAGE_SIZE) {
+  const { count, error: countError } = await admin
+    .from("games")
+    .select("id", { count: "exact", head: true });
+  if (countError) throw new Error(`讀取 games 筆數失敗：${countError.message}`);
+  const total = count ?? 0;
+  if (total === 0) return [];
+  return fetchPagesParallel<ExistingGameLite>(total, async (from, to) => {
     const { data, error } = await admin
       .from("games")
       .select(columns)
       .order("slug")
-      .range(from, from + PAGE_SIZE - 1);
+      .range(from, to);
     if (error) throw new Error(`讀取 games 失敗：${error.message}`);
-    const rows = (data ?? []) as unknown as ExistingGameLite[];
-    out.push(...rows);
-    if (rows.length < PAGE_SIZE) break;
-  }
-  return out;
+    return (data ?? []) as unknown as ExistingGameLite[];
+  });
 }
 
 /** 分頁讀全部對照編號；表還沒建（migration 未跑）時回 missing，不拋錯。 */
 export async function listAllRegionIdsPaginated(
   admin: AdminClient
 ): Promise<{ rows: ExistingRegionId[]; tableMissing: boolean }> {
-  const rows: ExistingRegionId[] = [];
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await admin
-      .from("game_region_ids")
-      .select("game_id, country, title_id")
-      .range(from, from + PAGE_SIZE - 1);
-    if (error) {
-      return { rows: [], tableMissing: true };
-    }
-    const page = (data ?? []) as ExistingRegionId[];
-    rows.push(...page);
-    if (page.length < PAGE_SIZE) break;
+  const { count, error: countError } = await admin
+    .from("game_region_ids")
+    .select("game_id", { count: "exact", head: true });
+  if (countError) {
+    return { rows: [], tableMissing: true };
   }
-  return { rows, tableMissing: false };
+  const total = count ?? 0;
+  if (total === 0) return { rows: [], tableMissing: false };
+  try {
+    const rows = await fetchPagesParallel<ExistingRegionId>(
+      total,
+      async (from, to) => {
+        const { data, error } = await admin
+          .from("game_region_ids")
+          .select("game_id, country, title_id")
+          .range(from, to);
+        if (error) throw new Error(error.message);
+        return (data ?? []) as ExistingRegionId[];
+      }
+    );
+    return { rows, tableMissing: false };
+  } catch {
+    return { rows: [], tableMissing: true };
+  }
 }
 
 /** 分頁讀指定國家的對照編號（供 refresh 分組輪轉用：先讀整組對照表，再由它算
@@ -121,22 +160,33 @@ export async function listRegionIdsForCountries(
   admin: AdminClient,
   countries: string[]
 ): Promise<{ rows: ExistingRegionId[]; tableMissing: boolean }> {
-  const rows: ExistingRegionId[] = [];
-  if (countries.length === 0) return { rows, tableMissing: false };
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await admin
-      .from("game_region_ids")
-      .select("game_id, country, title_id")
-      .in("country", countries)
-      .range(from, from + PAGE_SIZE - 1);
-    if (error) {
-      return { rows: [], tableMissing: true };
-    }
-    const page = (data ?? []) as ExistingRegionId[];
-    rows.push(...page);
-    if (page.length < PAGE_SIZE) break;
+  if (countries.length === 0) return { rows: [], tableMissing: false };
+  const { count, error: countError } = await admin
+    .from("game_region_ids")
+    .select("game_id", { count: "exact", head: true })
+    .in("country", countries);
+  if (countError) {
+    return { rows: [], tableMissing: true };
   }
-  return { rows, tableMissing: false };
+  const total = count ?? 0;
+  if (total === 0) return { rows: [], tableMissing: false };
+  try {
+    const rows = await fetchPagesParallel<ExistingRegionId>(
+      total,
+      async (from, to) => {
+        const { data, error } = await admin
+          .from("game_region_ids")
+          .select("game_id, country, title_id")
+          .in("country", countries)
+          .range(from, to);
+        if (error) throw new Error(error.message);
+        return (data ?? []) as ExistingRegionId[];
+      }
+    );
+    return { rows, tableMissing: false };
+  } catch {
+    return { rows: [], tableMissing: true };
+  }
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
