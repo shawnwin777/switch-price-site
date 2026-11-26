@@ -147,12 +147,13 @@ export default async function DealsPage({
         </p>
       )}
       <p className="muted">
-        STEAM 取數範圍：先抓特價搜尋前 13 頁（1300 列）再按折扣大→小取前 1200
+        STEAM 取數範圍：本體（category1=998）抓特價搜尋前 25 頁、DLC
+        （category1=21）抓前 25 頁，合併去重（取回 5000 列）再按折扣大→小取前 1200
         款，不是全台灣特價中
         {deals.steamTotalCount > 0
           ? ` ${deals.steamTotalCount.toLocaleString("zh-Hant-TW")} 款`
-          : "約 15,020 款"}
-        裡的全域前 900 款。
+          : "約 20,529 款"}
+        裡的全域前 1200 款。
       </p>
       <DealsTabs
         freeGames={deals.freeGames}

@@ -1,4 +1,5 @@
 import type { DealsCarouselItem } from "./deals-carousel";
+import { fetchUsdToTwd, formatTwd, usdToTwd } from "./fx";
 
 /** Ubisoft 特價（/deals UBISOFT 分頁用），伺服器端抓取（不需金鑰）。
  *  來源：Ubisoft 商店特價頁 https://store.ubisoft.com/us/bargain-bin-sale
@@ -51,8 +52,12 @@ function formatUsd(amount: number): string {
 }
 
 /** 解析特價頁 HTML：每款一個 thumb-link 區塊，取遊戲名＋版本＋
- *  特價／原價＋官方圖，缺欄位或特價不低於原價的跳過。 */
-function parseUbisoftDeals(html: string): DealsCarouselItem[] {
+ *  特價／原價＋官方圖，缺欄位或特價不低於原價的跳過。
+ *  usdToTwdRate：USD→TWD 匯率（fetchDealsPage 傳入；沒傳就自己抓一次，
+ *  見 lib/fx.ts）。priceLine 台幣在前、美元在括號內
+ *  （特價：NT$ 320（$9.99，原價 NT$ 1,280／$39.99）；免費：免費（原價
+ *  NT$ 1,280／$39.99））。 */
+function parseUbisoftDeals(html: string, rate: number): DealsCarouselItem[] {
   const items: DealsCarouselItem[] = [];
   if (!html) return items;
   const anchorRe =
@@ -87,6 +92,8 @@ function parseUbisoftDeals(html: string): DealsCarouselItem[] {
     if (!path.startsWith("/us/")) continue;
     // 免費：特價 $0——標成免費格式（freeKinds ["pc"]），
     // fetchDealsPage 會把它合併進免費遊戲區，不放進 UBISOFT 特價分頁。
+    // 本體／DLC：Ubisoft 特價頁 HTML 沒有類型欄位（只有版本副標），
+    // 無法區分，依使用者規則一律算本體（kind="game"）。
     if (sale === 0) {
       items.push({
         source: "ubisoft",
@@ -95,9 +102,10 @@ function parseUbisoftDeals(html: string): DealsCarouselItem[] {
         image,
         url: `${UBISOFT_STORE}${path}`,
         badge: "免費",
-        priceLine: `免費（原價 ${formatUsd(list)}）`,
+        priceLine: `免費（原價 ${formatTwd(usdToTwd(list, rate))}／${formatUsd(list)}）`,
         subLine: null,
         freeKinds: ["pc"],
+        kind: "game",
         // Ubisoft 免費品項無截止日，免費區裡排最後。
         sortKey: Number.MAX_SAFE_INTEGER,
       });
@@ -113,9 +121,10 @@ function parseUbisoftDeals(html: string): DealsCarouselItem[] {
       image,
       url: `${UBISOFT_STORE}${path}`,
       badge: `-${discount}%`,
-      priceLine: `${formatUsd(sale)}（原價 ${formatUsd(list)}）`,
+      priceLine: `${formatTwd(usdToTwd(sale, rate))}（${formatUsd(sale)}，原價 ${formatTwd(usdToTwd(list, rate))}／${formatUsd(list)}）`,
       // 特價頁沒有個別截止日。
       subLine: null,
+      kind: "game",
       sortKey: discount,
     });
   }
@@ -124,8 +133,13 @@ function parseUbisoftDeals(html: string): DealsCarouselItem[] {
   return items;
 }
 
-/** 抓 Ubisoft 特價頁前 36 款（失敗回空陣列）。 */
-export async function fetchUbisoftDeals(): Promise<DealsCarouselItem[]> {
+/** 抓 Ubisoft 特價頁前 36 款（失敗回空陣列）。
+ *  usdToTwdRate：USD→TWD 匯率（fetchDealsPage 傳入；沒傳就自己抓一次，
+ *  見 lib/fx.ts）。 */
+export async function fetchUbisoftDeals(
+  usdToTwdRate?: number
+): Promise<DealsCarouselItem[]> {
+  const rate = usdToTwdRate ?? (await fetchUsdToTwd());
   try {
     const res = await fetch(UBISOFT_DEALS_URL, {
       headers: { Accept: "text/html", "User-Agent": USER_AGENT },
@@ -133,7 +147,7 @@ export async function fetchUbisoftDeals(): Promise<DealsCarouselItem[]> {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status} ${UBISOFT_DEALS_URL}`);
     const html = await res.text();
-    const items = parseUbisoftDeals(html);
+    const items = parseUbisoftDeals(html, rate);
     if (items.length === 0) {
       console.warn("[ubisoft-deals] 特價頁解析出 0 款（版面可能變了）");
     }

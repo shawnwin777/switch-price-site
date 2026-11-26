@@ -107,6 +107,9 @@ interface CatalogAvailability {
 
 interface CatalogProduct {
   ProductId?: string;
+  /** Display Catalog 產品類型：Game（本體）／AddOn（DLC）等。
+   *  最近新增清單理應全是本體，仍照欄位標 kind。 */
+  ProductType?: string;
   LocalizedProperties?: {
     ProductTitle?: string;
     Images?: CatalogImage[];
@@ -225,6 +228,10 @@ export async function fetchGamePassNew(
         const isXbox = platforms.includes("Windows.Xbox");
         const subLine =
           isDesktop && isXbox ? "家機 · PC" : isXbox ? "家機" : "PC";
+        // 本體／DLC 分類（Display Catalog ProductType：AddOn＝DLC，
+        // 其餘一律算本體；最近新增清單理應全是本體）。
+        const kind: "game" | "dlc" =
+          p.ProductType === "AddOn" ? "dlc" : "game";
         items.push({
           source: "xbox",
           key: `gp-${platform}-${id}`,
@@ -234,6 +241,7 @@ export async function fetchGamePassNew(
           badge: "新進",
           priceLine: "Game Pass 訂閱包含",
           subLine,
+          kind,
           // 維持官方清單順序（sortKey 越大越前）。
           sortKey: totalCount - (order.get(id) ?? 0),
         });

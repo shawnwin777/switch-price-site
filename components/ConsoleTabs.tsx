@@ -124,6 +124,45 @@ export default function ConsoleTabs({
           it.freeKinds?.includes(consoleFreeFilter)
         );
 
+  // 各特價分頁的本體／DLC 分類篩選（全部／本體／DLC），跟免費區同一套寫法。
+  // kind 由各平台 fetcher 在抓取時標記（見 lib/*-deals.ts、lib/gamepass.ts、
+  // lib/ps-plus.ts）；未標記的（舊快取）一律算本體，DLC 只算 kind === "dlc"
+  // 者。切換時回到第 1 頁（篩選後總頁數變了，殘留頁碼會超出範圍）。
+  type KindFilter = "all" | "game" | "dlc";
+  const kindCounts = (
+    items: DealsCarouselItem[]
+  ): Record<KindFilter, number> => ({
+    all: items.length,
+    game: items.filter((it) => it.kind !== "dlc").length,
+    dlc: items.filter((it) => it.kind === "dlc").length,
+  });
+  const kindFiltered = (items: DealsCarouselItem[], f: KindFilter) =>
+    f === "all"
+      ? items
+      : f === "dlc"
+        ? items.filter((it) => it.kind === "dlc")
+        : items.filter((it) => it.kind !== "dlc");
+  const [xboxConsoleFilter, setXboxConsoleFilter] =
+    useState<KindFilter>("all");
+  const [gamepassFilter, setGamepassFilter] = useState<KindFilter>("all");
+  const [psFilter, setPsFilter] = useState<KindFilter>("all");
+  const [psplusFilter, setPsplusFilter] = useState<KindFilter>("all");
+  const xboxConsoleList = xboxConsole;
+  const gamepassList = gamepass ?? [];
+  const psList = ps ?? [];
+  const psplusList = psplus ?? [];
+  const xboxConsoleFilterCounts = kindCounts(xboxConsoleList);
+  const gamepassFilterCounts = kindCounts(gamepassList);
+  const psFilterCounts = kindCounts(psList);
+  const psplusFilterCounts = kindCounts(psplusList);
+  const xboxConsoleFiltered = kindFiltered(
+    xboxConsoleList,
+    xboxConsoleFilter
+  );
+  const gamepassFiltered = kindFiltered(gamepassList, gamepassFilter);
+  const psFiltered = kindFiltered(psList, psFilter);
+  const psplusFiltered = kindFiltered(psplusList, psplusFilter);
+
   /** 分頁 URL：?tab= 一定帶，?page= 只有 >1 才帶（第 1 頁保持短網址）。 */
   const tabUrl = (tab: TabKey, page: number) =>
     page > 1 ? `${pathname}?tab=${tab}&page=${page}` : `${pathname}?tab=${tab}`;
@@ -168,10 +207,20 @@ export default function ConsoleTabs({
     psplus: psplus?.length ?? 0,
     free: consoleFreeList.length,
   };
-  /** 免費遊戲分頁的分頁數以「目前篩選後的清單」為準（篩選切換時總頁數跟著變），
-   *  其他分頁以該平台總款數為準（跟 /deals 免費區同一套做法）。 */
+  /** 免費遊戲分頁與各特價分頁的分頁數都以「目前篩選後的清單」為準
+   *  （篩選切換時總頁數跟著變；跟 /deals 免費區同一套做法）。 */
   const visibleCount = (key: TabKey) =>
-    key === "free" ? consoleFreeFiltered.length : counts[key];
+    key === "free"
+      ? consoleFreeFiltered.length
+      : key === "xbox-console"
+        ? xboxConsoleFiltered.length
+        : key === "gamepass"
+          ? gamepassFiltered.length
+          : key === "ps"
+            ? psFiltered.length
+            : key === "psplus"
+              ? psplusFiltered.length
+              : counts[key];
   const totalPages = (key: TabKey) =>
     Math.max(1, Math.ceil(visibleCount(key) / PAGE_SIZE));
   const pageItems = (key: TabKey, all: DealsCarouselItem[]) => {
@@ -312,10 +361,48 @@ export default function ConsoleTabs({
     </div>
   );
 
-  const xboxConsolePage = pageItems("xbox-console", xboxConsole);
-  const psPage = pageItems("ps", ps ?? []);
-  const gamepassPage = pageItems("gamepass", gamepass ?? []);
-  const psplusPage = pageItems("psplus", psplus ?? []);
+  /** 本體／DLC 分類篩選列（全部／本體／DLC，附各分類款數；跟免費區同一套寫法）。
+   *  切換時回到第 1 頁（篩選後總頁數變了，殘留頁碼會超出範圍），URL 的
+   *  ?page= 也清掉。 */
+  const renderKindFilter = (
+    tab: TabKey,
+    filter: KindFilter,
+    setFilter: (f: KindFilter) => void,
+    filterCounts: Record<KindFilter, number>,
+    label: string
+  ) => (
+    <div className="deals-filter-row">
+      <h3 className="deals-subhead">分類</h3>
+      <div className="deals-filter-btns" role="group" aria-label={label}>
+        {(
+          [
+            ["all", "全部"],
+            ["game", "本體"],
+            ["dlc", "DLC"],
+          ] as const
+        ).map(([key, lab]) => (
+          <button
+            key={key}
+            type="button"
+            className={`chip ${filter === key ? "active" : ""}`}
+            aria-pressed={filter === key}
+            onClick={() => {
+              setFilter(key);
+              setPages((prev) => ({ ...prev, [tab]: 1 }));
+              router.replace(tabUrl(tab, 1), { scroll: false });
+            }}
+          >
+            {lab} ({filterCounts[key]})
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const xboxConsolePage = pageItems("xbox-console", xboxConsoleFiltered);
+  const psPage = pageItems("ps", psFiltered);
+  const gamepassPage = pageItems("gamepass", gamepassFiltered);
+  const psplusPage = pageItems("psplus", psplusFiltered);
   const freePage = pageItems("free", consoleFreeFiltered);
 
   return (
@@ -346,12 +433,21 @@ export default function ConsoleTabs({
                 ? ` · 台灣區共 ${xboxConsoleTotalCount.toLocaleString("zh-Hant-TW")} 款特價（清單 API 原始總數）`
                 : "")
           )}
+          {renderKindFilter(
+            "xbox-console",
+            xboxConsoleFilter,
+            setXboxConsoleFilter,
+            xboxConsoleFilterCounts,
+            "XBOX 家機分類"
+          )}
           {xboxConsolePage.length > 0 ? (
             <div className="deals-grid">
               {xboxConsolePage.map((item) => (
                 <DealCard key={item.key} item={item} />
               ))}
             </div>
+          ) : xboxConsoleFilter !== "all" && xboxConsoleList.length > 0 ? (
+            <p className="muted">這個分類目前沒有項目。</p>
           ) : (
             <p className="muted">
               目前 Xbox 家機台灣區沒有特價資訊，請稍後再試。
@@ -391,12 +487,21 @@ export default function ConsoleTabs({
                 ? ` · 台灣區共 ${psTotalCount.toLocaleString("zh-Hant-TW")} 款特價`
                 : "")
           )}
+          {renderKindFilter(
+            "ps",
+            psFilter,
+            setPsFilter,
+            psFilterCounts,
+            "PlayStation 分類"
+          )}
           {psPage.length > 0 ? (
             <div className="deals-grid">
               {psPage.map((item) => (
                 <DealCard key={item.key} item={item} />
               ))}
             </div>
+          ) : psFilter !== "all" && psList.length > 0 ? (
+            <p className="muted">這個分類目前沒有項目。</p>
           ) : (
             <p className="muted">目前 PlayStation 台灣區沒有特價資訊，請稍後再試。</p>
           )}
@@ -426,12 +531,21 @@ export default function ConsoleTabs({
                 ? ` · 官方最近新增清單共 ${gamepassTotalCount} 款`
                 : "")
           )}
+          {renderKindFilter(
+            "gamepass",
+            gamepassFilter,
+            setGamepassFilter,
+            gamepassFilterCounts,
+            "XGP 家機分類"
+          )}
           {gamepassPage.length > 0 ? (
             <div className="deals-grid">
               {gamepassPage.map((item) => (
                 <DealCard key={item.key} item={item} />
               ))}
             </div>
+          ) : gamepassFilter !== "all" && gamepassList.length > 0 ? (
+            <p className="muted">這個分類目前沒有項目。</p>
           ) : (
             <p className="muted">
               目前 Game Pass 家機沒有最近新增的資訊，請稍後再試。
@@ -458,12 +572,21 @@ export default function ConsoleTabs({
             "🔵 PS Plus 本月新進",
             `${psplusMonth ?? "本月"}新進 ${psplus?.length ?? 0} 款 · 遊戲目錄＋每月遊戲`
           )}
+          {renderKindFilter(
+            "psplus",
+            psplusFilter,
+            setPsplusFilter,
+            psplusFilterCounts,
+            "PS Plus 分類"
+          )}
           {psplusPage.length > 0 ? (
             <div className="deals-grid">
               {psplusPage.map((item) => (
                 <DealCard key={item.key} item={item} />
               ))}
             </div>
+          ) : psplusFilter !== "all" && psplusList.length > 0 ? (
+            <p className="muted">這個分類目前沒有項目。</p>
           ) : (
             <p className="muted">
               目前 PS Plus 沒有本月新進的資訊，請稍後再試。

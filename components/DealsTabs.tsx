@@ -119,6 +119,42 @@ export default function DealsTabs({
       ? freeGames
       : freeGames.filter((it) => it.freeKinds?.includes(freeFilter));
 
+  // 各特價分頁的本體／DLC 分類篩選（全部／本體／DLC），跟免費區同一套寫法。
+  // kind 由各平台 fetcher 在抓取時標記（見 lib/*-deals.ts）；未標記的
+  // （舊快取）一律算本體，DLC 只算 kind === "dlc" 者。切換時回到第 1 頁。
+  type KindFilter = "all" | "game" | "dlc";
+  const kindCounts = (
+    items: DealsCarouselItem[]
+  ): Record<KindFilter, number> => ({
+    all: items.length,
+    game: items.filter((it) => it.kind !== "dlc").length,
+    dlc: items.filter((it) => it.kind === "dlc").length,
+  });
+  const kindFiltered = (items: DealsCarouselItem[], f: KindFilter) =>
+    f === "all"
+      ? items
+      : f === "dlc"
+        ? items.filter((it) => it.kind === "dlc")
+        : items.filter((it) => it.kind !== "dlc");
+  const [steamFilter, setSteamFilter] = useState<KindFilter>("all");
+  const [xboxFilter, setXboxFilter] = useState<KindFilter>("all");
+  const [gamepassFilter, setGamepassFilter] = useState<KindFilter>("all");
+  const [eaFilter, setEaFilter] = useState<KindFilter>("all");
+  const [ubisoftFilter, setUbisoftFilter] = useState<KindFilter>("all");
+  const [fanaticalFilter, setFanaticalFilter] = useState<KindFilter>("all");
+  const steamFilterCounts = kindCounts(steam);
+  const xboxFilterCounts = kindCounts(xbox);
+  const gamepassFilterCounts = kindCounts(gamepass);
+  const eaFilterCounts = kindCounts(ea);
+  const ubisoftFilterCounts = kindCounts(ubisoft);
+  const fanaticalFilterCounts = kindCounts(fanatical);
+  const steamFiltered = kindFiltered(steam, steamFilter);
+  const xboxFiltered = kindFiltered(xbox, xboxFilter);
+  const gamepassFiltered = kindFiltered(gamepass, gamepassFilter);
+  const eaFiltered = kindFiltered(ea, eaFilter);
+  const ubisoftFiltered = kindFiltered(ubisoft, ubisoftFilter);
+  const fanaticalFiltered = kindFiltered(fanatical, fanaticalFilter);
+
   /** 分頁 URL：?tab= 一定帶，?page= 只有 >1 才帶（第 1 頁保持短網址）。 */
   const tabUrl = (tab: TabKey, page: number) =>
     page > 1 ? `${pathname}?tab=${tab}&page=${page}` : `${pathname}?tab=${tab}`;
@@ -167,10 +203,24 @@ export default function DealsTabs({
     ubisoft: ubisoft.length,
     fanatical: fanatical.length,
   };
-  /** 免費分頁的分頁數以「目前篩選後的清單」為準（篩選切換時總頁數跟著變），
-   *  其他分頁以該平台總款數為準。 */
+  /** 免費分頁與各特價分頁的分頁數都以「目前篩選後的清單」為準
+   *  （篩選切換時總頁數跟著變）。 */
   const visibleCount = (key: TabKey) =>
-    key === "free" ? freeFiltered.length : counts[key];
+    key === "free"
+      ? freeFiltered.length
+      : key === "steam"
+        ? steamFiltered.length
+        : key === "xbox"
+          ? xboxFiltered.length
+          : key === "gamepass"
+            ? gamepassFiltered.length
+            : key === "ea"
+              ? eaFiltered.length
+              : key === "ubisoft"
+                ? ubisoftFiltered.length
+                : key === "fanatical"
+                  ? fanaticalFiltered.length
+                  : counts[key];
   const totalPages = (key: TabKey) =>
     Math.max(1, Math.ceil(visibleCount(key) / PAGE_SIZE));
   const pageItems = (key: TabKey, all: DealsCarouselItem[]) => {
@@ -315,13 +365,51 @@ export default function DealsTabs({
     </div>
   );
 
+  /** 本體／DLC 分類篩選列（全部／本體／DLC，附各分類款數；跟免費區同一套寫法）。
+   *  切換時回到第 1 頁（篩選後總頁數變了，殘留頁碼會超出範圍），URL 的
+   *  ?page= 也清掉。 */
+  const renderKindFilter = (
+    tab: TabKey,
+    filter: KindFilter,
+    setFilter: (f: KindFilter) => void,
+    filterCounts: Record<KindFilter, number>,
+    label: string
+  ) => (
+    <div className="deals-filter-row">
+      <h3 className="deals-subhead">分類</h3>
+      <div className="deals-filter-btns" role="group" aria-label={label}>
+        {(
+          [
+            ["all", "全部"],
+            ["game", "本體"],
+            ["dlc", "DLC"],
+          ] as const
+        ).map(([key, lab]) => (
+          <button
+            key={key}
+            type="button"
+            className={`chip ${filter === key ? "active" : ""}`}
+            aria-pressed={filter === key}
+            onClick={() => {
+              setFilter(key);
+              setPages((prev) => ({ ...prev, [tab]: 1 }));
+              router.replace(tabUrl(tab, 1), { scroll: false });
+            }}
+          >
+            {lab} ({filterCounts[key]})
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   const freePage = pageItems("free", freeFiltered);
-  const steamPage = pageItems("steam", steam);
-  const xboxPage = pageItems("xbox", xbox);
-  const gamepassPage = pageItems("gamepass", gamepass);
-  const eaPage = pageItems("ea", ea);
-  const ubisoftPage = pageItems("ubisoft", ubisoft);
-  const fanaticalPage = pageItems("fanatical", fanatical);
+  const steamPage = pageItems("steam", steamFiltered);
+  const xboxPage = pageItems("xbox", xboxFiltered);
+  const gamepassPage = pageItems("gamepass", gamepassFiltered);
+  const eaPage = pageItems("ea", eaFiltered);
+  const ubisoftPage = pageItems("ubisoft", ubisoftFiltered);
+  const fanaticalPage = pageItems("fanatical", fanaticalFiltered);
 
   return (
     <div ref={tabsRef} style={{ scrollMarginTop: 64 }}>
@@ -454,28 +542,38 @@ export default function DealsTabs({
               恢復後自動回到完整清單。Epic 免費遊戲與其他分頁不受影響。
             </p>
           )}
+          {renderKindFilter(
+            "steam",
+            steamFilter,
+            setSteamFilter,
+            steamFilterCounts,
+            "STEAM 分類"
+          )}
           {steamPage.length > 0 ? (
             <div className="deals-grid">
               {steamPage.map((item) => (
                 <DealCard key={item.key} item={item} />
               ))}
             </div>
+          ) : steamFilter !== "all" && steam.length > 0 ? (
+            <p className="muted">這個分類目前沒有項目。</p>
           ) : (
             <p className="muted">
               目前 Steam 台灣區沒有特價資訊，請稍後再試。
             </p>
           )}
           {renderPager("steam")}
-          {/* 中-6：STEAM 取數範圍附註——抓前 13 頁 1300 列再取前 1200，
-              不是全台灣特價款裡的全域前 1200（程式現況，見
+          {/* 中-6：STEAM 取數範圍附註——本體 25 頁＋DLC 25 頁、取回 5000 列
+              再取前 1200，不是全台灣特價款裡的全域前 1200（程式現況，見
               lib/deals-carousel.ts）；總數用 live steamTotalCount。 */}
           <p className="muted">
-            STEAM 取數範圍：先抓特價搜尋前 13 頁（1300 列）再按折扣大→小取前
+            STEAM 取數範圍：本體（category1=998）抓特價搜尋前 25 頁、DLC
+            （category1=21）抓前 25 頁，合併去重（取回 5000 列）再按折扣大→小取前
             1200 款，不是全台灣特價中
             {steamTotalCount > 0
               ? ` ${steamTotalCount.toLocaleString("zh-Hant-TW")} 款`
-              : "約 15,020 款"}
-            裡的全域前 900 款。
+              : "約 20,529 款"}
+            裡的全域前 1200 款。
           </p>
         </section>
       )}
@@ -489,12 +587,21 @@ export default function DealsTabs({
                 ? ` · 台灣區共 ${xboxTotalCount.toLocaleString("zh-Hant-TW")} 款特價`
                 : "")
           )}
+          {renderKindFilter(
+            "xbox",
+            xboxFilter,
+            setXboxFilter,
+            xboxFilterCounts,
+            "XBOX PC 分類"
+          )}
           {xboxPage.length > 0 ? (
             <div className="deals-grid">
               {xboxPage.map((item) => (
                 <DealCard key={item.key} item={item} />
               ))}
             </div>
+          ) : xboxFilter !== "all" && xbox.length > 0 ? (
+            <p className="muted">這個分類目前沒有項目。</p>
           ) : (
             <p className="muted">
               目前 Xbox PC 台灣區沒有特價資訊，請稍後再試。
@@ -523,12 +630,21 @@ export default function DealsTabs({
                 ? ` · 官方最近新增清單共 ${gamepassTotalCount} 款`
                 : "")
           )}
+          {renderKindFilter(
+            "gamepass",
+            gamepassFilter,
+            setGamepassFilter,
+            gamepassFilterCounts,
+            "PC Game Pass 分類"
+          )}
           {gamepassPage.length > 0 ? (
             <div className="deals-grid">
               {gamepassPage.map((item) => (
                 <DealCard key={item.key} item={item} />
               ))}
             </div>
+          ) : gamepassFilter !== "all" && gamepass.length > 0 ? (
+            <p className="muted">這個分類目前沒有項目。</p>
           ) : (
             <p className="muted">
               目前 Game Pass PC 沒有最近新增的資訊，請稍後再試。
@@ -555,12 +671,21 @@ export default function DealsTabs({
             "🟠 EA",
             `折扣大→小 · 特價中 ${ea.length} 款`
           )}
+          {renderKindFilter(
+            "ea",
+            eaFilter,
+            setEaFilter,
+            eaFilterCounts,
+            "EA 分類"
+          )}
           {eaPage.length > 0 ? (
             <div className="deals-grid">
               {eaPage.map((item) => (
                 <DealCard key={item.key} item={item} />
               ))}
             </div>
+          ) : eaFilter !== "all" && ea.length > 0 ? (
+            <p className="muted">這個分類目前沒有項目。</p>
           ) : (
             <p className="muted">
               目前 EA 美國商店沒有特價資訊，請稍後再試。
@@ -586,12 +711,21 @@ export default function DealsTabs({
             "🟣 UBISOFT",
             `折扣大→小 · 特價頁前 ${ubisoft.length} 款`
           )}
+          {renderKindFilter(
+            "ubisoft",
+            ubisoftFilter,
+            setUbisoftFilter,
+            ubisoftFilterCounts,
+            "UBISOFT 分類"
+          )}
           {ubisoftPage.length > 0 ? (
             <div className="deals-grid">
               {ubisoftPage.map((item) => (
                 <DealCard key={item.key} item={item} />
               ))}
             </div>
+          ) : ubisoftFilter !== "all" && ubisoft.length > 0 ? (
+            <p className="muted">這個分類目前沒有項目。</p>
           ) : (
             <p className="muted">
               目前 Ubisoft 美國商店沒有特價資訊，請稍後再試。
@@ -618,12 +752,21 @@ export default function DealsTabs({
             "💎 FANATICAL",
             `折扣大→小 · 特價中 ${fanatical.length} 款`
           )}
+          {renderKindFilter(
+            "fanatical",
+            fanaticalFilter,
+            setFanaticalFilter,
+            fanaticalFilterCounts,
+            "FANATICAL 分類"
+          )}
           {fanaticalPage.length > 0 ? (
             <div className="deals-grid">
               {fanaticalPage.map((item) => (
                 <DealCard key={item.key} item={item} />
               ))}
             </div>
+          ) : fanaticalFilter !== "all" && fanatical.length > 0 ? (
+            <p className="muted">這個分類目前沒有項目。</p>
           ) : (
             <p className="muted">
               目前 Fanatical 沒有特價資訊，請稍後再試。

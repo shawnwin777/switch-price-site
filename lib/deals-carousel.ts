@@ -2,6 +2,7 @@ import { fetchEaDeals } from "./ea-deals";
 import { fetchFanaticalDeals } from "./fanatical-deals";
 import { fetchFreeGames } from "./free-games";
 import { fetchUbisoftDeals } from "./ubisoft-deals";
+import { fetchUsdToTwd } from "./fx";
 
 // ============================================================================
 // Steam 特價＋Epic 免費遊戲（/deals 獨立頁面）：伺服器端抓取（不需金鑰）。
@@ -12,11 +13,12 @@ import { fetchUbisoftDeals } from "./ubisoft-deals";
 //       &dynamic_data=&sort_by=_ASC&specials=1&infinite=1&cc=TW&l=tchinese
 //     回 results_html（HTML 片段），每列有 app id、名稱、折扣％、台幣原價／特價。
 //     2026-11-23 實測台灣區特價中 15,020 款；sort_by 傳 Discount_DESC
-//     與 _ASC 回傳順序相同（不支援折扣排序），所以抓前十頁（1000 列）
-//     再在伺服器端按折扣大→小排序取前 1200。注意：這是「取回 1300 列
-//     裡的前 1200」，不是全台灣 15,020 款裡的全域前 1200。只做台灣
-//     （cc=TW），不加跨區切換——跨區帳號可能被鎖。搜尋結果沒有特價
-//     截止日，subLine 為空。
+//     與 _ASC 回傳順序相同（不支援折扣排序）。2026-11-26 改拆成本體／DLC
+//     兩條搜尋分開抓：本體 category1=998（12,509 款）、DLC category1=21
+//     （8,020 款），各抓前 25 頁（2500 列），合併去重後再按折扣大→小
+//     排序取前 1200。注意：這是「取回 5000 列裡的前 1200」，不是全台灣
+//     特價款裡的全域前 1200。只做台灣（cc=TW），不加跨區切換——跨區帳號
+//     可能被鎖。搜尋結果沒有特價截止日，subLine 為空。
 //     舊的 featuredcategories specials 只回 10 款精選，搜尋失敗時才當備援。
 //     連結：https://store.steampowered.com/app/<id>/
 //   Steam 限時免費領取（免費遊戲分頁的 Steam 部分）：同一支特價搜尋 API
@@ -97,6 +99,10 @@ export interface DealsCarouselItem {
   endingSoon?: boolean;
   /** 免費遊戲分類（只給免費遊戲領取的物品用；見上方 FreeKind）。 */
   freeKinds?: FreeKind[];
+  /** 本體／DLC 分類（給各平台特價分頁的「全部／本體／DLC」篩選用；
+   *  Steam 由抓取時的 category1 決定（998＝本體、21＝DLC）；
+   *  其他平台由各自來源的類型欄位決定；沒填表示來源分不出來。 */
+  kind?: "game" | "dlc";
   /** 排序鍵：Steam 折扣大→小；Epic 進行中（依截止日近→遠）在前、下週預告在後。 */
   sortKey: number;
 }
@@ -159,7 +165,8 @@ const STEAM_SEARCH_URL =
 /** 每平台分頁取的前 1200 款（2026-11-23 從 200 改成 350、再改成 510；
  *  2026-11-24 從 510 改成 900；2026-11-26 Steam 改成 1200——特價列隊很大，
  *  只取 900 的話 50% 折扣的款式排不進來）。
- *  注意 Steam 是「取回 1300 列裡的前 1200」，不是全台灣特價款裡的全域前 1200。 */
+ *  注意 Steam 是「本體 25 頁＋DLC 25 頁、取回 5000 列裡的前 1200」，
+ *  不是全台灣特價款裡的全域前 1200。 */
 export const DEALS_TOP_COUNT = 1200;
 const EPIC_URL =
   "https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions?locale=zh-Hant&country=TW&allowCountries=TW";
@@ -349,14 +356,17 @@ function parseSteamSearchPage(html: string): DealsCarouselItem[] {
   return items;
 }
 
-/** 抓一頁 Steam 特價搜尋（results_html 解析；失敗時拋錯，呼叫端處理）。 */
+/** 抓一頁 Steam 特價搜尋（results_html 解析；失敗時拋錯，呼叫端處理）。
+ *  category1 選填：998＝遊戲本體、21＝DLC；不傳則混合（本體＋DLC＋其他）。 */
 async function fetchSteamSearchPage(
   start: number,
   count: number,
-  sortBy = "_ASC"
+  sortBy = "_ASC",
+  category1?: number
 ): Promise<{ items: DealsCarouselItem[]; totalCount: number }> {
   const res = await fetch(
-    `${STEAM_SEARCH_URL}&sort_by=${sortBy}&start=${start}&count=${count}`,
+    `${STEAM_SEARCH_URL}&sort_by=${sortBy}&start=${start}&count=${count}` +
+      (category1 != null ? `&category1=${category1}` : ""),
     {
       headers: { Accept: "application/json", "User-Agent": USER_AGENT },
       signal: AbortSignal.timeout(20000),
@@ -374,37 +384,51 @@ async function fetchSteamSearchPage(
   };
 }
 
-/** 抓 Steam 特價搜尋前十三頁（1300 列），去重後按折扣大→小取前 1200 款
+/** 抓 Steam 特價搜尋：本體（category1=998）前 25 頁＋DLC（category1=21）
+ *  前 25 頁，各 2500 列，合併去重後按折扣大→小取前 1200 款
  *  （不含 100% 限時免費，那些另外進免費分頁，不佔特價名額）。
- *  （兩頁 200 列實測會有 1 款重複，所以多抓頁數補滿；1300 列去重後
+ *  （兩頁 200 列實測會有 1 款重複，所以多抓頁數補滿；5000 列去重後
  *  仍有 1200 款以上才取得到 1200——不夠時就列實際抓到的款數。）
  *  限時免費另外用 sort_by=Price_ASC 抓一頁（特價按最終價低→高排，
- *  0 元的 100% 折扣一定在最前面，一頁就能抓齊、不怕它排在 1000 列之外）。
- *  同時回傳台灣區特價總款數（total_count）。任一頁失敗回空陣列。 */
+ *  0 元的 100% 折扣一定在最前面，一頁就能抓齊、不怕它排在 5000 列之外）。
+ *  同時回傳台灣區特價總款數（total_count，本體＋DLC 兩邊相加）。
+ *  任一頁失敗回空陣列。 */
 async function fetchSteamSearchTop(): Promise<{
   items: DealsCarouselItem[];
   freeItems: DealsCarouselItem[];
   totalCount: number;
 }> {
-  const [pages, freeByPrice] = await Promise.all([
+  const starts = Array.from({ length: 25 }, (_, i) => i * 100);
+  const [gamePages, dlcPages, freeByPrice] = await Promise.all([
     Promise.allSettled(
-      [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200].map((start) => fetchSteamSearchPage(start, 100))
+      starts.map((start) => fetchSteamSearchPage(start, 100, "_ASC", 998))
+    ),
+    Promise.allSettled(
+      starts.map((start) => fetchSteamSearchPage(start, 100, "_ASC", 21))
     ),
     fetchSteamSearchPage(0, 100, "Price_ASC").catch(() => ({
       items: [],
       totalCount: 0,
     })),
   ]);
-  const ok = pages
-    .filter(
-      (p): p is PromiseFulfilledResult<{ items: DealsCarouselItem[]; totalCount: number }> =>
-        p.status === "fulfilled"
-    )
-    .map((p) => p.value);
+  const fulfilled = (
+    pages: PromiseSettledResult<{ items: DealsCarouselItem[]; totalCount: number }>[]
+  ) =>
+    pages
+      .filter(
+        (p): p is PromiseFulfilledResult<{ items: DealsCarouselItem[]; totalCount: number }> =>
+          p.status === "fulfilled"
+      )
+      .map((p) => p.value);
+  const gameOk = fulfilled(gamePages);
+  const dlcOk = fulfilled(dlcPages);
+  const ok = [...gameOk, ...dlcOk];
   if (ok.length === 0) return { items: [], freeItems: [], totalCount: 0 };
   const seen = new Set<string>();
-  const merged = ok
-    .flatMap((p) => p.items)
+  const merged = [
+    ...gameOk.flatMap((p) => p.items.map((it) => ({ ...it, kind: "game" as const }))),
+    ...dlcOk.flatMap((p) => p.items.map((it) => ({ ...it, kind: "dlc" as const }))),
+  ]
     .filter((it) => {
       if (seen.has(it.key)) return false;
       seen.add(it.key);
@@ -423,7 +447,13 @@ async function fetchSteamSearchTop(): Promise<{
   const items = merged
     .filter((it) => it.sortKey < 100)
     .slice(0, DEALS_TOP_COUNT);
-  return { items, freeItems, totalCount: ok[0]?.totalCount ?? 0 };
+  // 總款數＝本體＋DLC 兩邊的 total_count 相加（每頁同類別回傳相同總數，
+  // 取相異值加總；若某邊全失敗就只算成功那邊）。
+  const totalCount = [...new Set(ok.map((p) => p.totalCount))].reduce(
+    (a, b) => a + b,
+    0
+  );
+  return { items, freeItems, totalCount };
 }
 
 interface EpicOffer {
@@ -540,14 +570,18 @@ function parseEpic(data: unknown, nowMs: number): {
  *  「Steam 資料暫時不完整」提示，不能當成正式結果默默呈現。 */
 export async function fetchDealsPage(): Promise<DealsPageData> {
   const nowMs = Date.now();
+  // USD→TWD 匯率先抓一次（EA／Ubisoft／Fanatical 特價換算台幣用；
+  // er-api 即時、失敗退靜態快照，見 lib/fx.ts），三家共用同一匯率、
+  // 不用各抓一次。整頁每小時快取，匯率每小時也只抓一次。
+  const usdToTwdRate = await fetchUsdToTwd();
   const [steamSearch, epicRes, freeRes, eaRes, ubiRes, fanRes] =
     await Promise.allSettled([
       fetchSteamSearchTop(),
       fetchJson(EPIC_URL),
       fetchFreeGames(),
-      fetchEaDeals(),
-      fetchUbisoftDeals(),
-      fetchFanaticalDeals(),
+      fetchEaDeals(usdToTwdRate),
+      fetchUbisoftDeals(usdToTwdRate),
+      fetchFanaticalDeals(usdToTwdRate),
     ]);
   let steamItems: DealsCarouselItem[] = [];
   let steamFree: DealsCarouselItem[] = [];

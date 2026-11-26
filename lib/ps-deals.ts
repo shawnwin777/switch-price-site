@@ -220,6 +220,15 @@ function toItem(p: GridProduct): DealsCarouselItem | null {
   // 只列折扣 ≥50% 的。
   if (discount < MIN_DISCOUNT) return null;
   const platforms = (p.platforms ?? []).filter(Boolean);
+  // 本體／DLC 分類（Sony 官方 storeDisplayClassification 欄位，
+  // 2026-11-26 實測值：FULL_GAME／PREMIUM_EDITION／GAME_BUNDLE＝本體，
+  // ADD_ON_PACK／SEASON_PASS／VIRTUAL_CURRENCY＝DLC；其他值一律算本體）。
+  const kind: "game" | "dlc" =
+    p.storeDisplayClassification === "ADD_ON_PACK" ||
+    p.storeDisplayClassification === "SEASON_PASS" ||
+    p.storeDisplayClassification === "VIRTUAL_CURRENCY"
+      ? "dlc"
+      : "game";
   return {
     source: "ps",
     key: `ps-${id}`,
@@ -229,6 +238,7 @@ function toItem(p: GridProduct): DealsCarouselItem | null {
     badge: `-${discount}%`,
     priceLine: `${formatTwd(disc)}（原價 ${formatTwd(base)}）`,
     subLine: platforms.length > 0 ? platforms.join(" · ") : null,
+    kind,
     sortKey: discount,
   };
 }

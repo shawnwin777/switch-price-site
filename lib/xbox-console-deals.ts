@@ -124,6 +124,10 @@ interface CatalogAvailability {
 
 interface CatalogProduct {
   ProductId?: string;
+  /** Display Catalog 產品類型：Game（本體）／AddOn（DLC）等。
+   *  2026-11-26 實測：Reco 特價清單 495 款全是 Game（無 DLC），
+   *  但仍照欄位標 kind，萬一之後出現 AddOn 就自動進 DLC。 */
+  ProductType?: string;
   LocalizedProperties?: {
     ProductTitle?: string;
     Images?: CatalogImage[];
@@ -215,6 +219,10 @@ function parseProducts(data: unknown): DealsCarouselItem[] {
     const discount = Math.round((1 - best.list / best.msrp) * 100);
     if (discount <= 0) continue;
     const end = formatTaipeiDate(best.end);
+    // 本體／DLC 分類（Display Catalog ProductType：AddOn＝DLC，
+    // 其餘一律算本體；Reco 特價清單實測全是 Game）。
+    const kind: "game" | "dlc" =
+      p.ProductType === "AddOn" ? "dlc" : "game";
     items.push({
       source: "xbox",
       key: `xbox-console-${id}`,
@@ -224,6 +232,7 @@ function parseProducts(data: unknown): DealsCarouselItem[] {
       badge: `-${discount}%`,
       priceLine: `${formatTwd(best.list)}（原價 ${formatTwd(best.msrp)}）`,
       subLine: end ? `特價至 ${end}` : null,
+      kind,
       sortKey: discount,
     });
   }

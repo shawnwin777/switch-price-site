@@ -96,6 +96,9 @@ import {
  *  2026-11-26 免費遊戲 PC／家機分流：/deals 免費區只留 PC 側
  *  （freeKinds 含 pc／dlc；純家機品項搬去 /console 免費遊戲分頁），
  *  key 換成 deals-page-v16（舊快取的 freeGames 還含純家機品項）。
+ *  2026-11-26 Steam 拆成本體／DLC 兩條搜尋分開抓（各 25 頁），
+ *  品項加 kind 欄位（本體／DLC）供「全部／本體／DLC」篩選用，
+ *  key 換成 deals-page-v18（舊快取的 Steam 品項沒有 kind）。
  *  三個新來源都走同一套機制：fetchDealsPage 裡一起抓、每小時自動更新，
  *  不用另外開 cron、不用手動同步、不用推 GitHub 更新資料；
  *  單一來源失敗回空陣列、不拖垮整頁，下次快取到期自動重抓。 */
@@ -114,7 +117,7 @@ export const getCachedDealsPage = unstable_cache(
     }
     return data;
   },
-  ["deals-page-v17"],
+  ["deals-page-v18"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-page"] }
 );
 
@@ -133,7 +136,8 @@ import {
  *  （XBOX PC 分頁變 0 款）；改成 0 款就拋錯、不快取空結果，key 換成
  *  xbox-pc-deals-v6 立刻重算（跟 /near-low commit b4dc3c49 同一套修法）。
  *  2026-11-24 上限 510→900（Reco 取 10 頁 1000 個 id 取前 900），key 換成
- *  xbox-pc-deals-v7。 */
+ *  xbox-pc-deals-v7。2026-11-26 品項加 kind 欄位（本體／DLC 分類，
+ *  見 lib/xbox-deals.ts），key 換成 xbox-pc-deals-v8。 */
 export const getCachedXboxPcDeals = unstable_cache(
   async (): Promise<XboxPcDealsData> => {
     const data = await fetchXboxPcDeals();
@@ -142,7 +146,7 @@ export const getCachedXboxPcDeals = unstable_cache(
     }
     return data;
   },
-  ["xbox-pc-deals-v7"],
+  ["xbox-pc-deals-v8"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["xbox-pc-deals"] }
 );
 
@@ -163,7 +167,8 @@ import {
  *  不快取空結果，key 換成 xbox-console-deals-v5 立刻重算
  *  （跟 /near-low commit b4dc3c49 同一套修法）。
  *  2026-11-24 上限 510→900（Reco 取 10 頁 1000 個 id 取前 900），key 換成
- *  xbox-console-deals-v6。 */
+ *  xbox-console-deals-v6。2026-11-26 品項加 kind 欄位（本體／DLC 分類，
+ *  見 lib/xbox-console-deals.ts），key 換成 xbox-console-deals-v7。 */
 export const getCachedXboxConsoleDeals = unstable_cache(
   async (): Promise<XboxConsoleDealsData> => {
     const data = await fetchXboxConsoleDeals();
@@ -172,7 +177,7 @@ export const getCachedXboxConsoleDeals = unstable_cache(
     }
     return data;
   },
-  ["xbox-console-deals-v6"],
+  ["xbox-console-deals-v7"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["xbox-console-deals"] }
 );
 
@@ -204,7 +209,8 @@ import { fetchPsDeals, type PsDealsData } from "./ps-deals";
  *  2026-11-24 v9 重掃一樣只收到 1,378 款（缺的都在 offset 2160 之後
  *  的頁面，疑似 Sony 限流 Vercel 出口 IP）；lib/ps-deals.ts 加空頁重掃
  *  （隔 2 秒、5 秒各一次）＋本頁 maxDuration 拉到 60，key 換成
- *  ps-deals-v10。 */
+ *  ps-deals-v10。2026-11-26 品項加 kind 欄位（本體／DLC 分類，
+ *  見 lib/ps-deals.ts），key 換成 ps-deals-v11。 */
 export const getCachedPsDeals = unstable_cache(
   async (): Promise<PsDealsData> => {
     const data = await fetchPsDeals();
@@ -213,7 +219,7 @@ export const getCachedPsDeals = unstable_cache(
     }
     return data;
   },
-  ["ps-deals-v10"],
+  ["ps-deals-v11"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["ps-deals"] }
 );
 
@@ -230,7 +236,9 @@ import {
  *  2026-11-23：0 款就拋錯、不快取空結果（18:14 微軟端抓失敗、XGP
  *  家機被空結果鎖 1 小時，跟 /near-low commit b4dc3c49 同一套修法）。
  *  家機 key 換成 gamepass-new-console-v2 立刻重算；PC 當時快取是好的
- *  （33 款），key 不動、舊快取續用到期，之後重抓一樣受拋錯保護。 */
+ *  （33 款），key 不動、舊快取續用到期，之後重抓一樣受拋錯保護。
+ *  2026-11-26 品項加 kind 欄位（本體／DLC 分類，見 lib/gamepass.ts），
+ *  家機 key 換成 gamepass-new-console-v3、PC key 換成 gamepass-new-pc-v2。 */
 export const getCachedGamePassNew = (
   platform: GamePassPlatform
 ): Promise<GamePassNewData> =>
@@ -246,7 +254,7 @@ const getCachedGamePassNewConsole = unstable_cache(
     }
     return data;
   },
-  ["gamepass-new-console-v2"],
+  ["gamepass-new-console-v3"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["gamepass-new"] }
 );
 
@@ -258,7 +266,7 @@ const getCachedGamePassNewPc = unstable_cache(
     }
     return data;
   },
-  ["gamepass-new-pc-v1"],
+  ["gamepass-new-pc-v2"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["gamepass-new"] }
 );
 
@@ -307,7 +315,9 @@ export const getCachedConsoleFreeGames = unstable_cache(
  *  空結果中毒同一類問題；文章存在就一定有遊戲，0 款只會是抓失敗。
  *  key 不動，舊的好快取續用）。
  *  2026-11-23 晚：誠實 UA（不偽裝瀏覽器、拿掉 Referer／Origin），
- *  key 換成 ps-plus-new-v2，強制用新 UA 重抓一次。 */
+ *  key 換成 ps-plus-new-v2，強制用新 UA 重抓一次。
+ *  2026-11-26 品項加 kind 欄位（本體／DLC 分類，見 lib/ps-plus.ts），
+ *  key 換成 ps-plus-new-v3。 */
 export const getCachedPsPlusNew = unstable_cache(
   async (): Promise<PsPlusNewData> => {
     const data = await fetchPsPlusNew();
@@ -316,7 +326,7 @@ export const getCachedPsPlusNew = unstable_cache(
     }
     return data;
   },
-  ["ps-plus-new-v2"],
+  ["ps-plus-new-v3"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["ps-plus-new"] }
 );
 

@@ -432,6 +432,9 @@ export async function fetchPsPlusNew(): Promise<PsPlusNewData> {
         badge: "新進",
         priceLine: "PS Plus 訂閱包含",
         subLine: g.platforms,
+        // 本體／DLC：PS Plus 目錄文／每月遊戲文列的都是完整遊戲
+        // （對應時已排除試玩版／DLC／追加包），一律算本體。
+        kind: "game",
         // 維持文章順序（sortKey 越大越前）。
         sortKey: totalCount - games.indexOf(g),
       });

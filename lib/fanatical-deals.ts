@@ -1,4 +1,5 @@
 import type { DealsCarouselItem } from "./deals-carousel";
+import { fetchUsdToTwd, formatTwd, usdToTwd } from "./fx";
 
 /** Fanatical 特價（/deals FANATICAL 分頁用），伺服器端抓取（不需金鑰）。
  *  來源：Fanatical 官方 MCP 伺服器 https://mcp.fanatical.com/mcp
@@ -108,8 +109,15 @@ function formatUsd(amount: number): string {
 
 /** 抓 Fanatical 特價（折扣大→小、前 100 款；失敗回空陣列）。
  *  免費品項（折扣 100%）另外單獨抓一次再合併，確保免費品項
- *  不會被主清單的 100 款特價擠掉。 */
-export async function fetchFanaticalDeals(): Promise<DealsCarouselItem[]> {
+ *  不會被主清單的 100 款特價擠掉。
+ *  usdToTwdRate：USD→TWD 匯率（fetchDealsPage 傳入；沒傳就自己抓一次，
+ *  見 lib/fx.ts）。priceLine 台幣在前、美元在括號內
+ *  （特價：NT$ 320（$9.99，原價 NT$ 1,280／$39.99）；無原價：
+ *  NT$ 320（$9.99）；免費：免費（原價 NT$ 1,280／$39.99））。 */
+export async function fetchFanaticalDeals(
+  usdToTwdRate?: number
+): Promise<DealsCarouselItem[]> {
+  const rate = usdToTwdRate ?? (await fetchUsdToTwd());
   try {
     // MCP 交握：initialize → notifications/initialized → tools/call。
     const init = await mcpPost({
@@ -183,6 +191,10 @@ export async function fetchFanaticalDeals(): Promise<DealsCarouselItem[]> {
       const url = typeof r?.url === "string" ? r.url : "";
       if (!slug || !name || price == null || !image || !url) continue;
       const end = formatTaipeiDateFromUnix(r?.valid_until);
+      // 本體／DLC 分類（Fanatical MCP 官方 type 欄位，2026-11-26 實測值：
+      // game／game-bundle＝本體、dlc＝DLC；其他值一律算本體）。
+      const kind: "game" | "dlc" =
+        r?.type === "dlc" ? "dlc" : "game";
       // 免費：折扣 100% 或特價 $0——標成免費格式（freeKinds ["pc"]），
       // fetchDealsPage 會把它合併進免費遊戲區，不放進 FANATICAL 特價分頁。
       if (discount >= 100 || price === 0) {
@@ -196,10 +208,11 @@ export async function fetchFanaticalDeals(): Promise<DealsCarouselItem[]> {
           badge: "免費",
           priceLine:
             full != null && full > 0
-              ? `免費（原價 ${formatUsd(full)}）`
+              ? `免費（原價 ${formatTwd(usdToTwd(full, rate))}／${formatUsd(full)}）`
               : "免費領取",
           subLine: end ? `免費領取至 ${end}` : null,
           freeKinds: ["pc"],
+          kind,
           // 免費區按截止日近→遠排；無截止日排最後。
           sortKey:
             typeof r?.valid_until === "number" && r.valid_until > 0
@@ -221,9 +234,10 @@ export async function fetchFanaticalDeals(): Promise<DealsCarouselItem[]> {
         // 此時只寫特價、不寫原價（見 /for-ai/tools 說明）。
         priceLine:
           full != null && full > price
-            ? `${formatUsd(price)}（原價 ${formatUsd(full)}）`
-            : formatUsd(price),
+            ? `${formatTwd(usdToTwd(price, rate))}（${formatUsd(price)}，原價 ${formatTwd(usdToTwd(full, rate))}／${formatUsd(full)}）`
+            : `${formatTwd(usdToTwd(price, rate))}（${formatUsd(price)}）`,
         subLine: end ? `特價至 ${end}` : null,
+        kind,
         sortKey: discount,
       });
     }

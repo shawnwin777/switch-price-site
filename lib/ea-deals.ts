@@ -1,4 +1,5 @@
 import type { DealsCarouselItem } from "./deals-carousel";
+import { fetchUsdToTwd, formatTwd, usdToTwd } from "./fx";
 
 /** EA 特價（/deals EA 分頁用），伺服器端抓取（不需金鑰）。
  *  來源：EA 特價頁 https://www.ea.com/sales/deals/ （美國商店，美元計價）。
@@ -94,8 +95,15 @@ async function fetchEaPage(page: number): Promise<{
 }
 
 /** 抓 EA 特價全清單（9 頁並行、依 slug 去重、折扣大→小）。
- *  單頁失敗不影響其他頁；全部失敗回空陣列。 */
-export async function fetchEaDeals(): Promise<DealsCarouselItem[]> {
+ *  單頁失敗不影響其他頁；全部失敗回空陣列。
+ *  usdToTwdRate：USD→TWD 匯率（fetchDealsPage 傳入；沒傳就自己抓一次，
+ *  見 lib/fx.ts）。priceLine 台幣在前、美元在括號內
+ *  （特價：NT$ 320（$9.99，原價 NT$ 1,280／$39.99）；免費：免費（原價
+ *  NT$ 1,280／$39.99）；無原價：NT$ 320（$9.99））。 */
+export async function fetchEaDeals(
+  usdToTwdRate?: number
+): Promise<DealsCarouselItem[]> {
+  const rate = usdToTwdRate ?? (await fetchUsdToTwd());
   const pages = await Promise.allSettled(
     Array.from({ length: PAGE_COUNT }, (_, i) => fetchEaPage(i + 1))
   );
@@ -130,6 +138,8 @@ export async function fetchEaDeals(): Promise<DealsCarouselItem[]> {
       if (!title || saleAmt == null || !image) continue;
       // 免費：折扣 100% 或特價 $0——標成免費格式（freeKinds ["pc"]），
       // fetchDealsPage 會把它合併進免費遊戲區，不放進 EA 特價分頁。
+      // 本體／DLC：EA 特價頁 __NEXT_DATA__ 沒有類型欄位，無法區分，
+      // 依使用者規則一律算本體（kind="game"）。
       if (discount >= 100 || saleAmt === 0) {
         items.push({
           source: "ea",
@@ -140,16 +150,21 @@ export async function fetchEaDeals(): Promise<DealsCarouselItem[]> {
           badge: "免費",
           priceLine:
             listAmt != null && listAmt > 0
-              ? `免費（原價 $${listAmt.toFixed(2)}）`
+              ? `免費（原價 ${formatTwd(usdToTwd(listAmt, rate))}／$${listAmt.toFixed(2)}）`
               : "免費領取",
           subLine: saleEnd ? `免費領取至 ${saleEnd}` : null,
           freeKinds: ["pc"],
+          kind: "game",
           // EA 免費品項無個別截止日，免費區裡排最後。
           sortKey: Number.MAX_SAFE_INTEGER,
         });
         continue;
       }
       if (discount <= 0 || !sale || listAmt == null) continue;
+      // 特價：台幣在前、美元在括號內；有原價且跟特價不同才寫原價。
+      const saleTwd = formatTwd(usdToTwd(saleAmt, rate));
+      const listTwd =
+        listAmt != null ? formatTwd(usdToTwd(listAmt, rate)) : null;
       items.push({
         source: "ea",
         key: `ea-${slug}`,
@@ -158,10 +173,11 @@ export async function fetchEaDeals(): Promise<DealsCarouselItem[]> {
         url: `https://www.ea.com/games/${slug}`,
         badge: `-${discount}%`,
         priceLine:
-          list && list !== sale
-            ? `${sale}（原價 ${list}）`
-            : sale,
+          list && list !== sale && listTwd
+            ? `${saleTwd}（${sale}，原價 ${listTwd}／${list}）`
+            : `${saleTwd}（${sale}）`,
         subLine: saleEnd ? `特價至 ${saleEnd}` : null,
+        kind: "game",
         sortKey: discount,
       });
     }
