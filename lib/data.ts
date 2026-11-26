@@ -542,6 +542,118 @@ export async function fetchExtrasForIds(
   return { prices, likeCount, collectionCount };
 }
 
+/** 可見國家「特價優先」排序的 RPC 回傳（有序 id＋總數）。 */
+interface DealsOrderResult {
+  ids: string[];
+  total: number;
+}
+
+/** 呼叫 games_page_deals_order RPC 拿「特價優先」排序的有序 id＋總數。
+ *  任何失敗（函式還沒建、權限、查詢錯誤、回傳形狀不對）都回 null，
+ *  呼叫端退回既有的 view 全域排序，首頁絕不能因 RPC 壞掉。
+ *  只有只看我的收藏且收藏為空時是「確定沒結果」，回空陣列而非 null。 */
+async function fetchDealsOrderIds(
+  db: SupabaseClient,
+  args: GamesPagePublicArgs,
+  lists: GamesPageListIds,
+  page: number
+): Promise<DealsOrderResult | null> {
+  // 只看我的收藏且收藏為空：結果必為空，不用打 RPC（與既有邏輯一致）。
+  if (args.onlyMine && (!lists.mineIds || lists.mineIds.length === 0)) {
+    return { ids: [], total: 0 };
+  }
+  // 可見國家：?country=XX 單一國家優先；"ALL"／未設定 = 全部國家（NULL）；
+  // 只看我的收藏不篩遊戲名單（p_require_visible_price=false），但排序統計
+  // 仍用可見國家（跟卡片顯示一致）。
+  const effectiveCountries: string[] | null = args.country
+    ? [args.country]
+    : args.visibleCountries === "ALL" || args.visibleCountries === undefined
+      ? null
+      : args.visibleCountries;
+  const requireVisiblePrice = Boolean(args.country) || !args.onlyMine;
+  const term = sanitizeSearchTerm(args.q ?? "");
+  const { data, error } = await db.rpc("games_page_deals_order", {
+    p_countries: effectiveCountries,
+    p_require_visible_price: requireVisiblePrice,
+    p_q: term || null,
+    p_platform: args.platform ?? null,
+    p_product_type: args.productType ?? null,
+    p_demo: args.demo ?? null,
+    p_only_sale: args.onlySale ?? false,
+    p_mine_ids: lists.mineIds,
+    p_exclude_ids:
+      lists.excludePurchasedIds.length > 0 ? lists.excludePurchasedIds : null,
+    p_page: page,
+    p_page_size: HOME_PAGE_SIZE,
+  });
+  if (error) {
+    console.warn(
+      "[data] 可見國家排序 RPC 失敗（退回全域 view 排序）：",
+      error.message
+    );
+    return null;
+  }
+  if (!Array.isArray(data) || data.length === 0) return null;
+  const row = data[0] as { ids?: unknown; total_count?: unknown } | null;
+  if (!row || !Array.isArray(row.ids) || typeof row.total_count !== "number") {
+    return null;
+  }
+  return { ids: row.ids as string[], total: row.total_count };
+}
+
+/** 可見國家「特價優先」排序的整頁流程：RPC 拿有序 id＋總數，再抓該頁
+ *  遊戲列（view）與價格／讚數／收藏數，顯示邏輯與既有流程一致。
+ *  回 null 時呼叫端退回既有的 view 排序。 */
+async function fetchDealsPageViaRpc(
+  db: SupabaseClient,
+  args: GamesPagePublicArgs,
+  lists: GamesPageListIds,
+  page: number
+): Promise<GamesPageResult | null> {
+  const order = await fetchDealsOrderIds(db, args, lists, page);
+  if (!order) return null;
+  const total = order.total;
+  const totalPages = total > 0 ? Math.ceil(total / HOME_PAGE_SIZE) : 0;
+  if (order.ids.length === 0) return { games: [], total, page, totalPages };
+  // 遊戲列照 RPC 的順序排（PostgREST .in() 不保證順序，程式裡重排）。
+  const { data, error } = await db
+    .from("games_with_price_stats")
+    .select(GAME_COLUMNS)
+    .in("id", order.ids);
+  if (error || !data) return null;
+  const byId = new Map((data as Game[]).map((g) => [g.id, g]));
+  const games = order.ids
+    .map((id) => byId.get(id))
+    .filter((g): g is Game => Boolean(g));
+  if (games.length === 0) return null;
+  const extras = await fetchExtrasForIds(
+    db,
+    games.map((g) => g.id)
+  );
+  if (!args.onlyMine && extras.prices.length === 0) {
+    return {
+      games: [],
+      total,
+      page,
+      totalPages,
+      error: "價格讀取失敗，請重整再試",
+    };
+  }
+  return {
+    games: games.map((g) =>
+      toGameWithPrices(
+        g,
+        extras.prices,
+        extras.likeCount.get(g.id) ?? 0,
+        extras.collectionCount.get(g.id) ?? 0
+      )
+    ),
+    total,
+    page,
+    totalPages,
+  };
+}
+
 /** 首頁公開資料核心（可進 unstable_cache）：分頁列＋價格／讚數／收藏數。
  *  個人狀態（我是否按讚／收藏／購買）不在這裡，由 overlayMyGameFlags
  *  在呼叫端即時補上，所以快取絕不會把 A 的狀態發給 B。
@@ -559,6 +671,14 @@ export async function fetchGamesPagePublicCore(
     mineIds: args.mineIds,
     excludePurchasedIds: args.excludePurchasedIds,
   };
+
+  // 特價優先排序（deals）：先走可見國家 RPC（2026-11-26，migration
+  // 20261126_visible_sale_sort.sql），排序只用可見國家的特價結束時間；
+  // RPC 任何失敗一律退回既有的 view 全域排序，首頁不會壞掉。
+  if ((args.sort ?? "deals") === "deals") {
+    const rpcPage = await fetchDealsPageViaRpc(db, args, lists, page);
+    if (rpcPage) return rpcPage;
+  }
 
   // 嘗試順序：(檢視, 原排序) → 欄位缺失退回名稱排序 → 檢視缺失改用 games 表
   //   → is_unnamed 欄位缺失退回不過濾（migration 未跑時的短暫狀態）

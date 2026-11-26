@@ -334,10 +334,11 @@ const getCachedGamesPagePublicInner = unstable_cache(
     if (result.error) throw new Error(result.error);
     return result;
   },
-  // v7：2026-11-26 比價牆預設可見國家改成全部 35 國（之前預設只留
-  // 台港）；舊 key 的快取是只撈台港有價遊戲的舊列表，換 key 讓它立刻
-  // 重算（部署不會清 Data Cache）。
-  ["games-page-v7"],
+  // v8：2026-11-26「特價優先」排序改成只用可見國家的特價結束時間
+  // （RPC games_page_deals_order，見 migration
+  // 20261126_visible_sale_sort.sql）；舊 key 的快取是全域統計排的舊
+  // 列表，換 key 讓它立刻重算（部署不會清 Data Cache）。
+  ["games-page-v8"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["games-page"] }
 );
 
