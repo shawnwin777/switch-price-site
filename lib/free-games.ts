@@ -39,9 +39,11 @@ function formatTaipeiDate(iso: string | null | undefined): string | null {
   }).format(d);
 }
 
-function formatTwdCents(cents: number | null | undefined): string | null {
-  if (cents == null || !Number.isFinite(cents)) return null;
-  return `NT$ ${Math.round(cents / 100).toLocaleString("zh-Hant-TW")}`;
+/** Epic US 店面的 originalPrice 是美金分（1999＝$19.99），不是台幣分，
+ *  所以用美元顯示；0 或空值回 null（卡片只顯示「免費領取／即將免費」）。 */
+function formatUsdCents(cents: number | null | undefined): string | null {
+  if (cents == null || !Number.isFinite(cents) || cents <= 0) return null;
+  return `$${(cents / 100).toFixed(2)}`;
 }
 
 /** 標題歸一化（去重用）：小寫、去空白與標點、去掉 Giveaway／平台後綴。 */
@@ -117,7 +119,7 @@ function parseEpic(data: unknown, nowMs: number): {
         o.startDate &&
         Date.parse(o.startDate) > nowMs
     );
-    const originalPrice = formatTwdCents(
+    const originalPrice = formatUsdCents(
       el.price?.totalPrice?.originalPrice
     );
     if (freeNow) {
