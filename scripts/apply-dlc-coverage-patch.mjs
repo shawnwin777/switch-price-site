@@ -105,12 +105,47 @@ async function recomputeHistoricalLow(gameIds) {
   }
 }
 
+// ---- 欄位白名單（2026-11-26 實測 live DB 欄位）：patch 檔裡的 slug、
+//   prices.title_id 只是方便對照的額外欄位，表裡沒有，送上去會被
+//   PostgREST 擋（PGRST204）。這裡先過濾，只送表裡有的欄位。
+//   game_region_ids：game_id、country、title_id（另補 source 供追溯）。
+//   prices：game_id、country、country_name、currency、regular_raw、
+//     effective_raw、discount_pct、discount_raw、sale_end、price_twd、
+//     is_historical_low、verified、updated_at。
+function cleanRegionRow(r) {
+  return {
+    game_id: r.game_id,
+    country: r.country,
+    title_id: r.title_id,
+    source: "dlc-coverage-20261126",
+  };
+}
+function cleanPriceRow(r) {
+  return {
+    game_id: r.game_id,
+    country: r.country,
+    country_name: r.country_name,
+    currency: r.currency,
+    regular_raw: r.regular_raw ?? null,
+    effective_raw: r.effective_raw ?? null,
+    discount_pct: r.discount_pct ?? null,
+    discount_raw: r.discount_raw ?? null,
+    sale_end: r.sale_end ?? null,
+    price_twd: r.price_twd ?? null,
+    is_historical_low: Boolean(r.is_historical_low),
+    verified: r.verified !== false,
+    updated_at: new Date().toISOString(),
+  };
+}
+
 const t0 = Date.now();
 console.log(`套用 patch：${patchPath}`);
 console.log(`region_ids ${patch.region_ids.length} 筆、title_id_fills ${patch.title_id_fills.length} 筆、prices ${patch.prices.length} 筆`);
 
 // 1) game_region_ids（JP 除外，JP 走 games.title_id）。
-const regionRows = patch.region_ids.filter((r) => r.country !== "JP");
+const regionRows = patch.region_ids
+  .filter((r) => r.country !== "JP")
+  .map(cleanRegionRow);
 await upsert("game_region_ids", regionRows, "game_id,country", "game_region_ids");
 
 // 2) games.title_id（只填空值）。
@@ -122,8 +157,8 @@ for (const row of patch.title_id_fills) {
 }
 console.log(`games.title_id：${titleDone}/${patch.title_id_fills.length}`);
 
-// 3) prices。
-await upsert("prices", patch.prices, "game_id,country", "prices");
+// 3) prices（先過濾成表裡有的欄位）。
+await upsert("prices", patch.prices.map(cleanPriceRow), "game_id,country", "prices");
 
 // 4) historical_low_twd 重算。
 const affected = [...new Set(patch.prices.map((p) => p.game_id))];
