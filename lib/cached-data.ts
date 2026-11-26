@@ -358,7 +358,7 @@ const getCachedGamesPagePublicInner = unstable_cache(
   // （RPC games_page_deals_order，見 migration
   // 20261126_visible_sale_sort.sql）；舊 key 的快取是全域統計排的舊
   // 列表，換 key 讓它立刻重算（部署不會清 Data Cache）。
-  ["games-page-v8"],
+  ["games-page-v9"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["games-page"] }
 );
 
