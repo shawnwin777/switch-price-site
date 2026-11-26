@@ -332,6 +332,9 @@ export default function GameDetailClient({
           <span className="cover-carousel-counter">
             {carouselIndex + 1} / {slides.length}
           </span>
+          {/* 手機版小提示（2026-11-26）：手機沒有左右箭頭，提醒可以滑動看圖；
+           * 電腦版有箭頭，不用寫。 */}
+          <span className="cover-carousel-swipe-hint">滑動查看圖片</span>
         </div>
         <div className="detail-info">
           <h1>{game.title_zh}</h1>

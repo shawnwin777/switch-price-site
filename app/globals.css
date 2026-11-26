@@ -1823,10 +1823,30 @@ a.home-about-donate-btn:hover {
   z-index: 2;
 }
 
+/* 手機版小提示：電腦版不顯示（有左右箭頭），手機版才顯示。 */
+.cover-carousel-swipe-hint {
+  display: none;
+}
+
 @media (max-width: 760px) {
   /* 手機用左右滑動切換，箭頭隱藏。 */
   .cover-carousel-nav {
     display: none;
+  }
+
+  .cover-carousel-swipe-hint {
+    background: rgba(5, 8, 22, 0.65);
+    border-radius: 999px;
+    bottom: 8px;
+    color: #fff;
+    display: block;
+    font-size: 12px;
+    left: 50%;
+    padding: 3px 10px;
+    position: absolute;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    z-index: 2;
   }
 }
 
