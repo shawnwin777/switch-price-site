@@ -1691,7 +1691,6 @@ a.home-about-donate-btn:hover {
  * 窄螢幕隱藏）。點圖片或右上角放大鈕才進全螢幕。 */
 .cover-carousel {
   align-items: center;
-  aspect-ratio: 3 / 4;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1716,14 +1715,14 @@ a.home-about-donate-btn:hover {
   border: 0;
   cursor: zoom-in;
   display: block;
-  height: 100%;
   line-height: 0;
   padding: 0;
   width: 100%;
 }
 
 .cover-carousel-img {
-  height: 100%;
+  display: block;
+  height: auto;
   object-fit: contain;
   width: 100%;
 }
@@ -1731,7 +1730,6 @@ a.home-about-donate-btn:hover {
 .cover-carousel-video {
   align-items: center;
   display: flex;
-  height: 100%;
   justify-content: center;
   width: 100%;
 }
@@ -1741,16 +1739,17 @@ a.home-about-donate-btn:hover {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  height: 100%;
   justify-content: center;
   text-decoration: none;
   width: 100%;
 }
 
 .cover-carousel-video-thumb {
-  max-height: 70%;
+  display: block;
+  height: auto;
   max-width: 100%;
   object-fit: contain;
+  width: 100%;
 }
 
 .cover-carousel-play {
