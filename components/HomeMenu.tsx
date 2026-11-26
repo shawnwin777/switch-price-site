@@ -10,7 +10,9 @@ import { createSupabaseBrowserClient } from "@/lib/supabase-client";
  *  第一排「會員登入」→ /login?next=/home（首頁不顯示上方導覽列，登入入口在這裡），
  *  點了直接進登入頁、不開抽屜（2026-11-25 shawn：抽屜裡的「前往登入」不好按）；
  *  再來 SWITCH → /switch-price、PC GAMES → /deals、
- *  GAMING CONSOLE → /console、關於我（第五格）。
+ *  GAMING CONSOLE → /console、關於我 → /about（第五格，2026-11-26 從
+ *  展開面板拉出來獨立成頁，點了直接進頁面、不再跳到封面；滑過去
+ *  照樣展開預覽，跟其他選單一樣）。
  *  hover／點按其他選單時，品牌板像抽屜一樣被抽走（向左滑出＋微斜），
  *  露出底下的預覽圖列，停在那裡不彈回；移開後延遲一下才收回。
  *  SWITCH 預覽 = 站內特價 Switch 遊戲（Nintendo CDN 封面）；
@@ -20,8 +22,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase-client";
  *  顯示漸層佔位、不讓整頁掛掉。
  *  手機（≤860px）不玩抽屜：上下堆疊看不到品牌板滑開，選單點一下
  *  直接進連結（hover／focus 也不展開預覽，避免點按時頁面先被拉長）；
- *  品牌板的滑出動畫在手機版停用；只有「關於我」點按展開，
- *  而且手機版只顯示三個社群連結的小列，不要整片預覽圖。 */
+ *  品牌板的滑出動畫在手機版停用。 */
 
 export interface HomePreviewItem {
   key: string;
@@ -51,7 +52,7 @@ const CLOSE_DELAY_MS = 450;
 
 const MENU: {
   key: MenuKey;
-  href: string | null;
+  href: string;
   title: string;
   sub: string;
   icon: ReactNode;
@@ -142,7 +143,7 @@ const MENU: {
   },
   {
     key: "about",
-    href: null,
+    href: "/about",
     title: "關於我",
     sub: "SHAWN GAME STUDIO · Instagram／Threads／Discord",
     icon: (
@@ -451,23 +452,16 @@ export default function HomeMenu({ previews }: { previews: HomePreviews }) {
             /* 會員登入不開抽屜：hover／focus 也不展開預覽，點了直接進 /login。
              * 手機寬度不展開預覽：點按時 hover／focus 的合成事件
              *  也不要先把預覽展開、把頁面拉長。
-             * 「關於我」是按鈕（無 href、點按開關面板），不要 hover／focus
-             *  自動展開——否則桌機滑鼠移過去先展開、第一次點按反而會把
-             *  它關掉（點了沒反應、要點第二次才開）。關於我只用 onClick。 */
-            ...(item.href
-              ? {
-                  onMouseEnter: () => {
-                    if (item.key !== "login" && !isMobileWidth())
-                      open(item.key);
-                  },
-                  onFocus: () => {
-                    if (item.key !== "login" && !isMobileWidth())
-                      open(item.key);
-                  },
-                }
-              : {}),
+             * 關於我現在是連到 /about 的連結（2026-11-26），跟其他選項一樣
+             *  滑過去就展開預覽、點了進頁面，不再是開關面板的按鈕。 */
+            onMouseEnter: () => {
+              if (item.key !== "login" && !isMobileWidth()) open(item.key);
+            },
+            onFocus: () => {
+              if (item.key !== "login" && !isMobileWidth()) open(item.key);
+            },
           };
-          return item.href ? (
+          return (
             <Link
               key={item.key}
               href={item.href}
@@ -476,16 +470,6 @@ export default function HomeMenu({ previews }: { previews: HomePreviews }) {
             >
               {body}
             </Link>
-          ) : (
-            <button
-              key={item.key}
-              type="button"
-              {...common}
-              aria-expanded={isActive}
-              onClick={() => (isActive ? setActive(null) : open(item.key))}
-            >
-              {body}
-            </button>
           );
         })}
       </nav>

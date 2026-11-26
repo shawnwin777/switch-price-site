@@ -67,7 +67,7 @@ export default function RootLayout({
               。
             </p>
             <p className="footer-sub">
-              <Link href="/home">關於我</Link>｜
+              <Link href="/about">關於我</Link>｜
               <Link href="/privacy">隱私權政策</Link>｜
               <Link href="/terms">網站使用條款</Link>
             </p>

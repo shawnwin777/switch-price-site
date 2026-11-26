@@ -53,8 +53,8 @@ export default function PrivacyPage() {
       <h2>六、你的權利</h2>
       <p>
         如需查詢、更正或刪除帳號與相關資料，請透過
-        <Link href="/home">本站聯絡管道</Link>
-        （首頁「關於我」的 Instagram／Threads／Discord）提出申請。
+        <Link href="/about">本站聯絡管道</Link>
+        （「關於我」頁面的 Instagram／Threads／Discord）提出申請。
       </p>
 
       <h2>七、政策變更</h2>

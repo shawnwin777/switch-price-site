@@ -39,8 +39,8 @@ export default function TermsPage() {
       <p>
         遊戲名稱、價格等事實性資訊用於商品識別與比價；封面圖片來源為各官方商店
         CDN、IGDB 等（來源標示於頁尾）。如果你認為本站內容侵害你的權利，請透過
-        <Link href="/home">本站聯絡管道</Link>
-        （首頁「關於我」的 Instagram／Threads／Discord）提出通報，說明侵權內容與連結，本站收到後會儘速處理（移除或修正）。
+        <Link href="/about">本站聯絡管道</Link>
+        （「關於我」頁面的 Instagram／Threads／Discord）提出通報，說明侵權內容與連結，本站收到後會儘速處理（移除或修正）。
       </p>
 
       <h2>六、帳號與個人資料</h2>
