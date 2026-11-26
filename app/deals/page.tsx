@@ -147,7 +147,7 @@ export default async function DealsPage({
         </p>
       )}
       <p className="muted">
-        STEAM 取數範圍：先抓特價搜尋前 10 頁（1000 列）再按折扣大→小取前 900
+        STEAM 取數範圍：先抓特價搜尋前 13 頁（1300 列）再按折扣大→小取前 1200
         款，不是全台灣特價中
         {deals.steamTotalCount > 0
           ? ` ${deals.steamTotalCount.toLocaleString("zh-Hant-TW")} 款`

@@ -637,31 +637,30 @@ async function handleRefresh(request: NextRequest) {
 
   // ---- 3b. 未確認價格標記（外國匯入寫入端合約）----
   // prices.verified 欄位存在時才標記；不存在時不帶 verified 鍵（否則寫入報 42703）。
-  // 只標「新出現」的外國價格列：先查既有 (game_id, country) 鍵，已在庫的列不帶
+  // 只標「新出現」的價格列：先查既有 (game_id, country) 鍵，已在庫的列不帶
   // verified 鍵（upsert 不動既有值，探針通過後改成的 true 不會被蓋回 false）；
-  // 新列才帶 verified=false。TW／HK／JP／KR 維持已確認，不標記。
+  // 新列才帶 verified：外國新列 false、TW／HK／JP／KR 與其餘已確認國家新列 true。
+  // （2026-11-26 rest 組實測：只查外國列的話，非外國新列沒帶 verified、
+  // 欄位 NOT NULL 又無預設，INSERT 直接報 null value in column "verified"。）
   let hasVerifiedColumn = false;
   let unverifiedPricesWritten = 0;
   if (priceRows.length > 0) {
     hasVerifiedColumn = await probeTableColumn(admin, "prices", "verified");
   }
   if (hasVerifiedColumn) {
-    const foreignRows = priceRows.filter((r) =>
-      FOREIGN_PRICE_COUNTRIES.has(r.country)
-    );
-    const foreignGameIds = [...new Set(foreignRows.map((r) => r.game_id))];
+    const allGameIds = [...new Set(priceRows.map((r) => r.game_id))];
     const existingKeys = new Set<string>();
     let lookupFailed = false;
-    for (let i = 0; i < foreignGameIds.length; i += 200) {
+    for (let i = 0; i < allGameIds.length; i += 200) {
       const { data, error: existError } = await admin
         .from("prices")
         .select("game_id, country")
-        .in("game_id", foreignGameIds.slice(i, i + 200));
+        .in("game_id", allGameIds.slice(i, i + 200));
       if (existError) {
         lookupFailed = true;
         errors.push({
           country: "-",
-          message: `讀取既有外國價格列失敗（${existError.message}）：本次外國新價未標未確認（以已確認寫入），請檢查後重跑本片`,
+          message: `讀取既有價格列失敗（${existError.message}）：本次新價未標 verified（以預設寫入），請檢查後重跑本片`,
         });
         break;
       }
@@ -670,10 +669,10 @@ async function handleRefresh(request: NextRequest) {
       }
     }
     if (!lookupFailed) {
-      for (const row of foreignRows) {
+      for (const row of priceRows) {
         if (!existingKeys.has(`${row.game_id}:${row.country}`)) {
-          row.verified = false;
-          unverifiedPricesWritten++;
+          row.verified = FOREIGN_PRICE_COUNTRIES.has(row.country) ? false : true;
+          if (row.verified === false) unverifiedPricesWritten++;
         }
       }
     }
