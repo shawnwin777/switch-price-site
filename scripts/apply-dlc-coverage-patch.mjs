@@ -78,9 +78,13 @@ async function recomputeHistoricalLow(gameIds) {
   let done = 0;
   for (let i = 0; i < gameIds.length; i += BATCH) {
     const ids = gameIds.slice(i, i + BATCH);
-    const inList = ids.map((id) => `"${id}"`).join(",");
+    // PostgREST in 篩選格式：game_id=in.(uuid1,uuid2)——UUID 只含
+    // 十六進位與連字號、不用引號也不用編碼；括號要原樣送出，
+    // encodeURIComponent 會把 ( ) 編成 %28 %29，PostgREST 就認不得了
+    // （之前就是這樣報 400）。
+    const inList = ids.join(",");
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/prices?game_id=in.(${encodeURIComponent(`(${inList})`)})&select=game_id,price_twd&verified=is.true&limit=10000`,
+      `${SUPABASE_URL}/rest/v1/prices?game_id=in.(${inList})&select=game_id,price_twd&verified=is.true&limit=10000`,
       { headers },
     );
     if (!res.ok) throw new Error(`抓價格失敗：HTTP ${res.status}`);
