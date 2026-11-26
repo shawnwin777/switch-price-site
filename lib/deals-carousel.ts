@@ -15,10 +15,11 @@ import { fetchUsdToTwd } from "./fx";
 //     2026-11-23 實測台灣區特價中 15,020 款；sort_by 傳 Discount_DESC
 //     與 _ASC 回傳順序相同（不支援折扣排序）。2026-11-26 改拆成本體／DLC
 //     兩條搜尋分開抓：本體 category1=998（12,509 款）、DLC category1=21
-//     （8,020 款），各抓前 25 頁（2500 列），合併去重後再按折扣大→小
-//     排序取前 1200。注意：這是「取回 5000 列裡的前 1200」，不是全台灣
-//     特價款裡的全域前 1200。只做台灣（cc=TW），不加跨區切換——跨區帳號
-//     可能被鎖。搜尋結果沒有特價截止日，subLine 為空。
+//     （8,020 款），各抓前 25 頁（2500 列），合併去重後按折扣大→小
+//     排序，本體取前 1200、DLC 取前 300（合計 1500）。注意：這是「取回
+//     5000 列裡的本體前 1200＋DLC 前 300」，不是全台灣特價款裡的全域
+//     前 1500。只做台灣（cc=TW），不加跨區切換——跨區帳號可能被鎖。
+//     搜尋結果沒有特價截止日，subLine 為空。
 //     舊的 featuredcategories specials 只回 10 款精選，搜尋失敗時才當備援。
 //     連結：https://store.steampowered.com/app/<id>/
 //   Steam 限時免費領取（免費遊戲分頁的 Steam 部分）：同一支特價搜尋 API
@@ -165,9 +166,12 @@ const STEAM_SEARCH_URL =
 /** 每平台分頁取的前 1200 款（2026-11-23 從 200 改成 350、再改成 510；
  *  2026-11-24 從 510 改成 900；2026-11-26 Steam 改成 1200——特價列隊很大，
  *  只取 900 的話 50% 折扣的款式排不進來）。
- *  注意 Steam 是「本體 25 頁＋DLC 25 頁、取回 5000 列裡的前 1200」，
- *  不是全台灣特價款裡的全域前 1200。 */
+ *  注意 Steam 是「本體 25 頁＋DLC 25 頁、取回 5000 列裡本體前 1200＋
+ *  DLC 前 300」，不是全台灣特價款裡的全域前 1200。 */
 export const DEALS_TOP_COUNT = 1200;
+/** Steam 分頁取的 DLC 前 300 款（2026-11-26：Steam 本體取 1200、DLC
+ *  取 300，合計 1500；本體＋DLC 混著取前 1200 的話比例會歪掉）。 */
+export const DEALS_TOP_DLC_COUNT = 300;
 const EPIC_URL =
   "https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions?locale=zh-Hant&country=TW&allowCountries=TW";
 
@@ -385,7 +389,8 @@ async function fetchSteamSearchPage(
 }
 
 /** 抓 Steam 特價搜尋：本體（category1=998）前 25 頁＋DLC（category1=21）
- *  前 25 頁，各 2500 列，合併去重後按折扣大→小取前 1200 款
+ *  前 25 頁，各 2500 列，合併去重後按折扣大→小排序，本體取前 1200、
+ *  DLC 取前 300（合計 1500）
  *  （不含 100% 限時免費，那些另外進免費分頁，不佔特價名額）。
  *  （兩頁 200 列實測會有 1 款重複，所以多抓頁數補滿；5000 列去重後
  *  仍有 1200 款以上才取得到 1200——不夠時就列實際抓到的款數。）
@@ -399,12 +404,34 @@ async function fetchSteamSearchTop(): Promise<{
   totalCount: number;
 }> {
   const starts = Array.from({ length: 25 }, (_, i) => i * 100);
+  // 50 頁分批抓（每批 10 個並行、批間隔 200ms）：2026-11-26 實測，
+  // 50 個並行打 Steam 會被 Vercel 出口 IP 限流、DLC 頁大量失敗
+  // （線上前 1200 只剩 122 款 DLC，本機全抓是 331 款）；分批後
+  // 每批 10 個並行，跟舊版 13 頁並行差不多，不會觸發限流。
+  const runBatched = async (
+    jobs: (() => Promise<{ items: DealsCarouselItem[]; totalCount: number }>)[]
+  ): Promise<
+    PromiseSettledResult<{ items: DealsCarouselItem[]; totalCount: number }>[]
+  > => {
+    const out: PromiseSettledResult<{
+      items: DealsCarouselItem[];
+      totalCount: number;
+    }>[] = [];
+    for (let i = 0; i < jobs.length; i += 10) {
+      const chunk = jobs.slice(i, i + 10);
+      out.push(...(await Promise.allSettled(chunk.map((fn) => fn()))));
+      if (i + 10 < jobs.length) {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }
+    return out;
+  };
   const [gamePages, dlcPages, freeByPrice] = await Promise.all([
-    Promise.allSettled(
-      starts.map((start) => fetchSteamSearchPage(start, 100, "_ASC", 998))
+    runBatched(
+      starts.map((start) => () => fetchSteamSearchPage(start, 100, "_ASC", 998))
     ),
-    Promise.allSettled(
-      starts.map((start) => fetchSteamSearchPage(start, 100, "_ASC", 21))
+    runBatched(
+      starts.map((start) => () => fetchSteamSearchPage(start, 100, "_ASC", 21))
     ),
     fetchSteamSearchPage(0, 100, "Price_ASC").catch(() => ({
       items: [],
@@ -435,7 +462,8 @@ async function fetchSteamSearchTop(): Promise<{
       return true;
     })
     .sort((a, b) => b.sortKey - a.sortKey || a.key.localeCompare(b.key));
-  // 100% 限時免費領取進免費分頁（兩邊來源合併去重）；其餘按折扣取前 1200。
+  // 100% 限時免費領取進免費分頁（兩邊來源合併去重）；其餘本體按折扣取前
+  // 1200、DLC 按折扣取前 300（本體優先、DLC 額外）。
   const freeSeen = new Set<string>();
   const freeItems = [...merged, ...freeByPrice.items]
     .filter((it) => it.sortKey === 100)
@@ -444,9 +472,14 @@ async function fetchSteamSearchTop(): Promise<{
       freeSeen.add(it.key);
       return true;
     });
-  const items = merged
-    .filter((it) => it.sortKey < 100)
-    .slice(0, DEALS_TOP_COUNT);
+  const items = [
+    ...merged
+      .filter((it) => it.kind === "game" && it.sortKey < 100)
+      .slice(0, DEALS_TOP_COUNT),
+    ...merged
+      .filter((it) => it.kind === "dlc" && it.sortKey < 100)
+      .slice(0, DEALS_TOP_DLC_COUNT),
+  ].sort((a, b) => b.sortKey - a.sortKey || a.key.localeCompare(b.key));
   // 總款數＝本體＋DLC 兩邊的 total_count 相加（每頁同類別回傳相同總數，
   // 取相異值加總；若某邊全失敗就只算成功那邊）。
   const totalCount = [...new Set(ok.map((p) => p.totalCount))].reduce(

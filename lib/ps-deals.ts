@@ -84,6 +84,9 @@ const PAGE_SIZE = 24;
 /** 只列折扣 ≥50% 的（shawn：大致上抓到 -50% 就好）。 */
 const MIN_DISCOUNT = 50;
 const MAX_ITEMS = 1621;
+/** DLC 額外上限（本體優先：本體先抓滿 1621，再加 DLC 最多 300；
+ *  2026-11-26 使用者原則：本體是優先、DLC 是額外 300–500）。 */
+const MAX_DLC_COUNT = 300;
 /** 最多掃 130 頁（3120 款）；抓滿 1621 款 ≥50% 就提前停。 */
 const MAX_PAGES = 90;
 const CONCURRENCY = 3;
@@ -243,7 +246,8 @@ function toItem(p: GridProduct): DealsCarouselItem | null {
   };
 }
 
-/** 抓台灣 PS 優惠分類（sales30 倒序、分段抓、只留折扣 ≥50%、折扣大→小、前 1621 款）。 */
+/** 抓台灣 PS 優惠分類（sales30 倒序、分段抓、只留折扣 ≥50%、折扣大→小；
+ *  本體優先取前 1621，再加 DLC 前 300（額外））。 */
 export async function fetchPsDeals(): Promise<PsDealsData> {
   const nowMs = Date.now();
   const empty: PsDealsData = {
@@ -273,6 +277,21 @@ export async function fetchPsDeals(): Promise<PsDealsData> {
   };
 
   let totalCount = 0;
+  // 本體／DLC 各自計數（本體優先：抓取迴圈以「本體滿 1621 且 DLC 滿 300」
+  // 為停表條件，不讓 DLC 擠掉本體名額；最終切片也是本體先取滿再加 DLC）。
+  const counts = () => {
+    let games = 0;
+    let dlcs = 0;
+    for (const v of byName.values()) {
+      if (v.item.kind === "dlc") dlcs++;
+      else games++;
+    }
+    return { games, dlcs };
+  };
+  const needsMore = () => {
+    const c = counts();
+    return c.games < MAX_ITEMS || c.dlcs < MAX_DLC_COUNT;
+  };
   // 回空陣列／抓失敗的 offset（重掃用；見下方重掃迴圈）。
   const retryOffsets: number[] = [];
   const fetchPage = async (offset: number): Promise<GridProduct[]> => {
@@ -290,8 +309,8 @@ export async function fetchPsDeals(): Promise<PsDealsData> {
       MAX_PAGES,
       Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
     );
-    // 每批 3 頁並行；抓滿 1621 款 ≥50% 就停。
-    for (let start = 1; start < pages && byName.size < MAX_ITEMS; start += CONCURRENCY) {
+    // 每批 3 頁並行；本體滿 1621 且 DLC 滿 300 才停（本體優先）。
+    for (let start = 1; start < pages && needsMore(); start += CONCURRENCY) {
       const offsets: number[] = [];
       for (let i = start; i < Math.min(start + CONCURRENCY, pages); i++) {
         offsets.push(i * PAGE_SIZE);
@@ -319,7 +338,7 @@ export async function fetchPsDeals(): Promise<PsDealsData> {
     // 都通、1,621 款），疑似 Sony 限流 Vercel 出口 IP。隔一段時間再抓，
     // 讓限流窗口過去；兩輪都還空／失敗就認了（只列抓到的，不 500）。
     for (const delayMs of [2000, 5000]) {
-      if (retryOffsets.length === 0 || byName.size >= MAX_ITEMS) break;
+      if (retryOffsets.length === 0 || !needsMore()) break;
       await new Promise((r) => setTimeout(r, delayMs));
       const pending = [...retryOffsets];
       retryOffsets.length = 0;
@@ -350,10 +369,15 @@ export async function fetchPsDeals(): Promise<PsDealsData> {
     console.warn("[ps-deals] 優惠分類抓取失敗：", e);
     return empty;
   }
-  const items = [...byName.values()]
+  // 本體優先：本體按折扣取前 1621，再加 DLC 按折扣取前 300（額外），
+  // 合併後再按折扣大→小排（不讓 DLC 擠掉本體名額）。
+  const sorted = [...byName.values()]
     .map((v) => v.item)
-    .sort((a, b) => b.sortKey - a.sortKey)
-    .slice(0, MAX_ITEMS);
+    .sort((a, b) => b.sortKey - a.sortKey);
+  const items = [
+    ...sorted.filter((it) => it.kind !== "dlc").slice(0, MAX_ITEMS),
+    ...sorted.filter((it) => it.kind === "dlc").slice(0, MAX_DLC_COUNT),
+  ].sort((a, b) => b.sortKey - a.sortKey);
   return {
     items,
     fetchedAt: new Date(nowMs).toISOString(),

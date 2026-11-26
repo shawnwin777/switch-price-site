@@ -99,6 +99,9 @@ import {
  *  2026-11-26 Steam 拆成本體／DLC 兩條搜尋分開抓（各 25 頁），
  *  品項加 kind 欄位（本體／DLC）供「全部／本體／DLC」篩選用，
  *  key 換成 deals-page-v18（舊快取的 Steam 品項沒有 kind）。
+ *  2026-11-26 Steam 50 頁改分批抓（每批 10 個並行，見
+ *  lib/deals-carousel.ts），key 換成 deals-page-v19，強制用分批抓重算
+ *  （v18 快取是 50 並行被限流的版本，前 1200 只有 122 款 DLC）。
  *  三個新來源都走同一套機制：fetchDealsPage 裡一起抓、每小時自動更新，
  *  不用另外開 cron、不用手動同步、不用推 GitHub 更新資料；
  *  單一來源失敗回空陣列、不拖垮整頁，下次快取到期自動重抓。 */
@@ -117,7 +120,7 @@ export const getCachedDealsPage = unstable_cache(
     }
     return data;
   },
-  ["deals-page-v18"],
+  ["deals-page-v19"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-page"] }
 );
 
