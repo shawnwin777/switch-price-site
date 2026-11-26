@@ -84,7 +84,9 @@ import {
  *  key 換成 deals-page-v10（舊快取沒有這兩個欄位）。
  *  2026-11-26 免費遊戲改由網站直接抓（Epic US＋GamerPower；
  *  lib/free-games.ts），不再讀 JSON、不用每日同步 cron，
- *  key 換成 deals-page-v11（舊快取立刻失效、馬上重抓）。 */
+ *  key 換成 deals-page-v11（舊快取立刻失效、馬上重抓）。
+ *  2026-11-26 免費遊戲收錄範圍放寬：PC DLC＋主機遊戲／DLC 也收，
+ *  卡片加備註（DLC、主機：PS5／XSX／Switch），key 換成 deals-page-v12。 */
 export const getCachedDealsPage = unstable_cache(
   async (): Promise<DealsPageData> => {
     const data = await fetchDealsPage();
@@ -100,7 +102,7 @@ export const getCachedDealsPage = unstable_cache(
     }
     return data;
   },
-  ["deals-page-v11"],
+  ["deals-page-v12"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-page"] }
 );
 

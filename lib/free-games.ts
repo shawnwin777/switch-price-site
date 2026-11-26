@@ -5,8 +5,12 @@ import type { DealsCarouselItem, DealsCarouselSource } from "./deals-carousel";
  *  （Steam、IndieGala、itch.io 等）。GOG 目前無進行中限時免費，
  *  GamerPower 也會收 GOG 的贈送，所以 GOG 經由 GamerPower 覆蓋；
  *  GOG 目錄直接掃描太貴（425 頁），目前不做。
- *  只留 PC 完整遊戲：GamerPower type 只要 Game／Early Access、
- *  platforms 含 PC、status Active；DLC、Other、手遊、主機、VR 全濾掉。
+ *  收錄範圍（2026-11-26 他說的）：PC 完整遊戲＋PC DLC＋主機遊戲／DLC。
+ *  GamerPower 只留 status Active、type Game／Early Access／DLC，
+ *  platforms 含 PC 或主機（PlayStation／Xbox／Nintendo Switch）；
+ *  手遊限定、Other 類型全濾掉。
+ *  備註（放進卡片 subLine）：DLC 標「DLC」；主機標「主機：PS5／XSX／Switch」
+ *  （列出該物品有的主機平台）；兩者都有就合併，如「DLC・主機：PS5／XSX」。
  *  Epic 官方優先：同一款遊戲同時在 Epic 與 GamerPower 出現時，
  *  只留 Epic 官方那筆（用標題歸一化比對去重）。
  *  抓取失敗時回空陣列（免費遊戲區顯示空狀態），不讓整個 /deals 頁面壞掉。
@@ -170,16 +174,35 @@ interface GamerPowerGiveaway {
   status?: string;
 }
 
+/** 從 platforms 字串抽出主機平台（PS5／PS4／XSX／Xbox One／Switch）。 */
+function consolePlatforms(platforms: string): string[] {
+  const out: string[] = [];
+  if (/Playstation 5/i.test(platforms)) out.push("PS5");
+  if (/Playstation 4/i.test(platforms)) out.push("PS4");
+  if (/Xbox Series/i.test(platforms)) out.push("XSX");
+  if (/Xbox One/i.test(platforms)) out.push("Xbox One");
+  if (/Nintendo Switch/i.test(platforms)) out.push("Switch");
+  return out;
+}
+
 function parseGamerPower(data: unknown): DealsCarouselItem[] {
   if (!Array.isArray(data)) return [];
   const items: DealsCarouselItem[] = [];
   for (const g of data as GamerPowerGiveaway[]) {
-    // 只留 PC 完整遊戲：type Game／Early Access、platforms 含 PC、Active。
-    // DLC、Other、手遊、主機、VR 全濾掉。
+    // 收錄範圍：PC 完整遊戲＋PC DLC＋主機遊戲／DLC。
+    // type 只要 Game／Early Access／DLC；platforms 含 PC 或主機；
+    // status Active。手遊限定、Other 類型、VR 全濾掉。
     if (g?.status !== "Active") continue;
-    if (g?.type !== "Game" && g?.type !== "Early Access") continue;
+    if (
+      g?.type !== "Game" &&
+      g?.type !== "Early Access" &&
+      g?.type !== "DLC"
+    )
+      continue;
     const platforms = g?.platforms ?? "";
-    if (!platforms.includes("PC")) continue;
+    const hasPc = platforms.includes("PC");
+    const consoles = consolePlatforms(platforms);
+    if (!hasPc && consoles.length === 0) continue;
     if (typeof g?.title !== "string" || !g.title) continue;
     const image =
       (typeof g?.image === "string" && g.image) ||
@@ -207,6 +230,18 @@ function parseGamerPower(data: unknown): DealsCarouselItem[] {
       : NaN;
     const hasFutureEnd = Number.isFinite(endMs) && endMs > Date.now();
     const end = hasFutureEnd ? formatTaipeiDate(endRaw) : null;
+    // 備註：DLC 標「DLC」；主機標「主機：PS5／XSX／Switch」；
+    // 兩者都有就合併。放進 subLine（跟截止日合併顯示）。
+    const noteParts: string[] = [];
+    if (g?.type === "DLC") noteParts.push("DLC");
+    if (consoles.length > 0)
+      noteParts.push(`主機：${consoles.join("／")}`);
+    const note = noteParts.join("・") || null;
+    const deadline = end ? `免費領取至 ${end}` : null;
+    const subLine =
+      deadline && note
+        ? `${deadline} · ${note}`
+        : (deadline ?? note);
     items.push({
       badge: "免費",
       image,
@@ -214,7 +249,7 @@ function parseGamerPower(data: unknown): DealsCarouselItem[] {
       priceLine: worth ? `原價 ${worth}` : "免費領取",
       sortKey: hasFutureEnd ? endMs : Number.MAX_SAFE_INTEGER,
       source: "gamerpower" as DealsCarouselSource,
-      subLine: end ? `免費領取至 ${end}` : null,
+      subLine,
       title,
       url,
     });
