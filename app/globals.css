@@ -1686,186 +1686,144 @@ a.home-about-donate-btn:hover {
   }
 }
 
-/* 頁內輪播（2026-11-26）：影片與截圖直接在詳細頁上看，不跳全螢幕。
- * 電腦按左右箭頭切換；手機用左右滑動（箭頭在窄螢幕隱藏）。
- * 點圖片或右上角放大鈕才進全螢幕 viewer。 */
-.detail-carousel {
-  margin: 18px 0 8px;
-}
-
-.detail-carousel-title {
-  font-size: 18px;
-  margin: 0 0 10px;
-}
-
-.detail-carousel-hint {
-  font-size: 13px;
-  font-weight: 400;
-}
-
-.carousel-stage {
+/* 封面位置的輪播（2026-11-26）：大小跟封面一樣，封面是第 0 張，
+ * 後面是影片＋截圖。電腦按左右箭頭切換；手機用左右滑動（箭頭在
+ * 窄螢幕隱藏）。點圖片或右上角放大鈕才進全螢幕。 */
+.cover-carousel {
   align-items: center;
+  aspect-ratio: 3 / 4;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   display: flex;
+  flex: 0 0 auto;
   justify-content: center;
-  min-height: 220px;
+  max-width: 460px;
   outline: none;
   overflow: hidden;
-  padding: 12px;
   position: relative;
   touch-action: pan-y;
+  width: 100%;
 }
 
-.carousel-stage:focus-visible {
+.cover-carousel:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-.carousel-img-btn {
+.cover-carousel-img-btn {
   background: none;
   border: 0;
   cursor: zoom-in;
   display: block;
+  height: 100%;
   line-height: 0;
-  max-width: 100%;
   padding: 0;
+  width: 100%;
 }
 
-.carousel-img {
-  border-radius: var(--radius);
-  max-height: 520px;
+.cover-carousel-img {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.cover-carousel-video {
+  align-items: center;
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  width: 100%;
+}
+
+.cover-carousel-video a {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  justify-content: center;
+  text-decoration: none;
+  width: 100%;
+}
+
+.cover-carousel-video-thumb {
+  max-height: 70%;
   max-width: 100%;
   object-fit: contain;
 }
 
-.carousel-video {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-width: 640px;
-  width: 100%;
+.cover-carousel-play {
+  background: #c00;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 9px 16px;
 }
 
-.carousel-video-thumb {
-  border-radius: var(--radius);
-  max-width: 100%;
-  width: 100%;
-}
-
-.carousel-error {
+.cover-carousel-error {
   color: var(--muted);
   font-size: 15px;
 }
 
-.carousel-nav {
+.cover-carousel-nav {
   background: rgba(5, 8, 22, 0.65);
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 50%;
   color: #fff;
   cursor: pointer;
-  font-size: 28px;
-  height: 48px;
+  font-size: 26px;
+  height: 44px;
   line-height: 1;
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 48px;
+  width: 44px;
   z-index: 2;
 }
 
-.carousel-nav-prev {
-  left: 10px;
+.cover-carousel-nav-prev {
+  left: 8px;
 }
 
-.carousel-nav-next {
-  right: 10px;
+.cover-carousel-nav-next {
+  right: 8px;
 }
 
-.carousel-zoom {
+.cover-carousel-zoom {
   background: rgba(5, 8, 22, 0.65);
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 8px;
   color: #fff;
   cursor: pointer;
-  font-size: 18px;
-  height: 36px;
+  font-size: 16px;
+  height: 34px;
   line-height: 1;
   position: absolute;
-  right: 10px;
-  top: 10px;
-  width: 36px;
+  right: 8px;
+  top: 8px;
+  width: 34px;
   z-index: 2;
 }
 
-.carousel-counter {
+.cover-carousel-counter {
   background: rgba(5, 8, 22, 0.65);
   border-radius: 999px;
-  bottom: 10px;
+  bottom: 8px;
   color: #fff;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  padding: 4px 10px;
+  padding: 3px 9px;
   position: absolute;
-  right: 10px;
+  right: 8px;
   z-index: 2;
-}
-
-.carousel-thumbs {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-}
-
-.carousel-thumb {
-  background: rgba(255, 255, 255, 0.04);
-  border: 2px solid transparent;
-  border-radius: 8px;
-  cursor: pointer;
-  flex: 0 0 auto;
-  height: 54px;
-  overflow: hidden;
-  padding: 0;
-  width: 96px;
-}
-
-.carousel-thumb.is-active {
-  border-color: var(--accent);
-}
-
-.carousel-thumb img {
-  height: 100%;
-  object-fit: cover;
-  width: 100%;
-}
-
-.carousel-thumb-video {
-  align-items: center;
-  color: #fff;
-  display: flex;
-  font-size: 20px;
-  height: 100%;
-  justify-content: center;
-  width: 100%;
-}
-
-.carousel-caption {
-  margin: 8px 0 0;
-  text-align: center;
 }
 
 @media (max-width: 760px) {
   /* 手機用左右滑動切換，箭頭隱藏。 */
-  .carousel-nav {
+  .cover-carousel-nav {
     display: none;
-  }
-
-  .carousel-img {
-    max-height: 340px;
   }
 }
 
