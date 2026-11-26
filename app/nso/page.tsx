@@ -1,6 +1,8 @@
 import { COUNTRY_MAP, eshopUrl } from "@/lib/countries";
 import { formatRaw } from "@/lib/format";
 import { getCachedNsoFx } from "@/lib/cached-data";
+import BackButton from "@/components/BackButton";
+import BackToTop from "@/components/BackToTop";
 import {
   NSO_CHECK_DATE,
   NSO_PLANS,
@@ -36,6 +38,8 @@ export default async function NsoPage() {
 
   return (
     <>
+      <BackButton />
+      <BackToTop />
       <h1 className="page-title">
         NSO 會員<span>跨區比價</span>
       </h1>

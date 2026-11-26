@@ -7,6 +7,8 @@ import { pageWindow } from "@/lib/pagination";
 import { formatTwd } from "@/lib/format";
 import RankCover from "@/components/RankCover";
 import PaginationFab from "@/components/PaginationFab";
+import BackButton from "@/components/BackButton";
+import BackToTop from "@/components/BackToTop";
 import NearLowCountryFilter from "@/components/NearLowCountryFilter";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +59,8 @@ export default async function HistoricalLowPage({
 
   return (
     <>
+      <BackButton />
+      <BackToTop />
       <h1>💰 歷史低價</h1>
       <p className="muted">
         現在最低價正好等於歷史最低價的遊戲——現在買就是有史以來最便宜。

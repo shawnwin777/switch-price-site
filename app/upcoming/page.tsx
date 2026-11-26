@@ -6,6 +6,8 @@ import { pageWindow } from "@/lib/pagination";
 import { formatTwd } from "@/lib/format";
 import RankCover from "@/components/RankCover";
 import PaginationFab from "@/components/PaginationFab";
+import BackButton from "@/components/BackButton";
+import BackToTop from "@/components/BackToTop";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +48,8 @@ export default async function UpcomingPage({
 
   return (
     <>
+      <BackButton />
+      <BackToTop />
       <h1>📅 準備上市</h1>
       <p className="muted">
         上市日期在今天之後的遊戲，越快上市越前面。今天上市的當天不列入

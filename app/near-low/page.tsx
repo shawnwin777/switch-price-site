@@ -7,6 +7,8 @@ import { pageWindow } from "@/lib/pagination";
 import { formatTwd } from "@/lib/format";
 import RankCover from "@/components/RankCover";
 import PaginationFab from "@/components/PaginationFab";
+import BackButton from "@/components/BackButton";
+import BackToTop from "@/components/BackToTop";
 import NearLowCountryFilter from "@/components/NearLowCountryFilter";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +49,8 @@ export default async function NearLowPage({
 
   return (
     <>
+      <BackButton />
+      <BackToTop />
       <h1>📉 接近歷史低價</h1>
       <p className="muted">
         現在最低價只比歷史低價貴 0–10%（還沒等於歷史低價）的遊戲，

@@ -1219,6 +1219,35 @@ a.home-about-donate-btn:hover {
   }
 }
 
+/* ---------- 回前頁 + 回到頂部 ---------- */
+/* 內頁頂部的回前頁按鈕：跟標題留一點距離。 */
+.back-btn {
+  margin-bottom: 12px;
+}
+
+/* 浮動 TOP 按鈕：固定右下角（跟左下角的手機浮動分頁不同角、不重疊），
+ * 往下捲才由 BackToTop 元件顯示，點了平滑捲回最上方。 */
+.back-to-top {
+  background: rgba(5, 8, 22, 0.82);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  bottom: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  height: 48px;
+  position: fixed;
+  right: 12px;
+  width: 48px;
+  z-index: 60;
+}
+
+.back-to-top:hover {
+  border-color: var(--cyan);
+}
+
 /* ---------- country settings ---------- */
 .country-panel {
   background: var(--card);
