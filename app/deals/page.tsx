@@ -137,8 +137,8 @@ export default async function DealsPage({
       {/* 高-1：Steam 顯示的是 specials 備援（只有 10 款精選）時，在 STEAM
           分頁上方顯示「資料暫時不完整」提示（STEAM 是預設分頁，進頁就看得到；
           分頁框內的文案在 components/DealsTabs.tsx，不在本檔範圍）。
-          中-6：STEAM 取數範圍附註——抓前 10 頁 1000 列再取前 900，
-          不是全台灣特價款裡的全域前 900（程式現況，見 lib/deals-carousel.ts）。 */}
+          中-6：STEAM 取數範圍附註——白話版：依折扣大→小取前 1500（本體 1200＋DLC 300），
+          不是台灣區全部特價（程式現況，見 lib/deals-carousel.ts）。 */}
       {deals.steamFromFallback && (
         <p className="muted">
           ⚠️ Steam 資料暫時不完整：特價搜尋暫時抓不到，目前 STEAM 只顯示{" "}
@@ -147,13 +147,11 @@ export default async function DealsPage({
         </p>
       )}
       <p className="muted">
-        STEAM 取數範圍：本體（category1=998）抓特價搜尋前 25 頁、DLC
-        （category1=21）抓前 25 頁，合併去重（取回 5000 列）再按折扣大→小取本體前 1200
-        款＋DLC 前 300 款（共 1500 款），不是全台灣特價中
+        STEAM 是以折扣大到小，取前 1500 款（本體前 1200＋DLC 前 300），不是台灣區全部
         {deals.steamTotalCount > 0
           ? ` ${deals.steamTotalCount.toLocaleString("zh-Hant-TW")} 款`
           : "約 20,529 款"}
-        裡的全域前 1200 款。
+        特價。
       </p>
       <DealsTabs
         freeGames={deals.freeGames}

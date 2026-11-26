@@ -565,18 +565,16 @@ export default function DealsTabs({
             </p>
           )}
           {renderPager("steam")}
-          {/* 中-6：STEAM 取數範圍附註——本體 25 頁＋DLC 25 頁、取回 5000 列
-              裡本體前 1200＋DLC 前 300，不是全台灣特價款裡的全域前 1200
+          {/* 中-6：STEAM 取數範圍附註——白話版：依折扣大→小取前 1500
+              （本體 1200＋DLC 300），不是台灣區全部特價
               （程式現況，見 lib/deals-carousel.ts）；總數用 live
               steamTotalCount。 */}
           <p className="muted">
-            STEAM 取數範圍：本體（category1=998）抓特價搜尋前 25 頁、DLC
-            （category1=21）抓前 25 頁，合併去重（取回 5000 列）再按折扣大→小取本體前
-            1200 款＋DLC 前 300 款（共 1500 款），不是全台灣特價中
+            STEAM 是以折扣大到小，取前 1500 款（本體前 1200＋DLC 前 300），不是台灣區全部
             {steamTotalCount > 0
               ? ` ${steamTotalCount.toLocaleString("zh-Hant-TW")} 款`
               : "約 20,529 款"}
-            裡的全域前 1200 款。
+            特價。
           </p>
         </section>
       )}
