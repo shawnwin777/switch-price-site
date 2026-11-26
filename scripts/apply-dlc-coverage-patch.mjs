@@ -56,8 +56,10 @@ async function upsert(table, rows, onConflict, label) {
 
 async function patchTitleId(row) {
   // 只填空值：title_id 目前是 null 才寫，不覆蓋已有值。
+  // 注意：games 表的主鍵欄位是 id（不是 game_id；game_id 是 prices／
+  // game_region_ids 的外鍵欄位名），篩選要用 id=eq.。
   const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/games?game_id=eq.${row.game_id}&title_id=is.null`,
+    `${SUPABASE_URL}/rest/v1/games?id=eq.${row.game_id}&title_id=is.null`,
     {
       method: "PATCH",
       headers,
