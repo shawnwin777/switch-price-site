@@ -75,11 +75,14 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** 抓一國的價格。ids 一次最多 50 個（API 限制未公開，50 是實測安全的批量）。
  *  429 / 5xx / 網路逾時會按 chunk 重試（指數退避，最多 3 次嘗試）；
  *  全部失敗才拋錯，由呼叫方記進 errors、不中斷其他國家。 */
-/** 並行抓價的併發數。任天堂價格 API 是 I/O 等待為主，5 並行可在 60 秒內
- *  跑完一國（HK 10,660 個 ID ≈ 214 個 chunk，5 並行約 43 輪）；429 仍走
- *  原重試邏輯。舊版是逐 chunk 循序等，214 輪直接超過 Vercel 60 秒上限
- *  導致 FUNCTION_INVOCATION_TIMEOUT、0 筆寫入。 */
-const PRICE_CHUNK_CONCURRENCY = 5;
+/** 並行抓價的併發數。任天堂價格 API 是 I/O 等待為主，但 5 並行會觸發
+ *  任天堂的防刷機制（Vercel IP 回 403，HK／TW 兩組皆然）；2 並行＋批次間
+ *  隔 200ms 較溫和。舊版循序等（1 並行）則 214 輪直接超過 Vercel 60 秒
+ *  上限導致 FUNCTION_INVOCATION_TIMEOUT。2 並行需搭配較小的 pair budget
+ *  （見 lib/refresh-slices.ts DEFAULT_PAIR_BUDGET）才塞得進 60 秒。 */
+const PRICE_CHUNK_CONCURRENCY = 2;
+/** 批次之間的間隔（毫秒），降低對任天堂 API 的請求速率，避免再被 403。 */
+const PRICE_BATCH_DELAY_MS = 200;
 
 /** 抓單一 chunk（≤50 個 ID）的價格，含重試（指數退避，最多 3 次嘗試）。 */
 async function fetchPriceChunk(
@@ -139,6 +142,7 @@ export async function fetchPricesForCountry(
   }
   const out: NintendoPriceEntry[] = [];
   for (let i = 0; i < chunks.length; i += PRICE_CHUNK_CONCURRENCY) {
+    if (i > 0) await sleep(PRICE_BATCH_DELAY_MS);
     const batch = chunks.slice(i, i + PRICE_CHUNK_CONCURRENCY);
     const batchResults = await Promise.all(
       batch.map((chunk) => fetchPriceChunk(country, chunk, lang))

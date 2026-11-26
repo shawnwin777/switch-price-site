@@ -107,7 +107,11 @@ export function cycleCompleteDateKey(
 // ---------------------------------------------------------------------------
 
 /** 預設每片 (遊戲、國家) 對數上限（實測速率推算，見 SETUP.md §8.3／§8.10）。 */
-export const DEFAULT_PAIR_BUDGET = 12_000;
+/** 預設每片對數預算。12,000 時 HK 一組 10,660 對只切 1 片，2 並行抓價
+ *  塞不進 Vercel 60 秒上限；4,000 時 HK 切 3 片、TW 切 3 片、JP 切 4 片，
+ *  每片約 66–74 個 chunk，2 並行＋批次間隔約 20–30 秒可抓完。週期變長
+ *  （HK 3 片、每天 2 次約 1.5 天一輪）是換取穩定寫入的代價。 */
+export const DEFAULT_PAIR_BUDGET = 4_000;
 /** pairBudget 允許範圍。 */
 export const MIN_PAIR_BUDGET = 1_000;
 export const MAX_PAIR_BUDGET = 50_000;
