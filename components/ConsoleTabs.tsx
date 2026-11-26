@@ -13,11 +13,11 @@ const PAGE_SIZE = 30;
 type TabKey = "xbox-console" | "gamepass" | "ps" | "psplus" | "free";
 
 const TABS: { key: TabKey; label: string }[] = [
+  { key: "free", label: "免費遊戲" },
   { key: "xbox-console", label: "XBOX 家機" },
   { key: "gamepass", label: "XGP 家機" },
   { key: "ps", label: "PlayStation" },
   { key: "psplus", label: "PS Plus" },
-  { key: "free", label: "免費遊戲" },
 ];
 
 /** /console 家機頁的分頁框：五個分頁、順序固定，點了不跳頁
@@ -28,20 +28,21 @@ const TABS: { key: TabKey; label: string }[] = [
  *  router.replace；瀏覽器上一頁／下一頁靠 popstate 把 URL 讀回
  *  state（元件不重掛，useSearchParams 會要 Suspense 包裝所以不用它）。
  *  面板永遠展開、不摺疊（跟 /deals 一樣）。
- *  1. XBOX 家機：Reco 清單＋Display Catalog（filter Windows.Xbox），
+ *  1. 免費遊戲（2026-11-26 新增，2026-11-26 移到最左、跟 /deals
+ *     統一做法）：家機免費遊戲（GamerPower 聚合，freeKinds 含
+ *     console／console-dlc 者；純家機＋跨平台品項，跨平台品項在
+ *     /deals 跟 /console 兩邊都顯示），內有分類篩選（全部／家機／
+ *     家機 DLC）；卡片格式、截止日、DLC／主機備註沿用 /deals 免費
+ *     區寫法，點卡片去官方頁面領取。
+ *  2. XBOX 家機：Reco 清單＋Display Catalog（filter Windows.Xbox），
  *     最多 900 款、折扣大→小，預設顯示；實際去重後有效款數以 live 為準
  *     （中-5：寫死 900 會在款數浮動到 470 時變錯）。
- *  2. XGP 家機：Game Pass 最近新增（家機），官方清單順序、卡片標「新進」；
+ *  3. XGP 家機：Game Pass 最近新增（家機），官方清單順序、卡片標「新進」；
  *     下方接 Game Pass 方案價目。
- *  3. PlayStation：官方優惠分類，折扣 ≥50%、折扣大→小；列出款數與
+ *  4. PlayStation：官方優惠分類，折扣 ≥50%、折扣大→小；列出款數與
  *     分類原始總數都用 live 數字（見 PS 分頁附註，不寫死 1621／2,862）。
- *  4. PS Plus：PS Plus 本月新進（遊戲目錄＋每月遊戲），PS Blog 當月文章
+ *  5. PS Plus：PS Plus 本月新進（遊戲目錄＋每月遊戲），PS Blog 當月文章
  *     解析、官方搜尋對應商店商品；下方接 PS Plus 方案價目。
- *  5. 免費遊戲（2026-11-26 新增）：家機免費遊戲（GamerPower 聚合，
- *     freeKinds 含 console／console-dlc 者；純家機＋跨平台品項，
- *     跨平台品項在 /deals 跟 /console 兩邊都顯示），內有分類篩選
- *     （全部／家機／家機 DLC）；卡片格式、截止日、DLC／主機備註沿用
- *     /deals 免費區寫法，點卡片去官方頁面領取。
  *  2026-11-23 14:00 shawn 再定：獨立的「🎫 會員方案」分頁拿掉，
  *  方案價目改放進 XGP 家機與 PS Plus 兩個分頁裡（新進遊戲在上、
  *  方案價目在下，各自呈現、不做對比表）。
@@ -85,7 +86,7 @@ export default function ConsoleTabs({
   // 新進遊戲沒資料時分頁也不消失，只在遊戲區顯示空狀態；
   // 免費遊戲沒資料時也顯示分頁，只在遊戲區顯示空狀態）。
   const tabs = TABS;
-  // 預設 XBOX 家機（第一分頁）；?tab= 有值時用它。
+  // 預設 XBOX 家機（免費遊戲在最左，預設仍是 XBOX 家機）；?tab= 有值時用它。
   const [active, setActive] = useState<TabKey>(initialTab ?? "xbox-console");
   const [pages, setPages] = useState<Record<TabKey, number>>({
     "xbox-console": 1,

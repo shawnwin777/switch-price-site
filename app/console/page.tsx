@@ -30,8 +30,8 @@ export const metadata = {
  *  PC（/deals）、家機（本頁）、SWITCH（首頁）。
  *  2026-11-23 14:00 shawn 再定：會員方案不再單獨成頁，改放進
  *  XGP 家機（Game Pass）與 PS Plus 兩個分頁裡（新進遊戲在上、
- *  方案價目在下）；本頁有五個分頁：XBOX 家機（預設）、XGP 家機、
- *  PlayStation、PS Plus、免費遊戲（2026-11-26 新增，家機免費遊戲）。
+ *  方案價目在下）；本頁有五個分頁：免費遊戲（最左，2026-11-26 新增，
+ *  家機免費遊戲）、XBOX 家機（預設）、XGP 家機、PlayStation、PS Plus。
  *  舊 /membership 導向本頁，導覽列不再單獨列會員方案。
  *  XBOX 家機：Reco 特價清單＋Display Catalog（filter Windows.Xbox，
  *  與 PC 版同一條管線），前 900 款、每頁 30 款、折扣大→小，每小時快取。
@@ -118,9 +118,8 @@ export default async function ConsolePage({
         🕹️ 家機<span>特價</span>
       </h1>
       <p className="muted">
-        Xbox 家機特價、XGP 家機新進＋Game Pass 方案價目、PlayStation
-        特價、PS Plus 本月新進＋PS Plus 方案價目、家機免費遊戲——五個分頁
-        都在這一頁，上方點分頁切換、不跳頁。
+        家機免費遊戲、Xbox 家機特價、XGP 家機新進＋Game Pass 方案價目、PlayStation
+        特價、PS Plus 本月新進＋PS Plus 方案價目——五個分頁都在這一頁，上方點分頁切換、不跳頁。
         特價清單是台灣區、每小時更新一次；只列台灣區——跨區帳號可能被鎖，這裡不做跨區切換。
         家機免費遊戲跟 /deals 免費區同一份來源（GamerPower 聚合）、
         每小時自動更新，DLC 與跨平台品項有標註。
