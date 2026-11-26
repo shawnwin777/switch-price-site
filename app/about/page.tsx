@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 export const metadata = {
   title: "關於我｜Shawn Game Studio",
   description:
@@ -128,9 +126,6 @@ export default function AboutPage() {
           />
           請我喝珍奶！
         </a>
-      </p>
-      <p>
-        <Link href="/home">← 回首頁</Link>
       </p>
     </div>
   );
