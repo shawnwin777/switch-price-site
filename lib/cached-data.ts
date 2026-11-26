@@ -105,6 +105,10 @@ import {
  *  2026-11-26 EA 連結改用 franchiseSlug 路徑（見 lib/ea-deals.ts），
  *  key 換成 deals-page-v20，強制重算（v19 快取的 EA 連結是舊的
  *  單段 slug，104 款中有 34 款 404）。
+ *  2026-11-26 Epic 連結改商店搜尋（見 lib/free-games.ts epicSearchUrl；
+ *  urlSlug 不可靠，UUID 與部分可讀 slug 都會 404）＋標題 HTML 實體
+ *  共用解碼（lib/html-entities.ts）＋Xbox 家機總數取 max，
+ *  key 換成 deals-page-v21，強制重算。
  *  三個新來源都走同一套機制：fetchDealsPage 裡一起抓、每小時自動更新，
  *  不用另外開 cron、不用手動同步、不用推 GitHub 更新資料；
  *  單一來源失敗回空陣列、不拖垮整頁，下次快取到期自動重抓。 */
@@ -123,7 +127,7 @@ export const getCachedDealsPage = unstable_cache(
     }
     return data;
   },
-  ["deals-page-v20"],
+  ["deals-page-v21"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-page"] }
 );
 

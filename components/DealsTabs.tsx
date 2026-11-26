@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import type { DealsCarouselItem } from "@/lib/deals-carousel";
 import { pageWindow } from "@/lib/pagination";
 import DealCard from "./DealCard";
@@ -26,10 +26,13 @@ const TABS: { key: TabKey; label: string }[] = [
  *  ?tab=／?page=，見下方 URL 同步），當下就切換顯示該平台的遊戲。
  *  分頁狀態進 URL（低 B-3，2026-11-23）：server 從 ?tab=／?page=
  *  讀初始分頁／頁碼（app/deals/page.tsx 傳 initialTab／initialPage），
- *  切分頁用 router.push（上一頁能還原分頁），同分頁翻頁用
- *  router.replace（不污染上一頁紀錄）；瀏覽器上一頁／下一頁靠
+ *  切分頁用 history.pushState（上一頁能還原分頁），同分頁翻頁用
+ *  history.replaceState（不污染上一頁紀錄）；瀏覽器上一頁／下一頁靠
  *  popstate 把 URL 讀回 state（元件不重掛，useSearchParams 會要
  *  Suspense 包裝所以不用它）。
+ *  不用 router.push／replace：分頁內容全在前端（props 已帶全部資料），
+ *  router 導覽會觸發伺服器端重新渲染、網址要 1–2 秒才跟上、快速連點
+ *  還會落後一步；pushState 只改網址不發請求，網址跟內容永遠同步。
  *  面板永遠展開、不摺疊（2026-11-23：分頁框模式下摺疊沒意義）。
  *  免費遊戲分頁（2026-11-26 改吃免費資源自動抓的清單）：
  *  免費資源自動抓（Epic 官方＋GOG 官方＋GamerPower 聚合）的 PC 完整遊戲
@@ -82,7 +85,6 @@ export default function DealsTabs({
   initialTab?: TabKey;
   initialPage?: number;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
   // 分頁區塊頂部錨點：手機浮動分頁／頁內分頁翻頁後捲回這裡，避免留在頁面
   // 底部看不到新內容；scrollMarginTop 64 是給 sticky 頁首留的空間。
@@ -164,11 +166,11 @@ export default function DealsTabs({
     if (key === active) return;
     setJumpOpen(false);
     setActive(key);
-    router.push(tabUrl(key, pages[key] ?? 1), { scroll: false });
+    window.history.pushState(null, "", tabUrl(key, pages[key] ?? 1));
   };
 
   // 瀏覽器上一頁／下一頁：URL 變了但元件不重掛，靠 popstate 把
-  // ?tab=／?page= 讀回 state（router.push／replace 不觸發 popstate，
+  // ?tab=／?page= 讀回 state（pushState／replaceState 不觸發 popstate，
   // 所以這裡不會跟切換邏輯打架）。
   useEffect(() => {
     const onPopState = () => {
@@ -231,7 +233,7 @@ export default function DealsTabs({
     const next = Math.min(Math.max(1, p), totalPages(key));
     setPages((prev) => ({ ...prev, [key]: next }));
     // 同分頁翻頁用 replace（不污染上一頁紀錄），URL 的 ?page= 跟著變。
-    if (key === active) router.replace(tabUrl(key, next), { scroll: false });
+    if (key === active) window.history.replaceState(null, "", tabUrl(key, next));
     // 翻頁後捲回分頁區塊頂部，避免留在頁面底部看不到新內容
     // （手機浮動分頁／頁內分頁都在頁面下方，翻頁後不捲回就看不到新頁）。
     tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -393,7 +395,7 @@ export default function DealsTabs({
             onClick={() => {
               setFilter(key);
               setPages((prev) => ({ ...prev, [tab]: 1 }));
-              router.replace(tabUrl(tab, 1), { scroll: false });
+              window.history.replaceState(null, "", tabUrl(tab, 1));
             }}
           >
             {lab} ({filterCounts[key]})
@@ -462,7 +464,7 @@ export default function DealsTabs({
                           setFreeFilter(key);
                           // 分類切換時回到第 1 頁（篩選後總頁數變了，殘留頁碼會超出範圍），URL 的 ?page= 也清掉。
                           setPages((prev) => ({ ...prev, free: 1 }));
-                          router.replace(tabUrl("free", 1), { scroll: false });
+                          window.history.replaceState(null, "", tabUrl("free", 1));
                         }}
                       >
                         {label} ({freeFilterCounts[key]})

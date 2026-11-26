@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-client";
@@ -76,6 +76,11 @@ export default function HomeClient({
   serverVisibleScope: string;
 }) {
   const router = useRouter();
+  // 篩選／分頁換頁是伺服器端重新抓資料，約 1–2 秒。包進 useTransition，
+  // 換頁中把畫面變淡＋顯示「載入中」，讓使用者知道第一次點按已經生效、
+  // 不會以為沒反應又重複點；同時進行中的導覽不會把新的點按吃掉
+  // （之前直接 router.replace，快速連點時第一次點按偶爾沒反應）。
+  const [isPending, startTransition] = useTransition();
   const pathname = usePathname();
   const [input, setInput] = useState(filters.q ?? "");
   const [blocked, setBlocked] = useState<string[]>(DEFAULT_BLOCKED_CODES);
@@ -239,14 +244,18 @@ export default function HomeClient({
 
   // 改篩選條件時回到第 1 頁；用 replace 避免每點一次就多一筆瀏覽紀錄。
   function applyFilter(patch: Partial<HomeFilters>) {
-    router.replace(buildUrl({ ...patch, page: 1 }));
+    startTransition(() => {
+      router.replace(buildUrl({ ...patch, page: 1 }));
+    });
   }
 
   // 搜尋輸入：本地 state + 400ms debounce 後寫入 URL。
   useEffect(() => {
     const t = setTimeout(() => {
       if (input !== (filtersRef.current.q ?? "")) {
-        router.replace(buildUrl({ q: input || undefined, page: 1 }));
+        startTransition(() => {
+          router.replace(buildUrl({ q: input || undefined, page: 1 }));
+        });
       }
     }, 400);
     return () => clearTimeout(t);
@@ -254,7 +263,9 @@ export default function HomeClient({
   }, [input]);
 
   function goPage(p: number) {
-    router.push(buildUrl({ page: p }));
+    startTransition(() => {
+      router.push(buildUrl({ page: p }));
+    });
   }
 
   // 分頁按鈕：每 10 頁一組（1–10、11–20…），組後有 …＋最末頁；
@@ -449,11 +460,20 @@ export default function HomeClient({
         </div>
       ) : (
         <>
-          <div className="game-grid">
+          <div
+            className="game-grid"
+            aria-busy={isPending}
+            style={isPending ? { opacity: 0.45 } : undefined}
+          >
             {games.map((g) => (
               <GameCard key={g.id} game={g} visibleCountries={visibleCountries} />
             ))}
           </div>
+          {isPending && (
+            <p className="muted" role="status" style={{ textAlign: "center" }}>
+              載入中…
+            </p>
+          )}
           {totalPages > 1 && (
             <nav className="pagination" aria-label="分頁">
               <button

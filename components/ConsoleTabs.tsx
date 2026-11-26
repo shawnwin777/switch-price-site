@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import type { DealsCarouselItem } from "@/lib/deals-carousel";
 import { pageWindow } from "@/lib/pagination";
 import DealCard from "./DealCard";
@@ -24,9 +24,11 @@ const TABS: { key: TabKey; label: string }[] = [
  *  （同路由，只更新 ?tab=／?page=，見下方 URL 同步）。
  *  分頁狀態進 URL（低 B-3，2026-11-23）：server 從 ?tab=／?page=
  *  讀初始分頁／頁碼（app/console/page.tsx 傳 initialTab／initialPage），
- *  切分頁用 router.push（上一頁能還原分頁），同分頁翻頁用
- *  router.replace；瀏覽器上一頁／下一頁靠 popstate 把 URL 讀回
+ *  切分頁用 history.pushState（上一頁能還原分頁），同分頁翻頁用
+ *  history.replaceState；瀏覽器上一頁／下一頁靠 popstate 把 URL 讀回
  *  state（元件不重掛，useSearchParams 會要 Suspense 包裝所以不用它）。
+ *  不用 router.push／replace：分頁內容全在前端，router 導覽會觸發
+ *  伺服器端重新渲染、網址要 1–2 秒才跟上；pushState 只改網址不發請求。
  *  面板永遠展開、不摺疊（跟 /deals 一樣）。
  *  1. 免費遊戲（2026-11-26 新增，2026-11-26 移到最左、跟 /deals
  *     統一做法）：家機免費遊戲（GamerPower 聚合，freeKinds 含
@@ -80,7 +82,6 @@ export default function ConsoleTabs({
   initialTab?: TabKey;
   initialPage?: number;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
   // 五個分頁永遠顯示（XGP 家機、PS Plus 裡有靜態方案價目，
   // 新進遊戲沒資料時分頁也不消失，只在遊戲區顯示空狀態；
@@ -172,11 +173,11 @@ export default function ConsoleTabs({
     if (key === active) return;
     setJumpOpen(false);
     setActive(key);
-    router.push(tabUrl(key, pages[key] ?? 1), { scroll: false });
+    window.history.pushState(null, "", tabUrl(key, pages[key] ?? 1));
   };
 
   // 瀏覽器上一頁／下一頁：URL 變了但元件不重掛，靠 popstate 把
-  // ?tab=／?page= 讀回 state（router.push／replace 不觸發 popstate，
+  // ?tab=／?page= 讀回 state（pushState／replaceState 不觸發 popstate，
   // 所以這裡不會跟切換邏輯打架）。
   useEffect(() => {
     const onPopState = () => {
@@ -231,7 +232,7 @@ export default function ConsoleTabs({
     const next = Math.min(Math.max(1, p), totalPages(key));
     setPages((prev) => ({ ...prev, [key]: next }));
     // 同分頁翻頁用 replace（不污染上一頁紀錄），URL 的 ?page= 跟著變。
-    if (key === active) router.replace(tabUrl(key, next), { scroll: false });
+    if (key === active) window.history.replaceState(null, "", tabUrl(key, next));
   };
 
   // 浮動分頁的跳頁彈框：點中間「第 X / Y 頁」才打開（跟牆頁同一套做法）。
@@ -389,7 +390,7 @@ export default function ConsoleTabs({
             onClick={() => {
               setFilter(key);
               setPages((prev) => ({ ...prev, [tab]: 1 }));
-              router.replace(tabUrl(tab, 1), { scroll: false });
+              window.history.replaceState(null, "", tabUrl(tab, 1));
             }}
           >
             {lab} ({filterCounts[key]})
@@ -643,7 +644,7 @@ export default function ConsoleTabs({
                           setConsoleFreeFilter(key);
                           // 分類切換時回到第 1 頁（篩選後總頁數變了，殘留頁碼會超出範圍），URL 的 ?page= 也清掉。
                           setPages((prev) => ({ ...prev, free: 1 }));
-                          router.replace(tabUrl("free", 1), { scroll: false });
+                          window.history.replaceState(null, "", tabUrl("free", 1));
                         }}
                       >
                         {label} ({consoleFreeFilterCounts[key]})

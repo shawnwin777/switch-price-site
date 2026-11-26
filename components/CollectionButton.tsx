@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 
 // 愛心收藏按鈕。合約：POST /api/collections { gameId } → { collected }（登入組實作）。
 // 未登入點下去跳到登入頁。
@@ -34,8 +35,16 @@ export default function CollectionButton({
 
   async function toggle() {
     if (busy) return;
+    // 未登入先攔：點下去直接跳登入頁，不要先樂觀顯示「已收藏」再收回
+    // （跟 LikeButton 同一個問題；getSession 讀本地 session、不發請求）。
+    const db = createSupabaseBrowserClient();
+    const { data } = await db.auth.getSession();
+    if (!data.session) {
+      router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      return;
+    }
     // 樂觀更新（2026-11-25）：先顯示新狀態，背景再跟伺服器對帳；
-    // 失敗或未登入時還原。之前是等 API 回來才更新，體感要 5–6 秒。
+    // 失敗時還原。之前是等 API 回來才更新，體感要 5–6 秒。
     const prevCollected = collected;
     const nextCollected = !collected;
     applyCollected(nextCollected);

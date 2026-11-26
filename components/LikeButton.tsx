@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createSupabaseBrowserClient } from "@/lib/supabase-client";
 
 // 遊戲讚按鈕。合約：POST /api/likes { gameId } → { liked, count }（登入組實作）。
 // 未登入點下去跳到登入頁。
@@ -21,8 +22,17 @@ export default function LikeButton({
 
   async function toggle() {
     if (busy) return;
+    // 未登入先攔：點下去直接跳登入頁，不要先樂觀顯示「已讚 1」再收回
+    // （之前是先樂觀更新、等 API 回 401 才還原，誤導人以為按讚成功）。
+    // getSession 讀本地 session、不發網路請求，幾乎不花時間。
+    const db = createSupabaseBrowserClient();
+    const { data } = await db.auth.getSession();
+    if (!data.session) {
+      router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      return;
+    }
     // 樂觀更新（2026-11-25）：先顯示新狀態與數字，背景再跟伺服器對帳；
-    // 失敗或未登入時還原。之前是等 API 回來才更新，體感要 5–6 秒。
+    // 失敗時還原。之前是等 API 回來才更新，體感要 5–6 秒。
     const prevLiked = liked;
     const prevCount = count;
     const nextLiked = !liked;

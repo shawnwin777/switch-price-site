@@ -450,14 +450,22 @@ export default function HomeMenu({ previews }: { previews: HomePreviews }) {
             className: `home-menu-item${isActive ? " is-active" : ""}`,
             /* 會員登入不開抽屜：hover／focus 也不展開預覽，點了直接進 /login。
              * 手機寬度不展開預覽：點按時 hover／focus 的合成事件
-             *  也不要先把預覽展開、把頁面拉長；只有「關於我」
-             *  按鈕用自己的 onClick 點按展開。 */
-            onMouseEnter: () => {
-              if (item.key !== "login" && !isMobileWidth()) open(item.key);
-            },
-            onFocus: () => {
-              if (item.key !== "login" && !isMobileWidth()) open(item.key);
-            },
+             *  也不要先把預覽展開、把頁面拉長。
+             * 「關於我」是按鈕（無 href、點按開關面板），不要 hover／focus
+             *  自動展開——否則桌機滑鼠移過去先展開、第一次點按反而會把
+             *  它關掉（點了沒反應、要點第二次才開）。關於我只用 onClick。 */
+            ...(item.href
+              ? {
+                  onMouseEnter: () => {
+                    if (item.key !== "login" && !isMobileWidth())
+                      open(item.key);
+                  },
+                  onFocus: () => {
+                    if (item.key !== "login" && !isMobileWidth())
+                      open(item.key);
+                  },
+                }
+              : {}),
           };
           return item.href ? (
             <Link
