@@ -661,11 +661,13 @@ async function handleRefresh(request: NextRequest) {
     const foreignGameIds = [...new Set(foreignRows.map((r) => r.game_id))];
     const existingKeys = new Set<string>();
     let lookupFailed = false;
-    for (let i = 0; i < foreignGameIds.length; i += 200) {
+    // 每批 50 個 ID：200 個 UUID 的 .in() 查詢字串約 7.4KB，逼近 URL 長度上限、
+    // 失敗會讓 lookupFailed=true、全部外國新列拿不到 verified=false 而寫入報錯。
+    for (let i = 0; i < foreignGameIds.length; i += 50) {
       const { data, error: existError } = await admin
         .from("prices")
         .select("game_id, country")
-        .in("game_id", foreignGameIds.slice(i, i + 200));
+        .in("game_id", foreignGameIds.slice(i, i + 50));
       if (existError) {
         lookupFailed = true;
         errors.push({
