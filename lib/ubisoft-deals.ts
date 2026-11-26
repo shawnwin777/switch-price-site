@@ -1,5 +1,6 @@
 import type { DealsCarouselItem } from "./deals-carousel";
 import { fetchUsdToTwd, formatTwd, usdToTwd } from "./fx";
+import { decodeEntities } from "./html-entities";
 
 /** Ubisoft 特價（/deals UBISOFT 分頁用），伺服器端抓取（不需金鑰）。
  *  來源：Ubisoft 商店特價頁 https://store.ubisoft.com/us/bargain-bin-sale
@@ -30,15 +31,8 @@ const FETCH_TIMEOUT_MS = 20_000;
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36";
 
-/** 標題裡的 HTML 實體（&#39;、&amp; 等）解回原字。 */
-function decodeEntities(s: string): string {
-  return s
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;|&#39;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
-}
+/** 標題裡的 HTML 實體（&#39;、&amp;、&rsquo;、&ouml; 等）解回原字
+ *  （共用 lib/html-entities.ts）。 */
 
 function parseUsdAmount(text: string | null | undefined): number | null {
   if (!text) return null;

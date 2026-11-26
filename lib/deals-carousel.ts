@@ -1,6 +1,7 @@
 import { fetchEaDeals } from "./ea-deals";
 import { fetchFanaticalDeals } from "./fanatical-deals";
 import { fetchFreeGames } from "./free-games";
+import { decodeEntities } from "./html-entities";
 import { fetchUbisoftDeals } from "./ubisoft-deals";
 import { fetchUsdToTwd } from "./fx";
 
@@ -274,15 +275,8 @@ function parseSteam(data: unknown): DealsCarouselItem[] {
   return items;
 }
 
-/** 搜尋結果標題裡的 HTML 實體（&amp;、&#039; 等）解回原字。 */
-function decodeEntities(s: string): string {
-  return s
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;|&#39;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
-}
+/** 搜尋結果標題裡的 HTML 實體（&amp;、&#039;、&rsquo;、&ouml; 等）解回原字
+ *  （共用 lib/html-entities.ts）。 */
 
 function parseTwdAmount(text: string | null | undefined): number | null {
   if (!text) return null;

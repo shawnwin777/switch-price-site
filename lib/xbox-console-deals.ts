@@ -274,6 +274,10 @@ export async function fetchXboxConsoleDeals(): Promise<XboxConsoleDealsData> {
       }
     }
     ids = [...new Set(ids)].slice(0, LIST_PAGES * LIST_PAGE_SIZE);
+    // Reco API 回報的 totalCount（約 500）常比實際抓到的 id 數少
+    // （分頁拉得到 1000 個 id、去重後 876 款），直接用它會讓頁面文案
+    // 「列出 876 款、台灣區共 500 款」自相矛盾。取兩者較大者當總數。
+    totalCount = Math.max(totalCount, ids.length);
   } catch (e) {
     console.warn("[xbox-console-deals] 特價清單抓取失敗：", e);
     return empty;

@@ -90,6 +90,15 @@ function epicImage(el: EpicElement): string | null {
   return wide ?? thumb ?? null;
 }
 
+/** Epic 商店連結：不用 /p/<urlSlug>——Epic 的 urlSlug 不可靠
+ *  （UUID 會 404，連 luftrausers、monument-valley-02 這種可讀 slug
+ *  也會 404；正確的商店 slug 帶 6 碼後綴，如 mark-of-the-deep-f7dc08，
+ *  後綴不在免費 API 的資料裡、算不出來）。改連 Epic 商店搜尋，
+ *  遊戲一定是第一筆結果，永遠不會 404。 */
+function epicSearchUrl(title: string): string {
+  return `https://store.epicgames.com/en-US/browse?q=${encodeURIComponent(title)}&sortBy=relevance&sortDir=DESC&count=40`;
+}
+
 function parseEpic(data: unknown, nowMs: number): {
   current: DealsCarouselItem[];
   upcoming: DealsCarouselItem[];
@@ -146,7 +155,7 @@ function parseEpic(data: unknown, nowMs: number): {
         source: "epic",
         subLine: `免費領取至 ${endLabel}`,
         title: el.title,
-        url: `https://store.epicgames.com/p/${el.urlSlug}`,
+        url: epicSearchUrl(el.title),
       });
     } else if (freeNext) {
       const start = formatTaipeiDate(freeNext.startDate);
@@ -160,7 +169,7 @@ function parseEpic(data: unknown, nowMs: number): {
         source: "epic",
         subLine: start ? `${start} 起免費` : null,
         title: el.title,
-        url: `https://store.epicgames.com/p/${el.urlSlug}`,
+        url: epicSearchUrl(el.title),
       });
     }
   }

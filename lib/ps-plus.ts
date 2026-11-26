@@ -39,6 +39,7 @@
 // ============================================================================
 
 import type { DealsCarouselItem } from "./deals-carousel";
+import { decodeEntities } from "./html-entities";
 
 export interface PsPlusNewData {
   items: DealsCarouselItem[];
@@ -166,19 +167,8 @@ async function discoverArticles(): Promise<{
   }
 }
 
-/** 解常見 HTML 實體（&nbsp;、&#8211; 之類）與數字實體。 */
-function decodeEntities(s: string): string {
-  return s
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, code) =>
-      String.fromCharCode(parseInt(code, 16))
-    );
-}
+/** 解常見 HTML 實體（&nbsp;、&#8211;、&rsquo;、&ouml; 之類）與數字實體
+ *  （共用 lib/html-entities.ts）。 */
 
 interface BlogGame {
   title: string;
