@@ -86,7 +86,9 @@ import {
  *  lib/free-games.ts），不再讀 JSON、不用每日同步 cron，
  *  key 換成 deals-page-v11（舊快取立刻失效、馬上重抓）。
  *  2026-11-26 免費遊戲收錄範圍放寬：PC DLC＋主機遊戲／DLC 也收，
- *  卡片加備註（DLC、主機：PS5／XSX／Switch），key 換成 deals-page-v12。 */
+ *  卡片加備註（DLC、主機：PS5／XSX／Switch），key 換成 deals-page-v12。
+ *  2026-11-26 免費遊戲截止日跟 Switch 牆一樣：顯示時間＋倒數，
+ *  24 小時內琥珀色＋⚠ 警告，key 換成 deals-page-v13。 */
 export const getCachedDealsPage = unstable_cache(
   async (): Promise<DealsPageData> => {
     const data = await fetchDealsPage();
@@ -102,7 +104,7 @@ export const getCachedDealsPage = unstable_cache(
     }
     return data;
   },
-  ["deals-page-v12"],
+  ["deals-page-v13"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-page"] }
 );
 

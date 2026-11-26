@@ -1,4 +1,5 @@
 import type { DealsCarouselItem, DealsCarouselSource } from "./deals-carousel";
+import { isSaleEndingSoon, saleEndLabel } from "./format";
 
 /** 免費 PC 遊戲清單（/deals 免費遊戲分頁用），網站直接抓、完全自動化。
  *  來源：Epic 官方（US 店面，TW 店面會漏遊戲）＋ GamerPower 聚合
@@ -127,15 +128,18 @@ function parseEpic(data: unknown, nowMs: number): {
       el.price?.totalPrice?.originalPrice
     );
     if (freeNow) {
-      const end = formatTaipeiDate(freeNow.endDate);
+      // 截止日跟 Switch 牆一樣：顯示時間＋倒數（剩 X 小時／天），
+      // 24 小時內設 endingSoon，卡片用琥珀色＋⚠ 警告。
+      const endLabel = saleEndLabel(freeNow.endDate);
       current.push({
         badge: "免費",
+        endingSoon: isSaleEndingSoon(freeNow.endDate),
         image,
         key: `free-epic-${el.urlSlug}`,
         priceLine: originalPrice ? `原價 ${originalPrice}` : "免費領取",
         sortKey: Date.parse(freeNow.endDate ?? "") || 0,
         source: "epic",
-        subLine: end ? `免費領取至 ${end}` : null,
+        subLine: `免費領取至 ${endLabel}`,
         title: el.title,
         url: `https://store.epicgames.com/p/${el.urlSlug}`,
       });
@@ -229,7 +233,12 @@ function parseGamerPower(data: unknown): DealsCarouselItem[] {
       ? Date.parse(endRaw.replace(" ", "T") + "Z")
       : NaN;
     const hasFutureEnd = Number.isFinite(endMs) && endMs > Date.now();
-    const end = hasFutureEnd ? formatTaipeiDate(endRaw) : null;
+    // 截止日跟 Switch 牆一樣：顯示時間＋倒數（剩 X 小時／天），
+    // 24 小時內設 endingSoon，卡片用琥珀色＋⚠ 警告。
+    // endRaw 當 UTC 解析（轉成 ISO 再交給 saleEndLabel）。
+    const endIso = hasFutureEnd ? endRaw!.replace(" ", "T") + "Z" : null;
+    const deadline = endIso ? `免費領取至 ${saleEndLabel(endIso)}` : null;
+    const endingSoon = endIso ? isSaleEndingSoon(endIso) : false;
     // 備註：DLC 標「DLC」；主機標「主機：PS5／XSX／Switch」；
     // 兩者都有就合併。放進 subLine（跟截止日合併顯示）。
     const noteParts: string[] = [];
@@ -237,13 +246,13 @@ function parseGamerPower(data: unknown): DealsCarouselItem[] {
     if (consoles.length > 0)
       noteParts.push(`主機：${consoles.join("／")}`);
     const note = noteParts.join("・") || null;
-    const deadline = end ? `免費領取至 ${end}` : null;
     const subLine =
       deadline && note
         ? `${deadline} · ${note}`
         : (deadline ?? note);
     items.push({
       badge: "免費",
+      endingSoon,
       image,
       key: `free-gamerpower-${g.id}`,
       priceLine: worth ? `原價 ${worth}` : "免費領取",

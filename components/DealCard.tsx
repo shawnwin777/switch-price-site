@@ -45,7 +45,20 @@ export default function DealCard({ item }: { item: DealsCarouselItem }) {
         </span>
         <span className="deals-card-title">{item.title}</span>
         <span className="deals-price">{item.priceLine}</span>
-        {item.subLine && <span className="deals-sub">{item.subLine}</span>}
+        {item.subLine && (
+          <span className={item.endingSoon ? "sale-urgent" : "deals-sub"}>
+            {item.subLine}
+            {item.endingSoon && (
+              <span
+                className="sale-urgent-icon"
+                role="img"
+                aria-label="領取期限即將截止"
+              >
+                ⚠
+              </span>
+            )}
+          </span>
+        )}
       </span>
     </a>
   );

@@ -62,6 +62,8 @@ export interface DealsCarouselItem {
   priceLine: string;
   /** 副行：Steam「特價至 2026/12/21」；Epic「免費領取至 2026/11/26」／「11/26 起免費」。 */
   subLine: string | null;
+  /** 截止日警告：領取／特價期限在 24 小時內時為 true，卡片用 sale-urgent（琥珀色＋⚠）顯示，跟 Switch 牆一樣。 */
+  endingSoon?: boolean;
   /** 排序鍵：Steam 折扣大→小；Epic 進行中（依截止日近→遠）在前、下週預告在後。 */
   sortKey: number;
 }
