@@ -8,6 +8,8 @@ import { formatTaipei } from "@/lib/format";
 import type { GamePassNewData } from "@/lib/gamepass";
 import type { XboxPcDealsData } from "@/lib/xbox-deals";
 import DealsTabs from "@/components/DealsTabs";
+import BackButton from "@/components/BackButton";
+import BackToTop from "@/components/BackToTop";
 
 export const dynamic = "force-dynamic";
 
@@ -117,6 +119,8 @@ export default async function DealsPage({
 
   return (
     <>
+      <BackButton />
+      <BackToTop />
       <h1 className="page-title">
         🎮 PC遊戲<span>特價</span>
       </h1>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { DealsCarouselItem, FreeKind } from "@/lib/deals-carousel";
 import { pageWindow } from "@/lib/pagination";
@@ -84,6 +84,9 @@ export default function DealsTabs({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  // 分頁區塊頂部錨點：手機浮動分頁／頁內分頁翻頁後捲回這裡，避免留在頁面
+  // 底部看不到新內容；scrollMarginTop 64 是給 sticky 頁首留的空間。
+  const tabsRef = useRef<HTMLDivElement>(null);
   // 預設 Steam（內容最多，特賣會期間第一眼就有 30 款可看）；?tab= 有值時用它。
   const [active, setActive] = useState<TabKey>(initialTab ?? "steam");
   const [pages, setPages] = useState<Record<TabKey, number>>({
@@ -100,7 +103,7 @@ export default function DealsTabs({
   });
 
   // 免費遊戲領取的分類篩選（全部／PC／DLC／家機／家機 DLC），
-  // 切換時回到第 1 頁（免費分頁不翻頁，這裡只是避免殘留頁碼）。
+  // 切換時回到第 1 頁（篩選後總頁數變了，殘留頁碼會超出範圍）。
   const [freeFilter, setFreeFilter] = useState<"all" | FreeKind>("all");
   const freeFilterCounts: Record<"all" | FreeKind, number> = {
     all: freeGames.length,
@@ -165,8 +168,12 @@ export default function DealsTabs({
     ubisoft: ubisoft.length,
     fanatical: fanatical.length,
   };
+  /** 免費分頁的分頁數以「目前篩選後的清單」為準（篩選切換時總頁數跟著變），
+   *  其他分頁以該平台總款數為準。 */
+  const visibleCount = (key: TabKey) =>
+    key === "free" ? freeFiltered.length : counts[key];
   const totalPages = (key: TabKey) =>
-    Math.max(1, Math.ceil(counts[key] / PAGE_SIZE));
+    Math.max(1, Math.ceil(visibleCount(key) / PAGE_SIZE));
   const pageItems = (key: TabKey, all: DealsCarouselItem[]) => {
     const p = Math.min(Math.max(1, pages[key]), totalPages(key));
     return all.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
@@ -176,6 +183,9 @@ export default function DealsTabs({
     setPages((prev) => ({ ...prev, [key]: next }));
     // 同分頁翻頁用 replace（不污染上一頁紀錄），URL 的 ?page= 跟著變。
     if (key === active) router.replace(tabUrl(key, next), { scroll: false });
+    // 翻頁後捲回分頁區塊頂部，避免留在頁面底部看不到新內容
+    // （手機浮動分頁／頁內分頁都在頁面下方，翻頁後不捲回就看不到新頁）。
+    tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   // 浮動分頁的跳頁彈框：點中間「第 X / Y 頁」才打開（跟牆頁同一套做法）。
@@ -183,7 +193,8 @@ export default function DealsTabs({
   const [jumpValue, setJumpValue] = useState("");
 
   /** 手機浮動分頁（跟牆頁同一套：左下角 fixed、一排三顆、點中間跳頁；
-   *  只有當前分頁超過 1 頁時才出現；免費遊戲分頁不翻頁所以沒有）。 */
+   *  只有當前分頁超過 1 頁時才出現；免費分頁也分頁（篩選後的清單每頁 30 款）。
+   *  桌機隱藏、手機才顯示是 CSS 控制（.pagination-fab，見 globals.css）。 */
   const renderFab = () => {
     const total = totalPages(active);
     if (total <= 1) return null;
@@ -305,6 +316,7 @@ export default function DealsTabs({
     </div>
   );
 
+  const freePage = pageItems("free", freeFiltered);
   const steamPage = pageItems("steam", steam);
   const xboxPage = pageItems("xbox", xbox);
   const gamepassPage = pageItems("gamepass", gamepass);
@@ -313,7 +325,7 @@ export default function DealsTabs({
   const fanaticalPage = pageItems("fanatical", fanatical);
 
   return (
-    <div>
+    <div ref={tabsRef} style={{ scrollMarginTop: 64 }}>
       <div className="deals-tabs" role="tablist" aria-label="平台切換">
         {TABS.map((t) => (
           <button
@@ -361,7 +373,12 @@ export default function DealsTabs({
                         type="button"
                         className={`chip ${freeFilter === key ? "active" : ""}`}
                         aria-pressed={freeFilter === key}
-                        onClick={() => setFreeFilter(key)}
+                        onClick={() => {
+                          setFreeFilter(key);
+                          // 分類切換時回到第 1 頁（篩選後總頁數變了，殘留頁碼會超出範圍），URL 的 ?page= 也清掉。
+                          setPages((prev) => ({ ...prev, free: 1 }));
+                          router.replace(tabUrl("free", 1), { scroll: false });
+                        }}
                       >
                         {label} ({freeFilterCounts[key]})
                       </button>
@@ -373,11 +390,14 @@ export default function DealsTabs({
                   與家機遊戲有標註）。
                 </p>
                 {freeFiltered.length > 0 ? (
-                  <div className="deals-grid">
-                    {freeFiltered.map((item) => (
-                      <DealCard key={item.key} item={item} />
-                    ))}
-                  </div>
+                  <>
+                    <div className="deals-grid">
+                      {freePage.map((item) => (
+                        <DealCard key={item.key} item={item} />
+                      ))}
+                    </div>
+                    {renderPager("free")}
+                  </>
                 ) : (
                   <p className="muted">
                     這個分類目前沒有免費領取的項目。
