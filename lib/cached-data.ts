@@ -108,13 +108,13 @@ export const getCachedDealsPage = unstable_cache(
     // 快取會把 STEAM 分頁鎖住 1 小時，下次請求重抓才會恢復（跟 Xbox
     // 三個分頁 18:14 空結果中毒同一類問題）。只有備援時不拋錯
     // （steamFromFallback=true）：備援至少有 10 款可看，頁面會標示
-    // 「資料暫時不完整」，快取到期重抓時搜尋恢復就自動回到 900 款。
+    // 「資料暫時不完整」，快取到期重抓時搜尋恢復就自動回到 1200 款。
     if (data.steam.length === 0 && data.steamFree.length === 0) {
       throw new Error("Steam 特價全部抓取失敗（回傳 0 款，不快取空結果）");
     }
     return data;
   },
-  ["deals-page-v16"],
+  ["deals-page-v17"],
   { revalidate: CACHE_REVALIDATE_SECONDS, tags: ["deals-page"] }
 );
 

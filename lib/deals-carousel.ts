@@ -13,8 +13,8 @@ import { fetchUbisoftDeals } from "./ubisoft-deals";
 //     回 results_html（HTML 片段），每列有 app id、名稱、折扣％、台幣原價／特價。
 //     2026-11-23 實測台灣區特價中 15,020 款；sort_by 傳 Discount_DESC
 //     與 _ASC 回傳順序相同（不支援折扣排序），所以抓前十頁（1000 列）
-//     再在伺服器端按折扣大→小排序取前 900。注意：這是「取回 1000 列
-//     裡的前 900」，不是全台灣 15,020 款裡的全域前 900。只做台灣
+//     再在伺服器端按折扣大→小排序取前 1200。注意：這是「取回 1300 列
+//     裡的前 1200」，不是全台灣 15,020 款裡的全域前 1200。只做台灣
 //     （cc=TW），不加跨區切換——跨區帳號可能被鎖。搜尋結果沒有特價
 //     截止日，subLine 為空。
 //     舊的 featuredcategories specials 只回 10 款精選，搜尋失敗時才當備援。
@@ -138,7 +138,7 @@ export interface DealsPageData {
    *  specials 備援（只有 10 款精選），不是完整特價清單；
    *  呼叫端應顯示「資料暫時不完整」提示（見 app/deals/page.tsx）。
    *  備援仍會被快取 1 小時（Epic 同包在這份資料裡，拋錯會連 Epic
-   *  一起丟掉；下次快取到期重抓時會再試搜尋，恢復後自動回到 900 款）。
+   *  一起丟掉；下次快取到期重抓時會再試搜尋，恢復後自動回到 1200 款）。
    *  搜尋＋備援都失敗（Steam 全空）時 getter 端拋錯、不快取
    *  （見 lib/cached-data.ts，跟 Xbox「0 筆就拋錯」同一套做法）。 */
   steamFromFallback: boolean;
@@ -156,10 +156,11 @@ const STEAM_URL =
 const STEAM_SEARCH_URL =
   "https://store.steampowered.com/search/results/?query" +
   "&dynamic_data=&specials=1&infinite=1&cc=TW&l=tchinese";
-/** 每平台分頁取的前 900 款（2026-11-23 從 200 改成 350、再改成 510；
- *  2026-11-24 從 510 改成 900）。
- *  注意 Steam 是「取回 1000 列裡的前 900」，不是全台灣特價款裡的全域前 900。 */
-export const DEALS_TOP_COUNT = 900;
+/** 每平台分頁取的前 1200 款（2026-11-23 從 200 改成 350、再改成 510；
+ *  2026-11-24 從 510 改成 900；2026-11-26 Steam 改成 1200——特價列隊很大，
+ *  只取 900 的話 50% 折扣的款式排不進來）。
+ *  注意 Steam 是「取回 1300 列裡的前 1200」，不是全台灣特價款裡的全域前 1200。 */
+export const DEALS_TOP_COUNT = 1200;
 const EPIC_URL =
   "https://store-site-backend-static-ipv4.ak.epicgames.com/freeGamesPromotions?locale=zh-Hant&country=TW&allowCountries=TW";
 
@@ -373,10 +374,10 @@ async function fetchSteamSearchPage(
   };
 }
 
-/** 抓 Steam 特價搜尋前十頁（1000 列），去重後按折扣大→小取前 900 款
+/** 抓 Steam 特價搜尋前十三頁（1300 列），去重後按折扣大→小取前 1200 款
  *  （不含 100% 限時免費，那些另外進免費分頁，不佔特價名額）。
- *  （兩頁 200 列實測會有 1 款重複，所以多抓頁數補滿；1000 列去重後
- *  仍有 900 款以上才取得到 900——不夠時就列實際抓到的款數。）
+ *  （兩頁 200 列實測會有 1 款重複，所以多抓頁數補滿；1300 列去重後
+ *  仍有 1200 款以上才取得到 1200——不夠時就列實際抓到的款數。）
  *  限時免費另外用 sort_by=Price_ASC 抓一頁（特價按最終價低→高排，
  *  0 元的 100% 折扣一定在最前面，一頁就能抓齊、不怕它排在 1000 列之外）。
  *  同時回傳台灣區特價總款數（total_count）。任一頁失敗回空陣列。 */
@@ -387,7 +388,7 @@ async function fetchSteamSearchTop(): Promise<{
 }> {
   const [pages, freeByPrice] = await Promise.all([
     Promise.allSettled(
-      [0, 100, 200, 300, 400, 500, 600, 700, 800, 900].map((start) => fetchSteamSearchPage(start, 100))
+      [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200].map((start) => fetchSteamSearchPage(start, 100))
     ),
     fetchSteamSearchPage(0, 100, "Price_ASC").catch(() => ({
       items: [],
@@ -410,7 +411,7 @@ async function fetchSteamSearchTop(): Promise<{
       return true;
     })
     .sort((a, b) => b.sortKey - a.sortKey || a.key.localeCompare(b.key));
-  // 100% 限時免費領取進免費分頁（兩邊來源合併去重）；其餘按折扣取前 900。
+  // 100% 限時免費領取進免費分頁（兩邊來源合併去重）；其餘按折扣取前 1200。
   const freeSeen = new Set<string>();
   const freeItems = [...merged, ...freeByPrice.items]
     .filter((it) => it.sortKey === 100)
@@ -533,7 +534,7 @@ function parseEpic(data: unknown, nowMs: number): {
 
 /** 抓 Steam 特價＋Epic 免費遊戲（/deals 獨立頁面用，分來源回傳）。
  *  單一來源失敗不影響另一來源；兩邊都失敗回空陣列。
- *  Steam 先走特價搜尋（前 900 款、折扣大→小；100% 限時免費另外拆出）；
+ *  Steam 先走特價搜尋（前 1200 款、折扣大→小；100% 限時免費另外拆出）；
  *  搜尋無結果才退回 featuredcategories specials（10 款精選，當備援），
  *  此時 steamFromFallback=true——備援不是完整清單，頁面要顯示
  *  「Steam 資料暫時不完整」提示，不能當成正式結果默默呈現。 */
